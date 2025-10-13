@@ -1,0 +1,63 @@
+# Docker Compose for Test Environment
+version: "3"
+
+services:
+  # Test VPN Sentinel Server
+  vpn-sentinel-server-test:
+    build: 
+      context: ../vpn-sentinel-server
+      dockerfile: Dockerfile
+    container_name: vpn-sentinel-server-test
+    env_file: .env.test
+    ports:
+      - "15554:5554"  # Different ports for testing
+      - "15553:5553"
+    networks:
+      - vpn-sentinel-test
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5554/test/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # Test VPN Sentinel Client
+  vpn-sentinel-client-test:
+    build:
+      context: ../vpn-sentinel-client  
+      dockerfile: Dockerfile
+    container_name: vpn-sentinel-client-test
+    env_file: .env.test
+    environment:
+      - VPN_SENTINEL_SERVER_API_BASE_URL=http://vpn-sentinel-server-test:5554
+      - VPN_SENTINEL_CLIENT_ID=test-client-docker
+    depends_on:
+      vpn-sentinel-server-test:
+        condition: service_healthy
+    networks:
+      - vpn-sentinel-test
+    restart: unless-stopped
+
+  # Test database for storing test results (optional)
+  test-db:
+    image: postgres:15-alpine
+    container_name: vpn-sentinel-test-db
+    environment:
+      POSTGRES_DB: vpn_sentinel_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    ports:
+      - "15432:5432"
+    networks:
+      - vpn-sentinel-test
+    restart: unless-stopped
+    volumes:
+      - test_db_data:/var/lib/postgresql/data
+
+networks:
+  vpn-sentinel-test:
+    driver: bridge
+
+volumes:
+  test_db_data:

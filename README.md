@@ -952,6 +952,68 @@ This is an open-source project maintained by the community. We welcome:
 - 📖 **Documentation**: Improve guides and tutorials
 - 🔧 **Code Contributions**: Submit pull requests for enhancements
 
+## 🧪 **Testing**
+
+VPN Sentinel includes a comprehensive test suite to ensure reliability and quality.
+
+### **Quick Test Run**
+```bash
+# Run all tests (syntax, unit tests, integration tests if server is running)
+./tests/run_tests.sh --all
+
+# Run just syntax and unit tests
+./tests/run_tests.sh
+
+# Run with coverage report
+./tests/run_tests.sh --coverage
+```
+
+### **Test Categories**
+
+**🔍 Unit Tests** - Test individual components in isolation:
+- Server API endpoints and Telegram handlers
+- Client script functionality and data parsing
+- Same-IP detection and status logic
+- Error handling and retry mechanisms
+
+**🔗 Integration Tests** - Test end-to-end functionality:
+- Server-client communication workflows
+- Dashboard accessibility and data display
+- API authentication and rate limiting
+- Docker deployment validation
+
+**📊 Coverage Reports** - Maintain high code quality:
+- Target: 80%+ overall coverage
+- HTML reports: `tests/coverage_html/index.html`
+- CI/CD integration with GitHub Actions
+
+### **CI/CD Pipeline**
+
+Every commit is automatically tested with:
+- ✅ Syntax validation (Python + Shell + Docker Compose)
+- ✅ Unit test execution with pytest
+- ✅ Integration tests in Docker environment
+- ✅ Code coverage analysis
+- ✅ Security vulnerability scanning
+- ✅ Multi-component Docker builds
+
+### **Test Environment**
+
+Use the isolated test environment for safe testing:
+```bash
+# Start test environment (different ports: 15554/15553)
+docker-compose -f tests/docker-compose.test.yaml up -d
+
+# Run integration tests
+export VPN_SENTINEL_SERVER_API_BASE_URL=http://localhost:15554
+python -m pytest tests/integration/ -v
+
+# Stop test environment
+docker-compose -f tests/docker-compose.test.yaml down -v
+```
+
+**📚 Full Testing Documentation**: See [`tests/README.md`](tests/README.md) for detailed testing guides, writing new tests, and troubleshooting.
+
 ## 📝 **License & Contributing**
 
 This project is licensed under the [MIT License](LICENSE) - feel free to use, modify, and distribute.
