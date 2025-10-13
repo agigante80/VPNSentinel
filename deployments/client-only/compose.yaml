@@ -65,9 +65,7 @@ services:
   # VPN SENTINEL CLIENT - Monitors VPN and reports to remote server  
   # =============================================================================
   vpn-sentinel-client:
-    build:
-      context: ../../vpn-sentinel-client
-      dockerfile: Dockerfile
+    image: curlimages/curl:latest
     container_name: vpn-sentinel-client
     restart: unless-stopped
     
@@ -86,6 +84,9 @@ services:
       
       # Timezone
       - TZ=${TZ:-UTC}
+    
+    volumes:
+      - ../../vpn-sentinel-client/vpn-sentinel-client.sh:/tmp/vpn-sentinel-client.sh:ro
     
     # Use VPN network for all monitoring traffic
     network_mode: service:vpn-client
