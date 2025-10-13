@@ -153,23 +153,40 @@ services:
     #   - 9.9.9.9           # Quad9 DNS (various locations)
     # =============================================================================
     network_mode: service:vpn-client  # 🔄 CHANGE 'vpn-client' to YOUR VPN container name!
-    command: >
-      sh -c "
-      echo \"$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO 🚀 VPN Sentinel Client Starting...\" &&
-      sleep 30 &&
-      echo \"$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO ⏳ Waiting for VPN connection to stabilize...\" &&
-      sleep 30 &&
-      echo \"$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO 📁 Setting up monitoring script...\" &&
-      mkdir -p /home/curl_user &&
-      cp /tmp/vpn-sentinel-client.sh /home/curl_user/vpn-sentinel-client.sh &&
-      chmod +x /home/curl_user/vpn-sentinel-client.sh &&
-      echo \"$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO 🔍 Starting continuous VPN monitoring...\" &&
-      exec /home/curl_user/vpn-sentinel-client.sh
-      "
+    command: 
+      - sh
+      - -c
+      - |
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [client] 🚀 VPN Sentinel Client Starting..." &&
+        sleep 30 &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [client] ⏳ Waiting for VPN connection to stabilize..." &&
+        sleep 30 &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [config] 📁 Setting up monitoring script..." &&
+        mkdir -p /home/curl_user &&
+        cp /tmp/vpn-sentinel-client.sh /home/curl_user/vpn-sentinel-client.sh &&
+        chmod +x /home/curl_user/vpn-sentinel-client.sh &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [client] 🔍 Starting continuous VPN monitoring..." &&
+        exec /home/curl_user/vpn-sentinel-client.sh
     depends_on:
       - vpn-client               # 🔄 CHANGE 'vpn-client' to YOUR VPN container name!
       - vpn-sentinel-server      # Requires monitoring server for reporting
     restart: unless-stopped
+    # Health check to ensure client monitoring is working properly
+    healthcheck:
+      test: >
+        sh -c '
+        # Check if monitoring script is running
+        pgrep -f vpn-sentinel-client.sh > /dev/null || exit 1;
+        # Check if we can get public IP (VPN is working)
+        curl -s --max-time 10 https://ipinfo.io/ip > /dev/null || exit 1;
+        # Check if we can reach monitoring server
+        curl -s --max-time 5 ${VPN_SENTINEL_SERVER_API_BASE_URL}${VPN_SENTINEL_SERVER_API_PATH}/health > /dev/null || exit 1;
+        echo "Client health check passed"
+        '
+      interval: 120s       # Check every 2 minutes (less frequent than server)
+      timeout: 30s         # Allow time for network requests
+      start_period: 90s    # Wait for VPN connection and initial setup
+      retries: 3
 
   # VPN Sentinel Server - Receives reports and sends Telegram notifications
   # This container runs on the real IP network (NOT through VPN) to ensure:
@@ -199,20 +216,28 @@ services:
     working_dir: /app
     networks:
       - vpn-sentinel-server  # Server network (bypasses VPN for guaranteed access)
-    command: >
-      sh -c "
-      echo \"$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO 📦 Installing VPN Sentinel Server dependencies...\" &&
-      pip install --no-cache-dir flask requests pytz &&
-      echo \"$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO 🚀 Starting VPN Sentinel Server...\" &&
-      python vpn-sentinel-server.py
-      "
+    command:
+      - sh
+      - -c
+      - |
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [server] 📦 Installing VPN Sentinel Server dependencies..." &&
+        pip install --no-cache-dir flask requests pytz &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [server] 🚀 Starting VPN Sentinel Server..." &&
+        python vpn-sentinel-server.py
     restart: unless-stopped
     # Health check to ensure server is responding (uses public health endpoint)
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/api/v1/health"]
-      interval: 60s
-      timeout: 10s
-      start_period: 30s
+      test: >
+        sh -c '
+        # Check if server is responding to health endpoint
+        wget --no-verbose --tries=1 --spider --timeout=5 "http://localhost:5000/api/v1/health" > /dev/null 2>&1 || exit 1;
+        # Check if Python process is running
+        pgrep -f vpn-sentinel-server.py > /dev/null || exit 1;
+        echo "Server health check passed"
+        '
+      interval: 60s        # Check every minute
+      timeout: 10s         # Allow time for HTTP request
+      start_period: 30s    # Wait for server startup and dependencies
       retries: 3
 
 # =============================================================================

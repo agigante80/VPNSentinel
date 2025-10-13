@@ -149,28 +149,29 @@ def get_current_time():
     """
     return datetime.now(TIMEZONE)
 
-def log_message(level, message):
+def log_message(level, component, message):
     """
-    Log a message with structured format: timestamp level message
+    Log a message with structured format: timestamp level [component] message
     
     Args:
         level (str): Log level (INFO, ERROR, WARN)
+        component (str): Component name (server, api, security, telegram, monitor, config)
         message (str): Message to log
     """
     timestamp = datetime.now(pytz.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
-    print(f"{timestamp} {level} {message}", flush=True)
+    print(f"{timestamp} {level} [{component}] {message}", flush=True)
 
-def log_info(message):
-    """Log an info message"""
-    log_message("INFO", message)
+def log_info(component, message):
+    """Log an info message with component tag"""
+    log_message("INFO", component, message)
 
-def log_error(message):
-    """Log an error message"""
-    log_message("ERROR", message)
+def log_error(component, message):
+    """Log an error message with component tag"""
+    log_message("ERROR", component, message)
 
-def log_warn(message):
-    """Log a warning message"""
-    log_message("WARN", message)
+def log_warn(component, message):
+    """Log a warning message with component tag"""
+    log_message("WARN", component, message)
 
 def get_server_public_ip():
     """
@@ -243,15 +244,15 @@ def send_telegram_message(message):
         
         # Log operation result with structured format
         if success:
-            log_info("✅ Telegram message sent successfully")
+            log_info("telegram", "✅ Message sent successfully")
         else:
-            log_error(f"❌ Failed to send Telegram message: HTTP {response.status_code}")
+            log_error("telegram", f"❌ Failed to send message: HTTP {response.status_code}")
         
         return success
         
     except Exception as e:
         # Handle network errors, timeouts, and other exceptions
-        log_error(f"❌ Telegram error: {e}")
+        log_error("telegram", f"❌ Error: {e}")
         return False
 
 # =============================================================================
@@ -376,7 +377,7 @@ def log_access(endpoint, ip, user_agent, auth_header, status):
         - Compliance and audit trails
     """
     auth_info = "WITH_KEY" if auth_header and auth_header.startswith("Bearer") else "NO_KEY"
-    log_info(f"🌐 API Access: {endpoint} | IP: {ip} | Auth: {auth_info} | Status: {status} | UA: {user_agent[:50]}...")
+    log_info("api", f"🌐 Access: {endpoint} | IP: {ip} | Auth: {auth_info} | Status: {status} | UA: {user_agent[:50]}...")
 
 def security_middleware():
     """
@@ -615,10 +616,10 @@ def keepalive():
             global server_public_ip
             if server_public_ip is None:
                 server_public_ip = get_server_public_ip()
-                log_info(f"Server public IP detected: {server_public_ip}")
+                log_info("config", f"Server public IP detected: {server_public_ip}")
             
             if public_ip != 'unknown' and server_public_ip != 'Unknown' and public_ip == server_public_ip:
-                log_warn(f"⚠️ VPN BYPASS WARNING: Client {client_id} has same IP as server: {public_ip}")
+                log_warn("security", f"⚠️ VPN BYPASS WARNING: Client {client_id} has same IP as server: {public_ip}")
                 message += f"\n\n🚨 <b>VPN BYPASS WARNING!</b>\n"
                 message += f"⚠️ Client IP matches server IP: <code>{public_ip}</code>\n"
                 message += f"🔴 <b>Possible Issues:</b>\n"
@@ -635,7 +636,7 @@ def keepalive():
             send_telegram_message(message)
             announced_clients.add(client_id)
         
-        log_info(f"Keepalive received from {client_id} - IP: {public_ip}")
+        log_info("api", f"Keepalive received from {client_id} - IP: {public_ip}")
         
         return jsonify({
             'status': 'ok',
@@ -644,7 +645,7 @@ def keepalive():
         })
         
     except Exception as e:
-        log_error(f"Error processing keepalive: {e}")
+        log_error("api", f"Error processing keepalive: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
 @app.route(f'{API_PATH}/status', methods=['GET'])
@@ -751,10 +752,10 @@ def fake_heartbeat():
             global server_public_ip
             if server_public_ip is None:
                 server_public_ip = get_server_public_ip()
-                log_info(f"Server public IP detected: {server_public_ip}")
+                log_info("config", f"Server public IP detected: {server_public_ip}")
             
             if public_ip != 'unknown' and server_public_ip != 'Unknown' and public_ip == server_public_ip:
-                log_warn(f"⚠️ TEST VPN BYPASS WARNING: Client {client_id} has same IP as server: {public_ip}")
+                log_warn("security", f"⚠️ TEST VPN BYPASS WARNING: Client {client_id} has same IP as server: {public_ip}")
                 message += f"\n\n🚨 <b>TEST VPN BYPASS WARNING!</b>\n"
                 message += f"⚠️ Client IP matches server IP: <code>{public_ip}</code>\n"
                 message += f"🔴 This indicates VPN is not working properly!"
@@ -764,7 +765,7 @@ def fake_heartbeat():
             send_telegram_message(message)
             announced_clients.add(client_id)
         
-        log_info(f"FAKE heartbeat received from {client_id} - IP: {public_ip}")
+        log_info("api", f"FAKE heartbeat received from {client_id} - IP: {public_ip}")
         
         return jsonify({
             'status': 'ok',
@@ -777,7 +778,7 @@ def fake_heartbeat():
         })
         
     except Exception as e:
-        log_error(f"Error processing fake heartbeat: {e}")
+        log_error("api", f"Error processing fake heartbeat: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
 @app.route(f'{API_PATH}/health', methods=['GET'])
@@ -838,7 +839,7 @@ def check_clients():
             now = get_current_time()
             
             if len(clients) == 0:
-                log_info("🔍 Monitoring check: No clients registered")
+                log_info("monitor", "🔍 Check: No clients registered")
                 
                 # Send Telegram alert for no clients (only once)
                 if not no_clients_alert_sent:
@@ -848,29 +849,29 @@ def check_clients():
                     message += f"💡 This alert will not repeat until a client connects and disconnects again."
                     
                     if send_telegram_message(message):
-                        log_info("📤 No clients alert sent to Telegram")
+                        log_info("telegram", "📤 No clients alert sent")
                         no_clients_alert_sent = True
                     else:
-                        log_error("❌ Failed to send no clients alert")
+                        log_error("telegram", "❌ Failed to send no clients alert")
             else:
-                log_info(f"🔍 Monitoring check: {len(clients)} client(s) registered")
+                log_info("monitor", f"🔍 Check: {len(clients)} client(s) registered")
                 
                 # Reset the no_clients_alert flag when we have clients again
                 if no_clients_alert_sent:
                     no_clients_alert_sent = False
-                    log_info("🔄 Reset no-clients alert flag (clients are back)")
+                    log_info("monitor", "🔄 Reset no-clients alert flag (clients are back)")
                 
                 for client_id, info in clients.items():
                     minutes_ago = int((now - info['last_seen']).total_seconds() / 60)
                     status = '🟢 Online' if minutes_ago < ALERT_THRESHOLD_MINUTES else '🔴 Offline'
-                    log_info(f"   └── {client_id}: {status} (last seen {minutes_ago}m ago)")
+                    log_info("monitor", f"   └── {client_id}: {status} (last seen {minutes_ago}m ago)")
             
             for client_id, info in clients.items():
                 minutes_ago = int((now - info['last_seen']).total_seconds() / 60)
                 
                 if minutes_ago >= ALERT_THRESHOLD_MINUTES:
                     if client_id not in alerted_clients:
-                        log_warn(f"⚠️ Client {client_id} exceeded threshold ({minutes_ago}m > {ALERT_THRESHOLD_MINUTES}m) - sending alert")
+                        log_warn("monitor", f"⚠️ Client {client_id} exceeded threshold ({minutes_ago}m > {ALERT_THRESHOLD_MINUTES}m) - sending alert")
                         
                         # Get stored location and DNS data
                         client_location = info.get('location', {})
@@ -908,18 +909,18 @@ def check_clients():
                             message += f"❓ <b>DNS leak status was inconclusive</b>"
                         
                         if send_telegram_message(message):
-                            log_info(f"✅ Failure alert sent for {client_id}")
+                            log_info("telegram", f"✅ Failure alert sent for {client_id}")
                             alerted_clients.add(client_id)
                             announced_clients.discard(client_id)
                         else:
-                            log_error(f"❌ Failed to send failure alert for {client_id}")
+                            log_error("telegram", f"❌ Failed to send failure alert for {client_id}")
                     else:
-                        log_info(f"   └── {client_id} still offline ({minutes_ago}m) - alert already sent")
+                        log_info("monitor", f"   └── {client_id} still offline ({minutes_ago}m) - alert already sent")
                 else:
                     alerted_clients.discard(client_id)
             
         except Exception as e:
-            log_error(f"Error in check_clients: {e}")
+            log_error("monitor", f"Error in check_clients: {e}")
         
         time.sleep(CHECK_INTERVAL_MINUTES * 60)
 
@@ -952,7 +953,7 @@ def handle_telegram_commands():
                         if str(chat_id) != TELEGRAM_CHAT_ID:
                             continue
                         
-                        log_info(f"📥 Telegram command received: {text}")
+                        log_info("telegram", f"📥 Command received: {text}")
                         
                         # Handle commands
                         if text.startswith('/ping'):
@@ -966,7 +967,7 @@ def handle_telegram_commands():
                             handle_unknown_command(text)
             
         except Exception as e:
-            log_error(f"❌ Telegram polling error: {e}")
+            log_error("telegram", f"❌ Telegram polling error: {e}")
             time.sleep(10)  # Wait before retrying
 
 def handle_ping_command():
@@ -980,7 +981,7 @@ def handle_ping_command():
     message += f"Check interval: <code>{CHECK_INTERVAL_MINUTES} minutes</code>"
     
     if send_telegram_message(message):
-        log_info("✅ Pong response sent")
+        log_info("telegram", "✅ Pong response sent")
 
 def handle_status_command():
     """Handle /status command"""
@@ -1010,7 +1011,7 @@ def handle_status_command():
         message += f"Server time: <code>{now.strftime('%Y-%m-%d %H:%M:%S %Z')}</code>"
     
     if send_telegram_message(message):
-        log_info("✅ Status response sent")
+        log_info("telegram", "✅ Status response sent")
 
 def handle_help_command():
     """Handle /help command"""
@@ -1027,7 +1028,7 @@ def handle_help_command():
     message += f"Monitoring every <code>{CHECK_INTERVAL_MINUTES} minutes</code>"
     
     if send_telegram_message(message):
-        log_info("✅ Help response sent")
+        log_info("telegram", "✅ Help response sent")
 
 def handle_unknown_command(text):
     """Handle unknown commands and regular text messages"""
@@ -1040,25 +1041,25 @@ def handle_unknown_command(text):
     message += f"❓ <code>/help</code> - Show help"
     
     if send_telegram_message(message):
-        log_info(f"✅ Unknown command response sent for: {text}")
+        log_info("telegram", f"✅ Unknown command response sent for: {text}")
 
 if __name__ == '__main__':
     server_start_time = get_current_time()
     
     # SECURITY: Require API key for server to start
     if not API_KEY:
-        log_error("❌ SECURITY ERROR: VPN_SENTINEL_API_KEY environment variable is required!")
-        log_error("The server will not start without proper API key configuration.")
-        log_error("Set VPN_SENTINEL_API_KEY in your .env file or environment variables.")
+        log_error("config", "❌ SECURITY ERROR: VPN_SENTINEL_API_KEY environment variable is required!")
+        log_error("config", "The server will not start without proper API key configuration.")
+        log_error("config", "Set VPN_SENTINEL_API_KEY in your .env file or environment variables.")
         exit(1)
     
-    log_info("🚀 Starting VPN Sentinel Server...")
-    log_info(f"API path: {API_PATH}")
-    log_info(f"Alert threshold: {ALERT_THRESHOLD_MINUTES} minutes")
-    log_info(f"Check interval: {CHECK_INTERVAL_MINUTES} minutes")
-    log_info(f"Rate limiting: {RATE_LIMIT_REQUESTS} req/min")
-    log_info(f"API key auth: {'Enabled' if API_KEY else 'Disabled'}")
-    log_info(f"IP whitelist: {'Enabled' if ALLOWED_IPS and ALLOWED_IPS != [''] else 'Disabled'}")
+    log_info("server", "🚀 Starting VPN Sentinel Server...")
+    log_info("config", f"API path: {API_PATH}")
+    log_info("config", f"Alert threshold: {ALERT_THRESHOLD_MINUTES} minutes")
+    log_info("config", f"Check interval: {CHECK_INTERVAL_MINUTES} minutes")
+    log_info("security", f"Rate limiting: {RATE_LIMIT_REQUESTS} req/min")
+    log_info("security", f"API key auth: {'Enabled' if API_KEY else 'Disabled'}")
+    log_info("security", f"IP whitelist: {'Enabled' if ALLOWED_IPS and ALLOWED_IPS != [''] else 'Disabled'}")
     
     startup_message = f"🚀 <b>VPN Keepalive Server Started</b>\n\n"
     startup_message += f"Server is now monitoring VPN connections.\n"
@@ -1073,9 +1074,9 @@ if __name__ == '__main__':
     
     if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
         if send_telegram_message(startup_message):
-            log_info("Startup notification sent successfully")
+            log_info("telegram", "Startup notification sent successfully")
         else:
-            log_warn("Failed to send startup notification")
+            log_warn("telegram", "Failed to send startup notification")
     
     checker_thread = threading.Thread(target=check_clients, daemon=True)
     checker_thread.start()
@@ -1083,7 +1084,7 @@ if __name__ == '__main__':
     # Start Telegram bot polling thread
     telegram_thread = threading.Thread(target=handle_telegram_commands, daemon=True)
     telegram_thread.start()
-    log_info("Telegram bot polling started")
+    log_info("telegram", "Bot polling started")
     
     # Suppress Flask's built-in access logging since we have structured logging
     import logging
