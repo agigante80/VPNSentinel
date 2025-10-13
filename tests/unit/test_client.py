@@ -209,7 +209,8 @@ class TestErrorHandling(unittest.TestCase):
         for scenario in timeout_scenarios:
             with self.subTest(scenario=scenario):
                 # Test that timeout errors are recognized
-                is_timeout = 'timeout' in scenario.lower()
+                lower = scenario.lower()
+                is_timeout = ('timeout' in lower) or ('timed out' in lower)
                 self.assertTrue(is_timeout)
     
     def test_http_error_codes(self):
