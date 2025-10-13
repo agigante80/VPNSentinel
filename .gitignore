@@ -61,8 +61,10 @@ ENV/
 # PyCharm
 .idea/
 
-# VSCode (already covered above but being explicit)
+# VSCode - Visual Studio Code files
 .vscode/
+*.code-workspace
+.history/
 
 # Jupyter Notebook
 .ipynb_checkpoints
