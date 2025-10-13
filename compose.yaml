@@ -132,13 +132,13 @@ services:
     image: curlimages/curl:latest
     container_name: vpn-sentinel-client
     environment:
-      - KEEPALIVE_SERVER_URL=${KEEPALIVE_SERVER_URL:-http://vpn-sentinel-server:5000}
-      - KEEPALIVE_CLIENT_ID=${KEEPALIVE_CLIENT_ID:-vpn-monitor-main}
-      - VPN_SENTINEL_CLIENT_NAME=${VPN_SENTINEL_CLIENT_NAME}
-      - KEEPALIVE_API_KEY=${KEEPALIVE_API_KEY}
+      - VPN_SENTINEL_SERVER_API_BASE_URL=${VPN_SENTINEL_SERVER_API_BASE_URL:-http://vpn-sentinel-server:5000}
+      - VPN_SENTINEL_SERVER_API_PATH=${VPN_SENTINEL_SERVER_API_PATH:-/api/v1}
+      - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-main}
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
       - TZ=${TZ:-UTC}
     volumes:
-      - ./keepalive-client/keepalive-client.sh:/tmp/keepalive-client.sh:ro
+      - ./vpn-sentinel-client/vpn-sentinel-client.sh:/tmp/vpn-sentinel-client.sh:ro
     # =============================================================================
     # DNS Leak Testing Configuration
     # =============================================================================
@@ -161,10 +161,10 @@ services:
       sleep 30 &&
       echo '📁 Setting up monitoring script...' &&
       mkdir -p /home/curl_user &&
-      cp /tmp/keepalive-client.sh /home/curl_user/keepalive-client.sh &&
-      chmod +x /home/curl_user/keepalive-client.sh &&
+      cp /tmp/vpn-sentinel-client.sh /home/curl_user/vpn-sentinel-client.sh &&
+      chmod +x /home/curl_user/vpn-sentinel-client.sh &&
       echo '🔍 Starting continuous VPN monitoring...' &&
-      exec /home/curl_user/keepalive-client.sh
+      exec /home/curl_user/vpn-sentinel-client.sh
       "
     depends_on:
       - vpn-client               # 🔄 CHANGE 'vpn-client' to YOUR VPN container name!
@@ -180,21 +180,22 @@ services:
     image: python:3.11-alpine
     container_name: vpn-sentinel-server
     ports:
-      - "${VPN_SENTINEL_PORT:-5000}:5000"  # External API access
+      - "${VPN_SENTINEL_SERVER_PORT:-5000}:5000"  # External API access
     environment:
       # Telegram Configuration (highly recommended)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
       
       # Security & API Configuration  
-      - KEEPALIVE_API_KEY=${KEEPALIVE_API_KEY}
-      - MAX_REQUESTS_PER_MINUTE=${MAX_REQUESTS_PER_MINUTE:-30}
-      - ALLOWED_IPS=${ALLOWED_IPS:-}  # Comma-separated IP whitelist (optional)
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
+      - VPN_SENTINEL_SERVER_API_PATH=${VPN_SENTINEL_SERVER_API_PATH:-/api/v1}
+      - VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS=${VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS:-30}
+      - VPN_SENTINEL_SERVER_ALLOWED_IPS=${VPN_SENTINEL_SERVER_ALLOWED_IPS:-}  # Comma-separated IP whitelist (optional)
       
       # System Configuration
       - TZ=${TZ:-UTC}
     volumes:
-      - ./keepalive-server/keepalive-server.py:/app/keepalive-server.py:ro
+      - ./vpn-sentinel-server/vpn-sentinel-server.py:/app/vpn-sentinel-server.py:ro
     working_dir: /app
     networks:
       - vpn-sentinel-server  # Server network (bypasses VPN for guaranteed access)
@@ -203,12 +204,12 @@ services:
       echo '📦 Installing VPN Sentinel Server dependencies...' &&
       pip install --no-cache-dir flask requests pytz &&
       echo '🚀 Starting VPN Sentinel Server...' &&
-      python keepalive-server.py
+      python vpn-sentinel-server.py
       "
     restart: unless-stopped
     # Health check to ensure server is responding
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/api/v1/health"]
       interval: 60s
       timeout: 10s
       start_period: 30s

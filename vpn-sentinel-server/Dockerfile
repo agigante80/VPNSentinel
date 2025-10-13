@@ -24,23 +24,24 @@
 # - Receives data from VPN-routed clients for leak detection
 #
 # Usage in Docker Compose:
-#   keepalive-server:
-#     build: ./keepalive-server
+#   vpn-sentinel-server:
+#     build: ./vpn-sentinel-server
 #     ports:
 #       - "5421:5000"
 #     environment:
 #       - TELEGRAM_BOT_TOKEN=your_bot_token
 #       - TELEGRAM_CHAT_ID=your_chat_id
-#       - KEEPALIVE_API_KEY=your_api_key
+#       - VPN_SENTINEL_API_KEY=your_api_key
 #     networks:
 #       - keepalive-isolated
 #
 # Environment Variables (configured in docker-compose.yaml):
 # - TELEGRAM_BOT_TOKEN: Bot token from @BotFather (required)
 # - TELEGRAM_CHAT_ID: Your Telegram chat ID (required)
-# - KEEPALIVE_API_KEY: API key for client authentication (optional)
-# - ALLOWED_IPS: Comma-separated IP whitelist (optional)
-# - MAX_REQUESTS_PER_MINUTE: Rate limiting threshold (default: 30)
+# - VPN_SENTINEL_API_KEY: API key for client authentication (optional)
+# - VPN_SENTINEL_SERVER_API_PATH: API path prefix (default: /api/v1)
+# - VPN_SENTINEL_SERVER_ALLOWED_IPS: Comma-separated IP whitelist (optional)
+# - VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS: Rate limiting threshold (default: 30)
 # - TZ: Timezone for log timestamps (default: UTC)
 #
 # Security Considerations:
@@ -58,7 +59,7 @@
 # - Monitor resource usage and scale as needed
 #
 # Build Instructions:
-#   docker build -t safeharbor/keepalive-server ./keepalive-server
+#   docker build -t vpn-sentinel/server ./vpn-sentinel-server
 #
 # Author: VPN Sentinel Project
 # License: MIT
@@ -127,11 +128,11 @@ RUN pip install --no-cache-dir \
 # -----------------------------------------------------------------------------
 # Copy the monitoring server application code
 # The server contains all VPN monitoring and notification logic
-COPY keepalive-server.py /app/keepalive-server.py
+COPY vpn-sentinel-server.py /app/vpn-sentinel-server.py
 
 # Set proper file permissions and ownership
-RUN chmod +x /app/keepalive-server.py && \
-    chown appuser:appgroup /app/keepalive-server.py && \
+RUN chmod +x /app/vpn-sentinel-server.py && \
+    chown appuser:appgroup /app/vpn-sentinel-server.py && \
     echo "✅ Application code installed and configured" && \
     ls -la /app/
 
@@ -153,7 +154,7 @@ USER appuser
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     FLASK_ENV=production \
-    FLASK_APP=keepalive-server.py
+    FLASK_APP=vpn-sentinel-server.py
 
 # -----------------------------------------------------------------------------
 # Health Check Configuration
@@ -161,7 +162,7 @@ ENV PYTHONUNBUFFERED=1 \
 # Add health check to monitor container status
 # Ensures the Flask server is responding to requests
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:5000/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:5000/api/v1/health || exit 1
 
 # -----------------------------------------------------------------------------
 # Container Startup Configuration
@@ -173,26 +174,26 @@ HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
 # 
 # Alternative startup methods:
 # 1. Development: CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
-# 2. Production: CMD ["gunicorn", "--bind", "0.0.0.0:5000", "keepalive-server:app"]
+# 2. Production: CMD ["gunicorn", "--bind", "0.0.0.0:5000", "vpn-sentinel-server:app"]
 # 3. Current: Direct Python execution (simple and effective for this use case)
-CMD ["python", "keepalive-server.py"]
+CMD ["python", "vpn-sentinel-server.py"]
 
 # -----------------------------------------------------------------------------
 # Development and Debugging Notes
 # -----------------------------------------------------------------------------
 # For development with live reload:
-# docker run -v $(pwd)/keepalive-server.py:/app/keepalive-server.py \
-#            -p 5421:5000 safeharbor/keepalive-server
+# docker run -v $(pwd)/vpn-sentinel-server.py:/app/vpn-sentinel-server.py \
+#            -p 5000:5000 vpn-sentinel/server
 #
 # For debugging with shell access:
-# docker run -it --entrypoint /bin/sh safeharbor/keepalive-server
+# docker run -it --entrypoint /bin/sh vpn-sentinel/server
 #
 # For production with custom configuration:
-# docker run -p 5421:5000 \
+# docker run -p 5000:5000 \
 #            -e TELEGRAM_BOT_TOKEN=your_token \
 #            -e TELEGRAM_CHAT_ID=your_chat_id \
-#            -e KEEPALIVE_API_KEY=your_key \
-#            safeharbor/keepalive-server
+#            -e VPN_SENTINEL_API_KEY=your_key \
+#            vpn-sentinel/server
 
 # =============================================================================
 # End of VPN Sentinel Server Dockerfile

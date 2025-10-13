@@ -64,6 +64,7 @@ VPN Sentinel works with **ANY Docker VPN client**:
 ### 🔒 **Advanced VPN Monitoring**
 - **Continuous Health Checks**: 5-minute intervals with instant failure detection
 - **DNS Leak Detection**: Compares VPN exit country with DNS resolver location
+- **VPN Bypass Detection**: Warns when client and server have same IP (VPN not working)
 - **IP Change Tracking**: Instant notifications when VPN server switches
 - **Geolocation Monitoring**: Tracks city, region, country, provider, timezone
 - **Connection Status**: Real-time alive/dead status with customizable thresholds
@@ -142,9 +143,10 @@ TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
 TELEGRAM_CHAT_ID=your_chat_id_from_userinfobot
 
 # VPN Sentinel Configuration
-KEEPALIVE_SERVER_URL=http://keepalive-server:5000  # Client reaches server via internet
-KEEPALIVE_CLIENT_ID=vpn-monitor-main               # Unique identifier for this client
-KEEPALIVE_API_KEY=your-secure-random-key           # Secure API communication
+VPN_SENTINEL_SERVER_API_BASE_URL=http://vpn-sentinel-server:5000  # Client reaches server via internet
+VPN_SENTINEL_SERVER_API_PATH=/api/v1                  # API path prefix for endpoints
+VPN_SENTINEL_CLIENT_ID=vpn-monitor-main               # Client ID (kebab-case, or empty for random)
+VPN_SENTINEL_API_KEY=your-secure-random-key           # Secure API communication
 
 # System Settings
 TZ=Europe/London
@@ -161,15 +163,15 @@ docker compose up -d
 docker compose ps
 
 # Watch logs
-docker compose logs -f keepalive-client
-docker compose logs -f keepalive-server
+docker compose logs -f vpn-sentinel-client
+docker compose logs -f vpn-sentinel-server
 ```
 
 ## 📊 **How to Use**
 ### 🎯 **Access Points**
 | Service | URL | Purpose |
 |---------|-----|---------|
-| **Keepalive Server API** | http://your-server:5000 | Monitor VPN status, health checks |
+| **VPN Sentinel Server API** | http://your-server:5000/api/v1 | Monitor VPN status, health checks |
 | **VPN Client Container** | - | Your VPN container (any Docker VPN solution) |
 
 ### 📱 **Telegram Bot Commands**
@@ -201,13 +203,14 @@ TELEGRAM_CHAT_ID=123456789           # Your chat ID from @userinfobot
 # =============================================================================
 # VPN Sentinel Configuration
 # =============================================================================
-KEEPALIVE_SERVER_URL=http://keepalive-server:5000  # Client connects via internet (through VPN)
-KEEPALIVE_CLIENT_ID=vpn-monitor-main                # Unique client identifier
-KEEPALIVE_API_KEY=your-secure-random-key-here       # API security key
+VPN_SENTINEL_SERVER_API_BASE_URL=http://vpn-sentinel-server:5000  # Client connects via internet (through VPN)
+VPN_SENTINEL_SERVER_API_PATH=/api/v1                   # API path prefix for endpoints
+VPN_SENTINEL_CLIENT_ID=vpn-monitor-main                # Client ID (kebab-case, or empty for random)
+VPN_SENTINEL_API_KEY=your-secure-random-key-here       # API security key
 
 # Security & Rate Limiting
-MAX_REQUESTS_PER_MINUTE=30           # Rate limit per IP (prevent abuse)
-ALLOWED_IPS=                         # Comma-separated IP whitelist (optional)
+VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS=30  # Rate limit per IP (prevent abuse)
+VPN_SENTINEL_SERVER_ALLOWED_IPS=            # Comma-separated IP whitelist (optional)
 
 # =============================================================================
 # System Configuration
@@ -231,7 +234,7 @@ services:
     # ... your existing VPN config ...
 
   # Add VPN Sentinel monitoring
-  keepalive-server:
+  vpn-sentinel-server:
     image: python:3.11-alpine
     container_name: vpn-sentinel-server
     ports:
@@ -239,30 +242,31 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-      - KEEPALIVE_API_KEY=${KEEPALIVE_API_KEY}
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
       - TZ=${TZ}
     volumes:
-      - ./keepalive-server/keepalive-server.py:/app/keepalive-server.py:ro
+      - ./vpn-sentinel-server/vpn-sentinel-server.py:/app/vpn-sentinel-server.py:ro
     working_dir: /app
     command: >
-      sh -c "pip install flask requests pytz && python keepalive-server.py"
+      sh -c "pip install flask requests pytz && python vpn-sentinel-server.py"
     restart: unless-stopped
 
   vpn-sentinel-client:
     image: curlimages/curl:latest
     container_name: vpn-sentinel-client
     environment:
-      - KEEPALIVE_SERVER_URL=http://your-server-ip:5000  # Use your actual server IP!
-      - KEEPALIVE_CLIENT_ID=your-client-name
-      - KEEPALIVE_API_KEY=${KEEPALIVE_API_KEY}
+      - VPN_SENTINEL_SERVER_API_BASE_URL=http://your-server-ip:5000  # Use your actual server IP and port!
+      - VPN_SENTINEL_SERVER_API_PATH=/api/v1  # API path prefix
+      - VPN_SENTINEL_CLIENT_ID=remote-vpn-client  # kebab-case format required
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
       - TZ=${TZ}
     volumes:
-      - ./keepalive-client/keepalive-client.sh:/tmp/keepalive-client.sh:ro
+      - ./vpn-sentinel-client/vpn-sentinel-client.sh:/tmp/vpn-sentinel-client.sh:ro
     network_mode: service:vpn-client  # Routes through your VPN tunnel
     command: >
-      sh -c "sleep 30 && cp /tmp/keepalive-client.sh /home/curl_user/keepalive-client.sh && 
-             chmod +x /home/curl_user/keepalive-client.sh && 
-             exec /home/curl_user/keepalive-client.sh"
+      sh -c "sleep 30 && cp /tmp/vpn-sentinel-client.sh /home/curl_user/vpn-sentinel-client.sh && 
+             chmod +x /home/curl_user/vpn-sentinel-client.sh && 
+             exec /home/curl_user/vpn-sentinel-client.sh"
     depends_on:
       - your-vpn-container
     restart: unless-stopped
@@ -278,13 +282,13 @@ VPN Sentinel provides REST API endpoints for integration with monitoring tools:
 
 ```bash
 # Get current VPN status (JSON response) - requires API key
-curl -H "Authorization: Bearer your-api-key-here" http://your-server:5000/status
+curl -H "Authorization: Bearer your-api-key-here" http://your-server:5000/api/v1/status
 
 # Health check (uptime monitoring) - requires API key
-curl -H "Authorization: Bearer your-api-key-here" http://your-server:5000/health
+curl -H "Authorization: Bearer your-api-key-here" http://your-server:5000/api/v1/health
 
 # Test heartbeat (for debugging) - requires API key
-curl -X POST http://your-server:5000/fake-heartbeat \
+curl -X POST http://your-server:5000/api/v1/fake-heartbeat \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-api-key-here" \
   -d '{"client_id": "test", "public_ip": "1.2.3.4"}'
@@ -337,6 +341,37 @@ Last IP: 89.40.181.202
 DNS Location: RO
 DNS Server: OTP
 ✅ No DNS leak was detected
+```
+
+**🚨 VPN Bypass Warning:**
+```
+✅ VPN Connected!
+
+Client: VPN-Sentinel-Home
+VPN IP: 192.168.1.100
+📍 Location: Madrid, Community of Madrid, ES
+🏢 Provider: AS12345 Your ISP
+🕒 VPN Timezone: Europe/Madrid
+Connected at: 2025-10-13 14:30:15 UTC
+
+🔒 DNS Leak Test:
+DNS Location: ES
+DNS Server: MAD
+✅ No DNS leak detected
+
+🚨 VPN BYPASS WARNING!
+⚠️ Client IP matches server IP: 192.168.1.100
+🔴 Possible Issues:
+• VPN tunnel is not working properly
+• Client and server are on the same network
+• VPN client failed to establish connection
+• DNS resolution bypassing VPN
+
+🛠️ Recommended Actions:
+• Check VPN container logs
+• Verify VPN credentials and configuration
+• Test VPN connection manually
+• Ensure proper network isolation
 ```
 
 ## 🛡️ **VPN Sentinel Architecture**
@@ -413,7 +448,7 @@ DNS Server: OTP
 #### ❌ **Telegram notifications not working**
 ```bash
 # Check bot token and chat ID
-docker logs keepalive-server | grep -i telegram
+docker logs vpn-sentinel-server | grep -i telegram
 
 # Test bot manually
 curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
@@ -421,7 +456,7 @@ curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
   -d "text=Test message from VPN Sentinel"
 
 # Verify environment variables
-docker exec keepalive-server env | grep TELEGRAM
+docker exec vpn-sentinel-server env | grep TELEGRAM
 ```
 
 #### ❌ **Client not connecting to server**
@@ -474,9 +509,9 @@ docker exec gluetun nslookup google.com
 ```bash
 # Some VPN providers use different countries for DNS
 # Check if this is expected behavior from your provider
-# You can modify the DNS leak detection logic in keepalive-client.sh
+# You can modify the DNS leak detection logic in vpn-sentinel-client.sh
 
-# Temporary disable DNS leak alerts (edit keepalive-client.sh)
+# Temporary disable DNS leak alerts (edit vpn-sentinel-client.sh)
 # Comment out DNS leak comparison section if needed
 ```
 
@@ -520,13 +555,13 @@ docker compose down
 docker compose up -d
 
 # Watch detailed logs
-docker compose logs -f keepalive-server | grep -E "(DEBUG|ERROR|WARNING)"
+docker compose logs -f vpn-sentinel-server | grep -E "(DEBUG|ERROR|WARNING)"
 ```
 
 #### 🧪 **Test DNS Leak Detection**
 ```yaml
 # In compose.yaml, temporarily add DNS servers to client:
-keepalive-client:
+vpn-sentinel-client:
   # ... existing config ...
   dns:
     - 8.8.8.8          # Google DNS (US) - will cause leak alert
@@ -555,7 +590,7 @@ curl -X POST http://localhost:5000/fake-heartbeat \
 ### 🔒 **Security Hardening**
 ```bash
 # 🔐 REQUIRED: Set strong API key (server won't start without it)
-KEEPALIVE_API_KEY=$(openssl rand -hex 32)
+VPN_SENTINEL_API_KEY=$(openssl rand -hex 32)
 
 # 🔒 ALL endpoints now require API key authentication:
 # - /health, /status, /keepalive, /fake-heartbeat
@@ -563,10 +598,10 @@ KEEPALIVE_API_KEY=$(openssl rand -hex 32)
 # - Helps hide server existence from unauthorized access
 
 # Enable IP whitelisting for additional security
-ALLOWED_IPS="192.168.1.0/24,10.0.0.0/8"  
+VPN_SENTINEL_SERVER_ALLOWED_IPS="192.168.1.0/24,10.0.0.0/8"  
 
 # Reduce rate limits for production
-MAX_REQUESTS_PER_MINUTE=10
+VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS=10
 ```
 
 ### 📊 **Monitoring Integration**
@@ -607,7 +642,7 @@ sudo mkdir -p /volume1/docker/vpn-sentinel
 cd /volume1/docker/vpn-sentinel
 
 # 3. Upload project files (via File Station or SCP)
-# Copy: docker-compose.yaml, .env, keepalive-client/, keepalive-server/
+# Copy: docker-compose.yaml, .env, vpn-sentinel-client/, vpn-sentinel-server/
 
 # 4. Deploy via Container Manager Project (recommended)
 # - Open Container Manager in DSM

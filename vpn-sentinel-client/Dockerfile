@@ -15,18 +15,20 @@
 # - Designed for Docker Compose integration with Gluetun VPN gateway
 #
 # Usage in Docker Compose:
-#   keepalive-client:
-#     build: ./keepalive-client
+#   vpn-sentinel-client:
+#     build: ./vpn-sentinel-client
 #     network_mode: service:gluetun
 #     environment:
-#       - KEEPALIVE_SERVER_URL=http://your-server:5421
-#       - KEEPALIVE_CLIENT_ID=unique-client-name
-#       - KEEPALIVE_API_KEY=your-api-key
+#       - VPN_SENTINEL_SERVER_API_BASE_URL=http://your-server:5000
+#       - VPN_SENTINEL_SERVER_API_PATH=/api/v1
+#       - VPN_SENTINEL_CLIENT_ID=unique-client-name
+#       - VPN_SENTINEL_API_KEY=your-api-key
 #
 # Environment Variables (configured in docker-compose.yaml):
-# - KEEPALIVE_SERVER_URL: URL of the monitoring server (required)
-# - KEEPALIVE_CLIENT_ID: Unique identifier for this client
-# - KEEPALIVE_API_KEY: Optional API key for server authentication
+# - VPN_SENTINEL_SERVER_API_BASE_URL: Base URL of the monitoring server (required)
+# - VPN_SENTINEL_SERVER_API_PATH: API path prefix (default: /api/v1)
+# - VPN_SENTINEL_CLIENT_ID: Unique identifier for this client
+# - VPN_SENTINEL_API_KEY: Optional API key for server authentication
 # - TZ: Timezone for log timestamps
 #
 # Network Requirements:
@@ -41,7 +43,7 @@
 # - API key passed via environment variable (not in image)
 #
 # Build Instructions:
-#   docker build -t safeharbor/keepalive-client ./keepalive-client
+#   docker build -t vpn-sentinel/client ./vpn-sentinel-client
 #
 # Author: VPN Sentinel Project
 # License: MIT
@@ -70,13 +72,13 @@ RUN apk add --no-cache curl \
 # -----------------------------------------------------------------------------
 # Copy the keepalive monitoring script from local directory to container
 # The script contains all the VPN monitoring and DNS leak detection logic
-COPY keepalive-client.sh /app/keepalive-client.sh
+COPY vpn-sentinel-client.sh /app/vpn-sentinel-client.sh
 
 # Make the script executable and set proper ownership
 # Ensures the script can be executed by the container runtime
-RUN chmod +x /app/keepalive-client.sh \
-    && echo "Keepalive client container built successfully" \
-    && ls -la /app/keepalive-client.sh
+RUN chmod +x /app/vpn-sentinel-client.sh \
+    && echo "VPN Sentinel client container built successfully" \
+    && ls -la /app/vpn-sentinel-client.sh
 
 # -----------------------------------------------------------------------------
 # Working Directory and User Setup
@@ -99,10 +101,10 @@ WORKDIR /app
 # and provides better logging than external loop management
 #
 # Alternative approaches:
-# 1. External loop: CMD ["sh", "-c", "while true; do /app/keepalive-client.sh; sleep 300; done"]
+# 1. External loop: CMD ["sh", "-c", "while true; do /app/vpn-sentinel-client.sh; sleep 300; done"]
 # 2. Cron-based: Install crond and use crontab (more complex, less real-time feedback)
-# 3. Script-managed: Let keepalive-client.sh handle its own loop (current approach - recommended)
-CMD ["/app/keepalive-client.sh"]
+# 3. Script-managed: Let vpn-sentinel-client.sh handle its own loop (current approach - recommended)
+CMD ["/app/vpn-sentinel-client.sh"]
 
 # -----------------------------------------------------------------------------
 # Container Metadata
@@ -120,7 +122,7 @@ LABEL maintainer="VPN Sentinel Project" \
 # -----------------------------------------------------------------------------
 # Uncomment to add health check that verifies the keepalive process is running
 # HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-#   CMD pgrep -f keepalive-client.sh || exit 1
+#   CMD pgrep -f vpn-sentinel-client.sh || exit 1
 
 # =============================================================================
 # End of VPN Sentinel Client Dockerfile

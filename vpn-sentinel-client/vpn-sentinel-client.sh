@@ -18,10 +18,11 @@
 # - Robust error handling and fallback values
 #
 # Environment Variables:
-# - KEEPALIVE_SERVER_URL: URL of the monitoring server (required)
-# - KEEPALIVE_CLIENT_ID: Unique identifier for this client (default: synology-vpn-media)
-# - VPN_SENTINEL_CLIENT_NAME: Display name for Telegram notifications (generates random if empty)
-# - KEEPALIVE_API_KEY: Optional API key for server authentication
+# - VPN_SENTINEL_SERVER_API_BASE_URL: Base URL of the monitoring server (required)
+# - VPN_SENTINEL_SERVER_API_PATH: API path prefix (default: /api/v1)
+# - VPN_SENTINEL_CLIENT_ID: Unique identifier for this client (kebab-case, no spaces)
+#   If empty, generates random 12-digit identifier (default: synology-vpn-media)
+# - VPN_SENTINEL_API_KEY: Optional API key for server authentication
 # - TZ: Timezone for timestamp formatting (default: system timezone)
 #
 # Dependencies:
@@ -47,12 +48,34 @@
 # Configuration and Environment Setup
 # -----------------------------------------------------------------------------
 
-SERVER_URL="${KEEPALIVE_SERVER_URL}"                    # Monitoring server endpoint
-CLIENT_ID="${KEEPALIVE_CLIENT_ID:-synology-vpn-media}"  # Unique client identifier
+# Structured logging function
+log_message() {
+    local level="$1"
+    local message="$2"
+    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    echo "${timestamp} ${level} ${message}"
+}
 
-# Client display name for Telegram notifications
-# If VPN_SENTINEL_CLIENT_NAME is empty, generate a random 12-digit identifier
-if [ -z "${VPN_SENTINEL_CLIENT_NAME}" ]; then
+log_info() {
+    log_message "INFO" "$1"
+}
+
+log_error() {
+    log_message "ERROR" "$1"
+}
+
+log_warn() {
+    log_message "WARN" "$1"
+}
+
+# Construct full API endpoint URL
+API_BASE_URL="${VPN_SENTINEL_SERVER_API_BASE_URL}"
+API_PATH="${VPN_SENTINEL_SERVER_API_PATH:-/api/v1}"
+SERVER_URL="${API_BASE_URL}${API_PATH}"                         # Complete monitoring server endpoint
+
+# Client identifier validation and generation
+# If VPN_SENTINEL_CLIENT_ID is empty, generate a random 12-digit identifier
+if [ -z "${VPN_SENTINEL_CLIENT_ID}" ]; then
     # Generate random 12-digit identifier using timestamp and container hostname
     TIMESTAMP_PART=$(date +%s | tail -c 7)  # Last 6 digits of timestamp
     # Try different methods for random numbers, fallback to hostname-based if needed
@@ -64,25 +87,28 @@ if [ -z "${VPN_SENTINEL_CLIENT_NAME}" ]; then
         # Fallback: use hostname hash
         RANDOM_PART=$(hostname | od -An -N3 -tu1 | tr -d ' ' | head -c 6)
     fi
-    CLIENT_NAME="vpn-client-${TIMESTAMP_PART}${RANDOM_PART}"
+    CLIENT_ID="vpn-client-${TIMESTAMP_PART}${RANDOM_PART}"
+    log_info "🎲 Generated random client ID: $CLIENT_ID"
 else
-    CLIENT_NAME="${VPN_SENTINEL_CLIENT_NAME}"
+    # Validate kebab-case format (lowercase with dashes, no spaces)
+    if echo "$VPN_SENTINEL_CLIENT_ID" | grep -q '[^a-z0-9-]'; then
+        log_warn "⚠️ CLIENT_ID should be kebab-case (lowercase, dashes only): $VPN_SENTINEL_CLIENT_ID"
+    fi
+    CLIENT_ID="${VPN_SENTINEL_CLIENT_ID}"
 fi
 TIMEOUT=30                                              # HTTP request timeout (seconds)
 INTERVAL=300                                            # Keepalive interval (5 minutes)
 
 # Display startup information
-echo "🚀 Starting VPN Keepalive Client"
-echo "📡 Server: $SERVER_URL"
-echo "🏷️  Client ID: $CLIENT_ID"
-echo "📛  Client Name: $CLIENT_NAME"
-echo "⏱️  Interval: ${INTERVAL}s (5 minutes)"
-echo ""
+log_info "🚀 Starting VPN Keepalive Client"
+log_info "📡 Server: $SERVER_URL"
+log_info "🏷️ Client ID: $CLIENT_ID"
+log_info "⏱️ Interval: ${INTERVAL}s (5 minutes)"
 
 # Configure timezone if specified
 if [ -n "$TZ" ]; then
     export TZ="$TZ"
-    echo "🌍 Timezone set to: $TZ"
+    log_info "🌍 Timezone set to: $TZ"
 fi
 
 # -----------------------------------------------------------------------------
@@ -98,7 +124,7 @@ send_keepalive() {
     # -----------------------------------------------------------------------------
     # Query ipinfo.io for current public IP and geolocation data
     # This shows where the VPN exit server is located
-    echo "🔍 Gathering VPN information..."
+    log_info "🔍 Gathering VPN information..."
     VPN_INFO=$(curl -s --max-time 10 https://ipinfo.io/json 2>/dev/null || echo '{}')
     
     # Parse JSON response using sed (avoids jq dependency for container compatibility)
@@ -127,7 +153,7 @@ send_keepalive() {
     # 
     # TESTING INSTRUCTIONS:
     # 1. Uncomment the three lines below
-    # 2. Restart the keepalive-client container: docker restart keepalive-client
+    # 2. Restart the vpn-sentinel-client container: docker restart vpn-sentinel-client
     # 3. Monitor logs and Telegram notifications for DNS leak alerts
     # 4. Re-comment the lines to restore normal operation
     #
@@ -153,17 +179,16 @@ send_keepalive() {
     # Send Keepalive Data to Monitoring Server
     # -----------------------------------------------------------------------------
     # Transmits comprehensive VPN and DNS information to the monitoring server
-    # Includes conditional API key authentication if KEEPALIVE_API_KEY is set
+    # Includes conditional API key authentication if VPN_SENTINEL_API_KEY is set
     # JSON payload contains both VPN location data and DNS leak test results
     if curl -X POST \
       --max-time $TIMEOUT \
       --silent \
       --fail \
       -H "Content-Type: application/json" \
-      ${KEEPALIVE_API_KEY:+-H "Authorization: Bearer $KEEPALIVE_API_KEY"} \
+      ${VPN_SENTINEL_API_KEY:+-H "Authorization: Bearer $VPN_SENTINEL_API_KEY"} \
       -d "{
         \"client_id\": \"$CLIENT_ID\",
-        \"client_name\": \"$CLIENT_NAME\",
         \"timestamp\": \"$TIMESTAMP\",
         \"public_ip\": \"$PUBLIC_IP\",
         \"status\": \"alive\",
@@ -181,22 +206,22 @@ send_keepalive() {
       }" \
       "$SERVER_URL/keepalive" >/dev/null 2>&1; then
         # Success: Display formatted status information
-        echo "✅ Keepalive sent successfully at $(date)"
-        echo "   📍 Location: $CITY, $REGION, $COUNTRY"
-        echo "   🌐 VPN IP: $PUBLIC_IP"
-        echo "   🏢 Provider: $ORG"
-        echo "   🕒 Timezone: $VPN_TIMEZONE"
-        echo "   🔒 DNS: $DNS_LOC ($DNS_COLO)"
+        log_info "✅ Keepalive sent successfully"
+        log_info "   📍 Location: $CITY, $REGION, $COUNTRY"
+        log_info "   🌐 VPN IP: $PUBLIC_IP"
+        log_info "   🏢 Provider: $ORG"
+        log_info "   🕒 Timezone: $VPN_TIMEZONE"
+        log_info "   🔒 DNS: $DNS_LOC ($DNS_COLO)"
         return 0
     else
         # Failure: Display same information but with error indicator
         # Helps with troubleshooting by showing what data was available
-        echo "❌ Failed to send keepalive to $SERVER_URL at $(date)"
-        echo "   📍 Location: $CITY, $REGION, $COUNTRY"
-        echo "   🌐 VPN IP: $PUBLIC_IP"
-        echo "   🏢 Provider: $ORG"
-        echo "   🕒 Timezone: $VPN_TIMEZONE"
-        echo "   🔒 DNS: $DNS_LOC ($DNS_COLO)"
+        log_error "❌ Failed to send keepalive to $SERVER_URL"
+        log_error "   📍 Location: $CITY, $REGION, $COUNTRY"
+        log_error "   🌐 VPN IP: $PUBLIC_IP"
+        log_error "   🏢 Provider: $ORG"
+        log_error "   🕒 Timezone: $VPN_TIMEZONE"
+        log_error "   🔒 DNS: $DNS_LOC ($DNS_COLO)"
         return 1
     fi
 }
@@ -215,15 +240,12 @@ send_keepalive() {
 #
 # The script will continue running even if individual keepalive attempts fail,
 # ensuring continuous monitoring and automatic recovery when connectivity is restored
-echo ""
-echo "🔄 Starting continuous VPN monitoring loop..."
-echo ""
+log_info "🔄 Starting continuous VPN monitoring loop..."
 
 while true; do
     send_keepalive
-    echo ""
-    echo "⏳ Waiting ${INTERVAL} seconds until next keepalive..."
-    echo "   (Press Ctrl+C to stop monitoring)"
+    log_info "⏳ Waiting ${INTERVAL} seconds until next keepalive..."
+    log_info "   (Press Ctrl+C to stop monitoring)"
     sleep $INTERVAL
 done
 
