@@ -1,7 +1,8 @@
 # VPN Sentinel 🔒🚨
-*Advanced VPN Monitoring & DNS Leak Detection with Telegram Notifications*
+*Advanced VPN Monitoring, Dashboard & DNS Leak Detection with Telegram Notifications*
 
-A comprehensive Docker-based solution for monitoring VPN connections, detecting DNS leaks, and providing instant Telegram notifications when your VPN fails or changes. Perfect for monitoring any VPN-protected Docker network and ensuring your privacy is never compromised.
+
+A comprehensive Docker-based solution for monitoring VPN connections, visualizing real-time status on a web dashboard, detecting DNS leaks, and providing instant Telegram notifications when your VPN fails or changes. The dashboard highlights server info, warns about same-IP clients (possible VPN bypass), and gives you a clear overview of all monitored VPN containers. Perfect for monitoring any VPN-protected Docker network and ensuring your privacy is never compromised.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue)](https://docs.docker.com/compose/)
@@ -62,12 +63,60 @@ VPN Sentinel works with **ANY Docker VPN client**:
 ## ✨ **Key Features**
 
 ### 🔒 **Advanced VPN Monitoring**
-- **Continuous Health Checks**: 5-minute intervals with instant failure detection
-- **DNS Leak Detection**: Compares VPN exit country with DNS resolver location
-- **VPN Bypass Detection**: Warns when client and server have same IP (VPN not working)
-- **IP Change Tracking**: Instant notifications when VPN server switches
-- **Geolocation Monitoring**: Tracks city, region, country, provider, timezone
-- **Connection Status**: Real-time alive/dead status with customizable thresholds
+
+### 🧪 **Test Coverage & Quality Assurance**
+VPN Sentinel includes a comprehensive suite of unit and integration tests covering:
+- DNS leak detection and warning logic
+- VPN bypass (same IP) detection and multiple same-IP clients
+- Telegram bot: `/ping`, `/status`, `/help`, unknown command handling, rate limiting, and error handling
+- Robust keepalive validation for malformed/missing data
+- Server logging for DNS leak, VPN bypass, offline events
+- Docker Compose syntax and deployment validation
+- API authentication, rate limiting, and error handling
+- End-to-end workflows for client registration, dashboard, and notification scenarios
+
+Run all tests with:
+```bash
+./tests/run_tests.sh --all
+```
+Or with pytest:
+```bash
+source .venv/bin/activate
+pytest --maxfail=5 --disable-warnings -v
+```
+All test IPs use reserved documentation ranges (`192.0.2.x`, `198.51.100.x`, `203.0.113.x`) for safety and clarity.
+
+### 🛡️ **Security & Best Practices**
+- All API endpoints require authentication via API key
+- Rate limiting and IP whitelisting prevent abuse
+- Use reserved IPs in all test cases and documentation
+- Docker containers run with minimal privileges and isolated networks
+- Telegram bot tokens and API keys should be kept secret and never committed
+
+### 🛠️ **Troubleshooting & Test Failures**
+If a test fails, check:
+- Environment variables and .env configuration
+- Docker Compose syntax and service health
+- API key and Telegram bot credentials
+- Network/firewall settings for port 5000
+- Use `pytest -v` for detailed error output
+
+Common test scenarios validated:
+- DNS leak detection (country mismatch)
+- VPN bypass warning (same IP)
+- Telegram bot error handling (rate limit, unknown command)
+- Keepalive endpoint with malformed/missing data
+- Logging of critical events
+
+### 🤝 **Contributing & Extending**
+To add new features or tests:
+1. Fork the repository and create a feature branch
+2. Add or update unit/integration tests in `tests/unit/` or `tests/integration/`
+3. Use reserved documentation IPs for all test data
+4. Run the full test suite and ensure all tests pass
+5. Submit a pull request with a clear description
+
+See `tests/README.md` for guidance on writing new tests and troubleshooting failures.
 
 ### 📱 **Telegram Integration**
 - **Interactive Bot**: `/ping` test connectivity, `/status` get detailed info, `/help` for commands
