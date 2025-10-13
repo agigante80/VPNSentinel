@@ -155,15 +155,15 @@ services:
     network_mode: service:vpn-client  # 🔄 CHANGE 'vpn-client' to YOUR VPN container name!
     command: >
       sh -c "
-      echo '🚀 VPN Sentinel Client Starting...' &&
+      echo \"$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO 🚀 VPN Sentinel Client Starting...\" &&
       sleep 30 &&
-      echo '⏳ Waiting for VPN connection to stabilize...' &&
+      echo \"$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO ⏳ Waiting for VPN connection to stabilize...\" &&
       sleep 30 &&
-      echo '📁 Setting up monitoring script...' &&
+      echo \"$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO 📁 Setting up monitoring script...\" &&
       mkdir -p /home/curl_user &&
       cp /tmp/vpn-sentinel-client.sh /home/curl_user/vpn-sentinel-client.sh &&
       chmod +x /home/curl_user/vpn-sentinel-client.sh &&
-      echo '🔍 Starting continuous VPN monitoring...' &&
+      echo \"$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO 🔍 Starting continuous VPN monitoring...\" &&
       exec /home/curl_user/vpn-sentinel-client.sh
       "
     depends_on:
@@ -201,9 +201,9 @@ services:
       - vpn-sentinel-server  # Server network (bypasses VPN for guaranteed access)
     command: >
       sh -c "
-      echo '📦 Installing VPN Sentinel Server dependencies...' &&
+      echo \"$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO 📦 Installing VPN Sentinel Server dependencies...\" &&
       pip install --no-cache-dir flask requests pytz &&
-      echo '🚀 Starting VPN Sentinel Server...' &&
+      echo \"$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO 🚀 Starting VPN Sentinel Server...\" &&
       python vpn-sentinel-server.py
       "
     restart: unless-stopped
