@@ -1,0 +1,270 @@
+# VPN Sentinel - Docker Compose Configuration
+# 
+# This setup provides a comprehensive VPN monitoring and DNS leak detection system:
+# - Generic "vpn-client" container (Gluetun example included - replace with any VPN solution)
+# - VPN Sentinel Client (monitors from inside VPN network)  
+# - VPN Sentinel Server (receives reports and sends Telegram notifications)
+# - Dual-network architecture for reliable monitoring
+#
+# 🎯 UNIVERSAL COMPATIBILITY: Uses generic "vpn-client" container name
+# Just replace the vpn-client service with your preferred VPN solution!
+#
+# Prerequisites:
+# 1. Copy .env.example to .env and configure your values
+# 2. Ensure Docker and Docker Compose are installed  
+# 3. Configure VPN provider credentials in .env file
+# 4. Set up Telegram bot for notifications (highly recommended)
+#
+# External Access Ports:
+# - VPN Sentinel API: http://YOUR_SERVER_IP:5000
+#
+# Key Features:
+# - Real-time VPN connection monitoring with 5-minute intervals
+# - DNS leak detection using Cloudflare trace endpoints
+# - Instant Telegram notifications for VPN status changes
+# - IP geolocation tracking and provider identification
+# - Interactive bot commands (/ping, /status, /help)
+# - REST API endpoints for external integration
+# - Rate limiting and security features
+
+version: "3"
+
+services:
+  # =============================================================================
+  # VPN CLIENT - EXAMPLE using Gluetun (REPLACE with your preferred VPN client)
+  # =============================================================================
+  # 
+  # 🔄 GLUETUN IS JUST AN EXAMPLE! Replace with any VPN client you prefer:
+  #
+  # ✅ Popular VPN Client Alternatives:
+  # - Gluetun: qmcgaw/gluetun (70+ providers, our example below)
+  # - OpenVPN: dperson/openvpn-client (custom .ovpn files)
+  # - WireGuard: linuxserver/wireguard (modern, fast protocol) 
+  # - Transmission+VPN: haugene/transmission-openvpn (torrent + VPN)
+  # - PIA WireGuard: thrnz/docker-wireguard-pia (PIA-specific)
+  # - Any other Docker VPN solution you prefer!
+  #
+  # 🎯 GLUETUN ADVANTAGES (why we use it as example):
+  # - Supports 70+ VPN providers (NordVPN, Surfshark, ExpressVPN, etc.)
+  # - Simple configuration via environment variables
+  # - Built-in kill switch and health checks  
+  # - Actively maintained with excellent documentation
+  # - Works out-of-the-box with most VPN providers
+  #
+  # 🔄 TO USE A DIFFERENT VPN CLIENT:
+  # 1. Replace this entire 'gluetun' service with your VPN client
+  # 2. Update network_mode in 'vpn-sentinel-client' to match your container name
+  # 3. VPN Sentinel will work exactly the same with any VPN client!
+  #
+  vpn-client:
+    # 📝 EXAMPLE VPN CLIENT - Replace with your preferred VPN solution!
+    image: qmcgaw/gluetun
+    container_name: vpn-client
+    cap_add:
+      - NET_ADMIN  # Required for VPN tunnel creation
+    devices:
+      - /dev/net/tun:/dev/net/tun  # TUN device for VPN tunnel
+    ports: []  # No specific ports required for VPN Sentinel monitoring
+      # Add any ports your applications need here
+      # Example for a simple web service:
+      # - 8080:8080  # Your application port
+    volumes:
+      - ./vpn-client:/gluetun  # VPN config and logs (path can be customized for your VPN client)
+    environment:
+      # 🔧 GLUETUN-SPECIFIC CONFIGURATION (adapt for your VPN client):
+      - UPDATER_PERIOD=${UPDATER_PERIOD:-24h}              # Gluetun: Update check interval
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}       # Gluetun: Provider name
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES}               # Gluetun: Preferred countries
+      - OPENVPN_USER=${VPN_USER}                           # Gluetun: VPN username  
+      - OPENVPN_PASSWORD=${VPN_PASSWORD}                   # Gluetun: VPN password
+      # 🌐 NETWORK CONFIGURATION (keep this for VPN Sentinel):
+      - FIREWALL_OUTBOUND_SUBNETS=172.28.0.0/16  # Allow VPN dockers communication
+    networks:
+      - vpn-sentinel-internal  # Internal network for VPN Sentinel monitoring
+    restart: always
+
+  # =============================================================================
+  # YOUR APPLICATIONS - Add your VPN-protected containers here
+  # =============================================================================
+  #
+  # This is where you would add your applications that need VPN protection.
+  # Examples of containers you might add:
+  #
+  # # Download client example:
+  # qbittorrent:
+  #   image: lscr.io/linuxserver/qbittorrent
+  #   container_name: qbittorrent
+  #   environment:
+  #     - PUID=${PUID_MEDIA}
+  #     - PGID=${PGID_MEDIA}
+  #     - TZ=${TZ}
+  #   volumes:
+  #     - ./qbittorrent/config:/config
+  #     - ./downloads:/downloads
+  #   network_mode: service:vpn-client  # Route through VPN
+  #   depends_on:
+  #     - vpn-client
+  #   restart: unless-stopped
+  #
+  # # Web application example:
+  # your-web-app:
+  #   image: your-app:latest
+  #   container_name: your-web-app
+  #   network_mode: service:vpn-client  # Route through VPN
+  #   depends_on:
+  #     - vpn-client
+  #   restart: unless-stopped
+  #
+  # The key is using: network_mode: service:vpn-client
+  # This routes all traffic through the VPN container.
+
+  # =============================================================================
+  # VPN SENTINEL MONITORING SYSTEM - Real-time VPN monitoring & notifications
+  # =============================================================================
+  
+  # VPN Sentinel Client - Monitors from INSIDE the VPN network
+  # This container shares the VPN network stack and performs continuous monitoring:
+  # - DNS leak detection using Cloudflare trace endpoints
+  # - IP geolocation tracking and provider identification  
+  # - Connection health checks every 5 minutes
+  # - Reports status to the external server for Telegram notifications
+  vpn-sentinel-client:
+    image: curlimages/curl:latest
+    container_name: vpn-sentinel-client
+    environment:
+      - VPN_SENTINEL_SERVER_API_BASE_URL=${VPN_SENTINEL_SERVER_API_BASE_URL:-http://vpn-sentinel-server:5000}
+      - VPN_SENTINEL_SERVER_API_PATH=${VPN_SENTINEL_SERVER_API_PATH:-/api/v1}
+      - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-main}
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
+      - TZ=${TZ:-UTC}
+    volumes:
+      - ./vpn-sentinel-client/vpn-sentinel-client.sh:/tmp/vpn-sentinel-client.sh:ro
+    # =============================================================================
+    # DNS Leak Testing Configuration
+    # =============================================================================
+    # Uncomment the dns section below to test DNS leak detection:
+    # dns:
+    #   - 8.8.8.8          # Google DNS (US) - will trigger leak alert
+    #   - 8.8.4.4          # Google DNS (US) - will trigger leak alert
+    # 
+    # Other test DNS servers:
+    #   - 1.1.1.1          # Cloudflare DNS (global)
+    #   - 208.67.222.222    # OpenDNS (US-based)
+    #   - 9.9.9.9           # Quad9 DNS (various locations)
+    # =============================================================================
+    network_mode: service:vpn-client  # 🔄 CHANGE 'vpn-client' to YOUR VPN container name!
+    command: 
+      - sh
+      - -c
+      - |
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [client] 🚀 VPN Sentinel Client Starting..." &&
+        sleep 30 &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [client] ⏳ Waiting for VPN connection to stabilize..." &&
+        sleep 30 &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [config] 📁 Setting up monitoring script..." &&
+        mkdir -p /home/curl_user &&
+        cp /tmp/vpn-sentinel-client.sh /home/curl_user/vpn-sentinel-client.sh &&
+        chmod +x /home/curl_user/vpn-sentinel-client.sh &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [client] 🔍 Starting continuous VPN monitoring..." &&
+        exec /home/curl_user/vpn-sentinel-client.sh
+    depends_on:
+      - vpn-client               # 🔄 CHANGE 'vpn-client' to YOUR VPN container name!
+      - vpn-sentinel-server      # Requires monitoring server for reporting
+    restart: unless-stopped
+    # Health check to ensure client monitoring is working properly
+    healthcheck:
+      test: >
+        sh -c '
+        # Check if monitoring script is running
+        pgrep -f vpn-sentinel-client.sh > /dev/null || exit 1;
+        # Check if we can get public IP (VPN is working)
+        curl -s --max-time 10 https://ipinfo.io/ip > /dev/null || exit 1;
+        # Check if we can reach monitoring server
+        curl -s --max-time 5 ${VPN_SENTINEL_SERVER_API_BASE_URL}${VPN_SENTINEL_SERVER_API_PATH}/health > /dev/null || exit 1;
+        echo "Client health check passed"
+        '
+      interval: 120s       # Check every 2 minutes (less frequent than server)
+      timeout: 30s         # Allow time for network requests
+      start_period: 90s    # Wait for VPN connection and initial setup
+      retries: 3
+
+  # VPN Sentinel Server - Receives reports and sends Telegram notifications
+  # This container runs on the real IP network (NOT through VPN) to ensure:
+  # - Always reachable for status reports from VPN client
+  # - Can send Telegram notifications even when VPN fails
+  # - Provides REST API endpoints for external monitoring systems
+  vpn-sentinel-server:
+    image: python:3.11-alpine
+    container_name: vpn-sentinel-server
+    ports:
+      - "${VPN_SENTINEL_SERVER_PORT:-5000}:5000"  # External API access
+    environment:
+      # Telegram Configuration (highly recommended)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      
+      # Security & API Configuration  
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
+      - VPN_SENTINEL_SERVER_API_PATH=${VPN_SENTINEL_SERVER_API_PATH:-/api/v1}
+      - VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS=${VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS:-30}
+      - VPN_SENTINEL_SERVER_ALLOWED_IPS=${VPN_SENTINEL_SERVER_ALLOWED_IPS:-}  # Comma-separated IP whitelist (optional)
+      
+      # System Configuration
+      - TZ=${TZ:-UTC}
+    volumes:
+      - ./vpn-sentinel-server/vpn-sentinel-server.py:/app/vpn-sentinel-server.py:ro
+    working_dir: /app
+    networks:
+      - vpn-sentinel-server  # Server network (bypasses VPN for guaranteed access)
+    command:
+      - sh
+      - -c
+      - |
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [server] 📦 Installing VPN Sentinel Server dependencies..." &&
+        pip install --no-cache-dir flask requests pytz &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [server] 🚀 Starting VPN Sentinel Server..." &&
+        python vpn-sentinel-server.py
+    restart: unless-stopped
+    # Health check to ensure server is responding (uses public health endpoint)
+    healthcheck:
+      test: >
+        sh -c '
+        # Check if server is responding to health endpoint
+        wget --no-verbose --tries=1 --spider --timeout=5 "http://localhost:5000/api/v1/health" > /dev/null 2>&1 || exit 1;
+        # Check if Python process is running
+        pgrep -f vpn-sentinel-server.py > /dev/null || exit 1;
+        echo "Server health check passed"
+        '
+      interval: 60s        # Check every minute
+      timeout: 10s         # Allow time for HTTP request
+      start_period: 30s    # Wait for server startup and dependencies
+      retries: 3
+
+# =============================================================================
+# NETWORK CONFIGURATION - Dual-network architecture for reliable monitoring
+# =============================================================================
+networks:
+  # Internal network for VPN container communication
+  # Allows VPN Sentinel Client to communicate with the VPN container
+  vpn-sentinel-internal:
+    driver: bridge
+    name: vpn-sentinel-internal
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+    labels:
+      - "vpn-sentinel.network.type=internal"
+      - "vpn-sentinel.network.purpose=vpn-communication"
+  
+  # Server network for VPN Sentinel Server
+  # Ensures the monitoring server can always send Telegram notifications
+  # even when VPN connection fails completely
+  vpn-sentinel-server:
+    driver: bridge
+    name: vpn-sentinel-server
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
+    labels:
+      - "vpn-sentinel.network.type=server" 
+      - "vpn-sentinel.network.purpose=telegram-notifications"

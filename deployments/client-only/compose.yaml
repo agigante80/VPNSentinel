@@ -1,0 +1,136 @@
+# VPN Sentinel - Client-Only Deployment
+# This deployment contains only the VPN Sentinel Client that monitors VPN connections 
+# and reports to a remote VPN Sentinel Server. Perfect for distributed monitoring setups.
+
+version: "3"
+
+services:
+  # =============================================================================  
+  # VPN CLIENT - EXAMPLE using Gluetun (REPLACE with your preferred VPN client)
+  # =============================================================================
+  vpn-client:
+    image: qmcgaw/gluetun:latest
+    container_name: vpn-client
+    restart: unless-stopped
+    
+    # VPN Configuration - UPDATE with your VPN provider settings
+    environment:
+      # Gluetun Configuration (replace with your VPN provider)
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-privatevpn}
+      - VPN_TYPE=openvpn
+      - OPENVPN_USER=${VPN_USER}
+      - OPENVPN_PASSWORD=${VPN_PASSWORD}
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Switzerland,Netherlands}
+      - UPDATER_PERIOD=${UPDATER_PERIOD:-24h}
+      
+      # Gluetun Security & Networking
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,172.16.0.0/12,10.0.0.0/8
+      - HEALTH_VPN_DURATION_INITIAL=30s
+      - HEALTH_SUCCESS_WAIT_DURATION=5s
+      
+      # DNS Configuration for leak detection
+      - DOT=off
+      - DNS_KEEP_NAMESERVER=off
+      - DNS_ADDRESS=1.1.1.1
+      
+      # Timezone
+      - TZ=${TZ:-UTC}
+    
+    # Network Security
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    
+    # Health check for VPN connectivity
+    healthcheck:
+      test: >
+        sh -c '
+        # Check Gluetun health endpoint
+        wget --no-verbose --tries=1 --spider --timeout=5 "http://localhost:8000/health" > /dev/null 2>&1 || exit 1;
+        # Verify VPN connection by checking public IP
+        PUBLIC_IP=$$(wget -qO- --timeout=5 https://ipinfo.io/ip 2>/dev/null || echo "failed");
+        [ "$$PUBLIC_IP" != "failed" ] || exit 1;
+        echo "VPN connection healthy: $$PUBLIC_IP"
+        '
+      interval: 60s
+      timeout: 15s
+      start_period: 60s
+      retries: 3
+    
+    networks:
+      - vpn-client-network
+
+  # =============================================================================
+  # VPN SENTINEL CLIENT - Monitors VPN and reports to remote server  
+  # =============================================================================
+  vpn-sentinel-client:
+    build:
+      context: ../../vpn-sentinel-client
+      dockerfile: Dockerfile
+    container_name: vpn-sentinel-client
+    restart: unless-stopped
+    
+    # Client Configuration
+    environment:
+      # Remote Server Configuration (REQUIRED)
+      - VPN_SENTINEL_SERVER_API_BASE_URL=${VPN_SENTINEL_SERVER_API_BASE_URL}
+      - VPN_SENTINEL_SERVER_API_PATH=${VPN_SENTINEL_SERVER_API_PATH:-/api/v1}
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
+      
+      # Client Identity
+      - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-client}
+      
+      # Monitoring Configuration
+      - VPN_SENTINEL_CHECK_INTERVAL=${VPN_SENTINEL_CHECK_INTERVAL:-300}
+      
+      # Timezone
+      - TZ=${TZ:-UTC}
+    
+    # Use VPN network for all monitoring traffic
+    network_mode: service:vpn-client
+    
+    # Startup command with component-based logging
+    command:
+      - sh
+      - -c
+      - |
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [client] 🚀 VPN Sentinel Client Starting..." &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [client] 🌐 Remote Server: $${VPN_SENTINEL_SERVER_API_BASE_URL}" &&
+        sleep 30 &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [client] ⏳ Waiting for VPN connection to stabilize..." &&
+        sleep 30 &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [config] 📁 Setting up monitoring script..." &&
+        mkdir -p /home/curl_user &&
+        cp /tmp/vpn-sentinel-client.sh /home/curl_user/vpn-sentinel-client.sh &&
+        chmod +x /home/curl_user/vpn-sentinel-client.sh &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [client] 🔍 Starting continuous VPN monitoring..." &&
+        exec /home/curl_user/vpn-sentinel-client.sh
+    
+    depends_on:
+      - vpn-client
+    
+    # Health check for client monitoring
+    healthcheck:
+      test: >
+        sh -c '
+        # Check if monitoring script is running
+        pgrep -f vpn-sentinel-client.sh > /dev/null || exit 1;
+        # Check if we can get public IP (VPN is working)  
+        curl -s --max-time 10 https://ipinfo.io/ip > /dev/null || exit 1;
+        # Check if we can reach remote monitoring server
+        curl -s --max-time 5 $${VPN_SENTINEL_SERVER_API_BASE_URL}$${VPN_SENTINEL_SERVER_API_PATH}/health > /dev/null || exit 1;
+        echo "Client health check passed"
+        '
+      interval: 120s
+      timeout: 30s
+      start_period: 90s
+      retries: 3
+
+# =============================================================================
+# NETWORK CONFIGURATION
+# =============================================================================
+networks:
+  vpn-client-network:
+    driver: bridge
+    name: vpn-client-network

@@ -98,6 +98,36 @@ VPN Sentinel works with **ANY Docker VPN client**:
 
 ## 🚀 **Quick Start**
 
+VPN Sentinel offers **three flexible deployment options** to fit your needs:
+
+### 🎯 Choose Your Deployment
+
+| Deployment | Best For | Complexity |
+|------------|----------|------------|
+| **[📦 Unified](./deployments/unified/)** | Home users, testing, single location | 🟢 Simple |
+| **[🌐 Client-Only](./deployments/client-only/)** | Remote monitoring, multiple sites | 🟡 Medium | 
+| **[🏢 Server-Only](./deployments/server-only/)** | Central monitoring hub, team use | 🟡 Medium |
+
+### 🚀 30-Second Start (Recommended)
+
+**For most users, start with the unified deployment:**
+
+```bash
+# Clone the repository
+git clone https://github.com/agigante80/VPNSentinel.git
+cd VPNSentinel/deployments/unified
+
+# Configure your settings
+cp .env.example .env
+nano .env  # Edit with your VPN provider details
+
+# Start monitoring
+docker-compose up -d
+
+# Check logs  
+docker-compose logs -f
+```
+
 ### Prerequisites
 - Docker and Docker Compose installed
 - **ANY VPN client container** (we include Gluetun as an example with 70+ providers)
@@ -107,6 +137,10 @@ VPN Sentinel works with **ANY Docker VPN client**:
 > **🔄 Important:** Gluetun is just our **example VPN client**. VPN Sentinel works with **ANY Docker VPN solution** - simply change the container name in the configuration!
 
 > **🏠 Synology NAS Tested:** This solution has been **successfully tested and works on Synology NAS systems**. Despite Synology's Docker implementation being notoriously challenging, VPN Sentinel's internet-based architecture bypasses common Synology networking issues. The system works reliably on Synology DSM with Docker and Container Manager.
+
+### 📋 Deployment Details
+
+**👆 [See Full Deployment Guide](./deployments/README.md)** for detailed instructions, configuration options, and advanced scenarios.
 
 ### 1. **Get Telegram Bot Token (Recommended)**
 ```bash
@@ -932,6 +966,6 @@ This project is licensed under the [MIT License](LICENSE) - feel free to use, mo
 ---
 
 ### 🔗 **Quick Links**
-[🚀 Quick Start](#-quick-start) | [🔧 Configuration](#-advanced-configuration) | [🐛 Troubleshooting](#-troubleshooting) | [📊 API Docs](#-monitoring-dashboard) | [🤝 Contributing](#-license--contributing)
+[🚀 Quick Start](#-quick-start) | [� Deployments](./deployments/) | [�🔧 Configuration](#-advanced-configuration) | [🐛 Troubleshooting](#-troubleshooting) | [📊 API Docs](#-monitoring-dashboard) | [🤝 Contributing](#-license--contributing)
 
 **Made with ❤️ for VPN privacy and security**

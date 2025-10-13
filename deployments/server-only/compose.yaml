@@ -1,0 +1,88 @@
+# VPN Sentinel - Server-Only Deployment
+# This deployment contains only the VPN Sentinel Server that receives reports
+# from remote VPN Sentinel Clients. Perfect for centralized monitoring setups.
+
+version: "3"
+
+services:
+  # =============================================================================
+  # VPN SENTINEL SERVER - Receives reports and sends Telegram notifications
+  # =============================================================================
+  vpn-sentinel-server:
+    build:
+      context: ../../vpn-sentinel-server
+      dockerfile: Dockerfile
+    container_name: vpn-sentinel-server
+    restart: unless-stopped
+    
+    # Server Configuration  
+    environment:
+      # API Configuration (REQUIRED)
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
+      - VPN_SENTINEL_SERVER_PORT=${VPN_SENTINEL_SERVER_PORT:-5000}
+      - VPN_SENTINEL_SERVER_API_PATH=${VPN_SENTINEL_SERVER_API_PATH:-/api/v1}
+      
+      # Monitoring Thresholds
+      - VPN_SENTINEL_ALERT_THRESHOLD_MINUTES=${VPN_SENTINEL_ALERT_THRESHOLD_MINUTES:-15}
+      - VPN_SENTINEL_CHECK_INTERVAL_MINUTES=${VPN_SENTINEL_CHECK_INTERVAL_MINUTES:-5}
+      
+      # Security Configuration
+      - VPN_SENTINEL_RATE_LIMIT_REQUESTS=${VPN_SENTINEL_RATE_LIMIT_REQUESTS:-30}
+      - VPN_SENTINEL_ALLOWED_IPS=${VPN_SENTINEL_ALLOWED_IPS:-}
+      
+      # Telegram Configuration (REQUIRED for notifications)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - VPN_SENTINEL_TELEGRAM_CHAT_ID=${VPN_SENTINEL_TELEGRAM_CHAT_ID}
+      
+      # Timezone
+      - TZ=${TZ:-UTC}
+    
+    # Expose API port for remote clients
+    ports:
+      - "${VPN_SENTINEL_SERVER_PORT:-5000}:${VPN_SENTINEL_SERVER_PORT:-5000}"
+    
+    working_dir: /app
+    networks:
+      - vpn-sentinel-server
+      
+    # Startup command with component-based logging
+    command:
+      - sh
+      - -c
+      - |
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [server] 📦 Installing VPN Sentinel Server dependencies..." &&
+        pip install --no-cache-dir flask requests pytz &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [server] 🚀 Starting VPN Sentinel Server..." &&
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') INFO [server] 🌐 Listening on port ${VPN_SENTINEL_SERVER_PORT:-5000}" &&
+        python vpn-sentinel-server.py
+        
+    # Health check to ensure server is responding
+    healthcheck:
+      test: >
+        sh -c '
+        # Check if server is responding to health endpoint
+        wget --no-verbose --tries=1 --spider --timeout=5 "http://localhost:${VPN_SENTINEL_SERVER_PORT:-5000}${VPN_SENTINEL_SERVER_API_PATH:-/api/v1}/health" > /dev/null 2>&1 || exit 1;
+        # Check if Python process is running
+        pgrep -f vpn-sentinel-server.py > /dev/null || exit 1;
+        echo "Server health check passed"
+        '
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+# =============================================================================
+# NETWORK CONFIGURATION
+# =============================================================================
+networks:
+  vpn-sentinel-server:
+    driver: bridge
+    name: vpn-sentinel-server
+
+# =============================================================================
+# VOLUME CONFIGURATION (Optional - for data persistence)
+# =============================================================================
+volumes:
+  vpn-sentinel-data:
+    driver: local
+    name: vpn-sentinel-server-data
