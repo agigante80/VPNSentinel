@@ -1,0 +1,31 @@
+# Environment files with sensitive information
+.env
+.env.local
+.env.production
+
+# Docker volumes and data
+qbittorrent/
+website-data/
+wiki-content/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Backup files
+*.backup
+*.bak
+
+# Local configuration overrides
+docker-compose.override.yml
+compose.override.yaml
+
+# Script outputs and cache
+command.bash
+*.cache
