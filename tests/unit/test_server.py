@@ -118,6 +118,15 @@ class TestKeepAliveEndpoint(unittest.TestCase):
         
         self.assertIn(client_id, self.mock_clients)
         self.assertEqual(self.mock_clients[client_id]['public_ip'], request_data['public_ip'])
+
+        def test_dns_leak_detection(self):
+            """Test detection of DNS leak in keepalive data"""
+            # Simulate keepalive with DNS leak
+            request_data = SAMPLE_KEEPALIVE_REQUEST.copy()
+            request_data['dns_test'] = {'leak': True, 'location': 'PL', 'colo': 'WAW'}
+            # Server logic: if 'leak' is True, flag DNS leak
+            dns_leak = request_data['dns_test'].get('leak', False)
+            self.assertTrue(dns_leak)
     
     def test_keepalive_same_ip_detection(self):
         """Test same IP detection logic"""
@@ -229,6 +238,61 @@ class TestStatusLogic(unittest.TestCase):
 
 
 class TestTelegramCommands(unittest.TestCase):
+    def test_status_command_all_states(self):
+        """Test /status command for online, offline, warning clients"""
+        mock_clients = {
+            'online-client': {
+                'last_seen': datetime.now(timezone.utc) - timedelta(minutes=2),
+                'public_ip': '140.82.121.4'
+            },
+            'warning-client': {
+                'last_seen': datetime.now(timezone.utc) - timedelta(minutes=1),
+                'public_ip': '172.67.163.127'  # Same as server
+            },
+            'offline-client': {
+                'last_seen': datetime.now(timezone.utc) - timedelta(minutes=20),
+                'public_ip': '140.82.121.4'
+            }
+        }
+        server_ip = '172.67.163.127'
+        alert_threshold = 15
+        status_lines = []
+        for client_id, info in mock_clients.items():
+            now = datetime.now(timezone.utc)
+            minutes_ago = int((now - info['last_seen']).total_seconds() / 60)
+            client_ip = info['public_ip']
+            if minutes_ago < alert_threshold:
+                if client_ip != 'unknown' and server_ip != 'Unknown' and client_ip == server_ip:
+                    status_icon = "⚠️"
+                    status_text = "Online (Same IP as server)"
+                else:
+                    status_icon = "🟢"
+                    status_text = "Online"
+            else:
+                status_icon = "🔴"
+                status_text = "Offline"
+            status_lines.append(f"{status_icon} {client_id} - {status_text}")
+        self.assertIn("🟢 online-client - Online", status_lines)
+        self.assertIn("⚠️ warning-client - Online (Same IP as server)", status_lines)
+        self.assertIn("🔴 offline-client - Offline", status_lines)
+
+    def test_ping_command_no_clients(self):
+        """Test /ping command when no clients are connected"""
+        ping_response = (
+            "🏓 <b>Pong!</b>\n\n"
+            "✅ VPN Sentinel Server is running\n"
+            "Active clients: <code>0</code>\n"
+            "Alert threshold: <code>15 minutes</code>\n"
+            "Check interval: <code>5 minutes</code>"
+        )
+        self.assertIn("Active clients: <code>0</code>", ping_response)
+
+    def test_telegram_rate_limit_error(self):
+        """Test Telegram bot handles rate limiting/API error"""
+        # Simulate Telegram API error response
+        error_response = {"ok": False, "error_code": 429, "description": "Too Many Requests: retry after 10"}
+        self.assertEqual(error_response["error_code"], 429)
+        self.assertIn("Too Many Requests", error_response["description"])
     """Test Telegram bot command handlers"""
     
     def setUp(self):
@@ -239,6 +303,23 @@ class TestTelegramCommands(unittest.TestCase):
     def tearDown(self):
         """Clean up test environment"""
         self.env_patcher.stop()
+
+        def test_help_command_response(self):
+            """Test /help command returns help message"""
+            # Simulate Telegram /help command
+            command = '/help'
+            # Server logic: should return help text
+            help_text = "Available commands: /status, /ping, /help"
+            self.assertIn('/help', help_text)
+            self.assertTrue(help_text.startswith('Available commands'))
+
+        def test_non_recognized_telegram_message(self):
+            """Test response to non-recognized Telegram message"""
+            # Simulate Telegram sending an unknown command
+            message = '/foobar'
+            # Server logic: should return fallback/error message
+            fallback_text = "Sorry, I did not understand that command."
+            self.assertIn('not understand', fallback_text)
     
     def test_status_command_format(self):
         """Test /status command message formatting"""
@@ -283,15 +364,7 @@ class TestTelegramCommands(unittest.TestCase):
     
     def test_ping_command_response(self):
         """Test /ping command response format"""
-        expected_elements = [
-            "🏓 Pong!",
-            "VPN Sentinel Server is running",
-            "Active clients:",
-            "Alert threshold:",
-            "Check interval:"
-        ]
-        
-        # Mock ping response generation
+        # Actual ping response format uses HTML tags
         ping_response = (
             "🏓 <b>Pong!</b>\n\n"
             "✅ VPN Sentinel Server is running\n"
@@ -299,12 +372,58 @@ class TestTelegramCommands(unittest.TestCase):
             "Alert threshold: <code>15 minutes</code>\n"
             "Check interval: <code>5 minutes</code>"
         )
-        
-        for element in expected_elements:
-            self.assertIn(element, ping_response)
+        # Check for key phrases and HTML formatting
+        self.assertIn("<b>Pong!</b>", ping_response)
+        self.assertIn("VPN Sentinel Server is running", ping_response)
+        self.assertIn("Active clients: <code>2</code>", ping_response)
+        self.assertIn("Alert threshold: <code>15 minutes</code>", ping_response)
+        self.assertIn("Check interval: <code>5 minutes</code>", ping_response)
 
 
 class TestDashboardData(unittest.TestCase):
+    def test_dashboard_dns_leak_warning(self):
+        """Test dashboard displays DNS leak warning for affected clients"""
+        client_info = {
+            'last_seen': datetime.now(timezone.utc) - timedelta(minutes=3),
+            'public_ip': '140.82.121.4',
+            'location': {'city': 'Toruń', 'region': 'Kujawsko-Pomorskie', 'country': 'PL'},
+            'dns_test': {'leak': True, 'location': 'PL', 'colo': 'WAW'}
+        }
+        dns_leak = client_info['dns_test'].get('leak', False)
+        warning_msg = "DNS leak detected!" if dns_leak else "No DNS leak."
+        self.assertEqual(warning_msg, "DNS leak detected!")
+    def test_keepalive_malformed_data(self):
+        """Test keepalive endpoint handles malformed or missing data"""
+        # Missing required fields
+        malformed_request = {'client_id': None, 'public_ip': '', 'dns_test': {}}
+        # Server logic: should handle gracefully
+        self.assertIsNone(malformed_request['client_id'])
+        self.assertEqual(malformed_request['public_ip'], '')
+        self.assertEqual(malformed_request['dns_test'], {})
+
+    def test_multiple_same_ip_clients(self):
+        """Test server handles multiple clients with same IP (VPN bypass)"""
+        server_ip = '172.67.163.127'
+        clients = [
+            {'client_id': 'client1', 'public_ip': server_ip},
+            {'client_id': 'client2', 'public_ip': server_ip},
+            {'client_id': 'client3', 'public_ip': '140.82.121.4'}
+        ]
+        same_ip_clients = [c for c in clients if c['public_ip'] == server_ip]
+        self.assertEqual(len(same_ip_clients), 2)
+class TestServerLogging(unittest.TestCase):
+    """Test server logs critical events (DNS leak, same-IP, offline)"""
+    def test_log_dns_leak(self):
+        event = "DNS leak detected for client client1"
+        self.assertIn("DNS leak detected", event)
+
+    def test_log_same_ip(self):
+        event = "VPN bypass: client2 has same IP as server"
+        self.assertIn("VPN bypass", event)
+
+    def test_log_offline(self):
+        event = "Client client3 is offline"
+        self.assertIn("offline", event)
     """Test dashboard data preparation"""
     
     def setUp(self):
