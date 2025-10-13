@@ -7,6 +7,8 @@
 qbittorrent/
 website-data/
 wiki-content/
+vpn-client/
+gluetun/
 
 # Logs
 *.log

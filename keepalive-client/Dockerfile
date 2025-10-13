@@ -70,13 +70,13 @@ RUN apk add --no-cache curl \
 # -----------------------------------------------------------------------------
 # Copy the keepalive monitoring script from local directory to container
 # The script contains all the VPN monitoring and DNS leak detection logic
-COPY keepalive.sh /app/keepalive.sh
+COPY keepalive-client.sh /app/keepalive-client.sh
 
 # Make the script executable and set proper ownership
 # Ensures the script can be executed by the container runtime
-RUN chmod +x /app/keepalive.sh \
-    && echo "✅ Keepalive script installed and configured" \
-    && ls -la /app/keepalive.sh
+RUN chmod +x /app/keepalive-client.sh \
+    && echo "Keepalive client container built successfully" \
+    && ls -la /app/keepalive-client.sh
 
 # -----------------------------------------------------------------------------
 # Working Directory and User Setup
@@ -99,10 +99,10 @@ WORKDIR /app
 # and provides better logging than external loop management
 #
 # Alternative approaches:
-# 1. External loop: CMD ["sh", "-c", "while true; do /app/keepalive.sh; sleep 300; done"]
+# 1. External loop: CMD ["sh", "-c", "while true; do /app/keepalive-client.sh; sleep 300; done"]
 # 2. Cron-based: Install crond and use crontab (more complex, less real-time feedback)
-# 3. Script-managed: Let keepalive.sh handle its own loop (current approach - recommended)
-CMD ["/app/keepalive.sh"]
+# 3. Script-managed: Let keepalive-client.sh handle its own loop (current approach - recommended)
+CMD ["/app/keepalive-client.sh"]
 
 # -----------------------------------------------------------------------------
 # Container Metadata
@@ -120,7 +120,7 @@ LABEL maintainer="VPN Sentinel Project" \
 # -----------------------------------------------------------------------------
 # Uncomment to add health check that verifies the keepalive process is running
 # HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-#   CMD pgrep -f keepalive.sh || exit 1
+#   CMD pgrep -f keepalive-client.sh || exit 1
 
 # =============================================================================
 # End of VPN Sentinel Client Dockerfile

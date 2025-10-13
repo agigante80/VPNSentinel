@@ -20,6 +20,7 @@
 # Environment Variables:
 # - KEEPALIVE_SERVER_URL: URL of the monitoring server (required)
 # - KEEPALIVE_CLIENT_ID: Unique identifier for this client (default: synology-vpn-media)
+# - VPN_SENTINEL_CLIENT_NAME: Display name for Telegram notifications (generates random if empty)
 # - KEEPALIVE_API_KEY: Optional API key for server authentication
 # - TZ: Timezone for timestamp formatting (default: system timezone)
 #
@@ -48,6 +49,25 @@
 
 SERVER_URL="${KEEPALIVE_SERVER_URL}"                    # Monitoring server endpoint
 CLIENT_ID="${KEEPALIVE_CLIENT_ID:-synology-vpn-media}"  # Unique client identifier
+
+# Client display name for Telegram notifications
+# If VPN_SENTINEL_CLIENT_NAME is empty, generate a random 12-digit identifier
+if [ -z "${VPN_SENTINEL_CLIENT_NAME}" ]; then
+    # Generate random 12-digit identifier using timestamp and container hostname
+    TIMESTAMP_PART=$(date +%s | tail -c 7)  # Last 6 digits of timestamp
+    # Try different methods for random numbers, fallback to hostname-based if needed
+    if command -v shuf >/dev/null 2>&1; then
+        RANDOM_PART=$(shuf -i 100000-999999 -n 1)
+    elif [ -n "$RANDOM" ]; then
+        RANDOM_PART=$(printf "%06d" $((RANDOM % 900000 + 100000)))
+    else
+        # Fallback: use hostname hash
+        RANDOM_PART=$(hostname | od -An -N3 -tu1 | tr -d ' ' | head -c 6)
+    fi
+    CLIENT_NAME="vpn-client-${TIMESTAMP_PART}${RANDOM_PART}"
+else
+    CLIENT_NAME="${VPN_SENTINEL_CLIENT_NAME}"
+fi
 TIMEOUT=30                                              # HTTP request timeout (seconds)
 INTERVAL=300                                            # Keepalive interval (5 minutes)
 
@@ -55,6 +75,7 @@ INTERVAL=300                                            # Keepalive interval (5 
 echo "🚀 Starting VPN Keepalive Client"
 echo "📡 Server: $SERVER_URL"
 echo "🏷️  Client ID: $CLIENT_ID"
+echo "📛  Client Name: $CLIENT_NAME"
 echo "⏱️  Interval: ${INTERVAL}s (5 minutes)"
 echo ""
 
@@ -142,6 +163,7 @@ send_keepalive() {
       ${KEEPALIVE_API_KEY:+-H "Authorization: Bearer $KEEPALIVE_API_KEY"} \
       -d "{
         \"client_id\": \"$CLIENT_ID\",
+        \"client_name\": \"$CLIENT_NAME\",
         \"timestamp\": \"$TIMESTAMP\",
         \"public_ip\": \"$PUBLIC_IP\",
         \"status\": \"alive\",

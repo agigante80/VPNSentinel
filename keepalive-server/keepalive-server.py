@@ -364,10 +364,17 @@ def security_middleware():
         log_access(endpoint, client_ip, user_agent, auth_header, "429_RATE_LIMITED")
         return jsonify({'error': 'Rate limit exceeded'}), 429
     
-    # API Key Authentication Check (if configured)
-    if API_KEY and auth_header != f'Bearer {API_KEY}':
+    # API Key Authentication Check (REQUIRED - not optional)
+    # Server will not respond to any requests without valid API key
+    if not API_KEY:
+        # API key not configured - server should not start
+        log_access(endpoint, client_ip, user_agent, auth_header, "500_NO_API_KEY")
+        return jsonify({'error': 'Server configuration error'}), 500
+    
+    if auth_header != f'Bearer {API_KEY}':
         log_access(endpoint, client_ip, user_agent, auth_header, "401_UNAUTHORIZED")
-        return jsonify({'error': 'Unauthorized'}), 401
+        # Return no response body to hide server existence
+        return '', 401
     
     # Request allowed - log successful access
     log_access(endpoint, client_ip, user_agent, auth_header, "200_OK")
@@ -402,11 +409,8 @@ def before_request():
         3. Log all access attempts with detailed information
         4. Block or allow request based on security results
     """
-    # Skip security checks for monitoring/health endpoints
-    if request.path in ['/health']:
-        return None
-    
-    # Apply comprehensive security middleware
+    # Apply comprehensive security middleware to ALL endpoints
+    # No exemptions - all endpoints require proper authentication
     security_result = security_middleware()
     if security_result:
         return security_result
@@ -480,6 +484,7 @@ def keepalive():
             return jsonify({'error': 'Invalid JSON payload'}), 400
             
         client_id = data.get('client_id', 'unknown')
+        client_name = data.get('client_name', client_id)  # Use client_id as fallback if name not provided
         public_ip = data.get('public_ip', 'unknown')
         
         # Determine if this is a new connection or IP change event
@@ -494,6 +499,7 @@ def keepalive():
         # Update client registry with comprehensive status information
         clients[client_id] = {
             'last_seen': get_current_time(),
+            'client_name': client_name,
             'public_ip': public_ip,
             'status': 'alive',
             'location': {
@@ -524,7 +530,7 @@ def keepalive():
             else:
                 message = f"🔄 <b>VPN IP Changed!</b>\n\nPrevious IP: <code>{previous_ip}</code>\n"
             
-            message += f"Client: <code>{client_id}</code>\n"
+            message += f"Client: <code>{client_name}</code>\n"
             message += f"VPN IP: <code>{public_ip}</code>\n"
             message += f"📍 Location: <b>{city}, {region}, {country}</b>\n"
             message += f"🏢 Provider: <code>{org}</code>\n"
@@ -581,6 +587,7 @@ def fake_heartbeat():
         data = request.get_json() or {}
         
         client_id = data.get('client_id', f'test-client-{int(time.time())}')
+        client_name = data.get('client_name', client_id)  # Use client_id as fallback if name not provided
         public_ip = data.get('public_ip', '192.168.1.100')
         
         # Default test location data
@@ -608,6 +615,7 @@ def fake_heartbeat():
         
         clients[client_id] = {
             'last_seen': get_current_time(),
+            'client_name': client_name,
             'public_ip': public_ip,
             'status': 'alive',
             'location': {
@@ -637,7 +645,7 @@ def fake_heartbeat():
             else:
                 message = f"🧪 <b>TEST VPN IP Changed!</b>\n\nPrevious IP: <code>{previous_ip}</code>\n"
             
-            message += f"Client: <code>{client_id}</code>\n"
+            message += f"Client: <code>{client_name}</code>\n"
             message += f"VPN IP: <code>{public_ip}</code>\n"
             message += f"📍 Location: <b>{city}, {region}, {country}</b>\n"
             message += f"🏢 Provider: <code>{org}</code>\n"
@@ -678,7 +686,7 @@ def fake_heartbeat():
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Simple health check endpoint (bypasses security)"""
+    """Health check endpoint - requires API key authentication like all other endpoints"""
     return jsonify({
         'status': 'healthy',
         'server_time': get_current_time().isoformat(),
@@ -742,8 +750,11 @@ def check_clients():
                         dns_location = client_dns.get('location', 'Unknown')
                         dns_colo = client_dns.get('colo', 'Unknown')
                         
+                        # Get client display name, fallback to client_id
+                        client_name = info.get('client_name', client_id)
+                        
                         message = f"❌ <b>VPN Connection Lost!</b>\n\n"
-                        message += f"Client: <code>{client_id}</code>\n"
+                        message += f"Client: <code>{client_name}</code>\n"
                         message += f"Last IP: <code>{info['public_ip']}</code>\n"
                         message += f"📍 Last Location: <b>{city}, {region}, {country}</b>\n"
                         message += f"🏢 Provider: <code>{org}</code>\n"
@@ -907,6 +918,13 @@ def handle_unknown_command(text):
 if __name__ == '__main__':
     server_start_time = get_current_time()
     
+    # SECURITY: Require API key for server to start
+    if not API_KEY:
+        print("❌ SECURITY ERROR: KEEPALIVE_API_KEY environment variable is required!", flush=True)
+        print("The server will not start without proper API key configuration.", flush=True)
+        print("Set KEEPALIVE_API_KEY in your .env file or environment variables.", flush=True)
+        exit(1)
+    
     print("Starting Keepalive Server...", flush=True)
     print(f"Alert threshold: {ALERT_THRESHOLD_MINUTES} minutes", flush=True)
     print(f"Check interval: {CHECK_INTERVAL_MINUTES} minutes", flush=True)
@@ -919,7 +937,7 @@ if __name__ == '__main__':
     startup_message += f"Alert threshold: {ALERT_THRESHOLD_MINUTES} minutes\n"
     startup_message += f"Check interval: {CHECK_INTERVAL_MINUTES} minutes\n"
     startup_message += f"🛡️ Security: Rate limiting ({RATE_LIMIT_REQUESTS} req/min)\n"
-    startup_message += f"🔐 API Auth: {'Enabled' if API_KEY else 'Disabled'}\n"
+    startup_message += f"🔐 API Auth: Required and Enabled\n"
     startup_message += f"Started at: {server_start_time.strftime('%Y-%m-%d %H:%M:%S %Z')}\n\n"
     startup_message += f"💡 Send /ping to test the connection!\n"
     startup_message += f"📊 Send /status for detailed VPN status\n"

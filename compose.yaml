@@ -1,10 +1,13 @@
 # VPN Sentinel - Docker Compose Configuration
 # 
 # This setup provides a comprehensive VPN monitoring and DNS leak detection system:
-# - Gluetun VPN container (example - replace with your preferred VPN solution)
-# - VPN Sentinel Client (monitors from inside VPN network)
+# - Generic "vpn-client" container (Gluetun example included - replace with any VPN solution)
+# - VPN Sentinel Client (monitors from inside VPN network)  
 # - VPN Sentinel Server (receives reports and sends Telegram notifications)
 # - Dual-network architecture for reliable monitoring
+#
+# 🎯 UNIVERSAL COMPATIBILITY: Uses generic "vpn-client" container name
+# Just replace the vpn-client service with your preferred VPN solution!
 #
 # Prerequisites:
 # 1. Copy .env.example to .env and configure your values
@@ -53,21 +56,20 @@ services:
   # 2. Update network_mode in 'vpn-sentinel-client' to match your container name
   # 3. VPN Sentinel will work exactly the same with any VPN client!
   #
-  gluetun:
+  vpn-client:
     # 📝 EXAMPLE VPN CLIENT - Replace with your preferred VPN solution!
     image: qmcgaw/gluetun
-    container_name: gluetun
+    container_name: vpn-client
     cap_add:
       - NET_ADMIN  # Required for VPN tunnel creation
     devices:
       - /dev/net/tun:/dev/net/tun  # TUN device for VPN tunnel
-    ports:
+    ports: []  # No specific ports required for VPN Sentinel monitoring
       # Add any ports your applications need here
       # Example for a simple web service:
       # - 8080:8080  # Your application port
-      pass  # No specific ports required for VPN Sentinel monitoring
     volumes:
-      - ./gluetun:/gluetun  # VPN config and logs
+      - ./vpn-client:/gluetun  # VPN config and logs (path can be customized for your VPN client)
     environment:
       # 🔧 GLUETUN-SPECIFIC CONFIGURATION (adapt for your VPN client):
       - UPDATER_PERIOD=${UPDATER_PERIOD:-24h}              # Gluetun: Update check interval
@@ -76,7 +78,7 @@ services:
       - OPENVPN_USER=${VPN_USER}                           # Gluetun: VPN username  
       - OPENVPN_PASSWORD=${VPN_PASSWORD}                   # Gluetun: VPN password
       # 🌐 NETWORK CONFIGURATION (keep this for VPN Sentinel):
-      - FIREWALL_OUTBOUND_SUBNETS=10.50.0.0/16,10.51.0.0/16  # Allow VPN Sentinel communication
+      - FIREWALL_OUTBOUND_SUBNETS=172.28.0.0/16  # Allow VPN dockers communication
     networks:
       - vpn-sentinel-internal  # Internal network for VPN Sentinel monitoring
     restart: always
@@ -99,21 +101,21 @@ services:
   #   volumes:
   #     - ./qbittorrent/config:/config
   #     - ./downloads:/downloads
-  #   network_mode: service:gluetun  # Route through VPN
+  #   network_mode: service:vpn-client  # Route through VPN
   #   depends_on:
-  #     - gluetun
+  #     - vpn-client
   #   restart: unless-stopped
   #
   # # Web application example:
   # your-web-app:
   #   image: your-app:latest
   #   container_name: your-web-app
-  #   network_mode: service:gluetun  # Route through VPN
+  #   network_mode: service:vpn-client  # Route through VPN
   #   depends_on:
-  #     - gluetun
+  #     - vpn-client
   #   restart: unless-stopped
   #
-  # The key is using: network_mode: service:gluetun
+  # The key is using: network_mode: service:vpn-client
   # This routes all traffic through the VPN container.
 
   # =============================================================================
@@ -132,10 +134,11 @@ services:
     environment:
       - KEEPALIVE_SERVER_URL=${KEEPALIVE_SERVER_URL:-http://vpn-sentinel-server:5000}
       - KEEPALIVE_CLIENT_ID=${KEEPALIVE_CLIENT_ID:-vpn-monitor-main}
+      - VPN_SENTINEL_CLIENT_NAME=${VPN_SENTINEL_CLIENT_NAME}
       - KEEPALIVE_API_KEY=${KEEPALIVE_API_KEY}
       - TZ=${TZ:-UTC}
     volumes:
-      - ./keepalive-client/keepalive.sh:/tmp/keepalive.sh:ro
+      - ./keepalive-client/keepalive-client.sh:/tmp/keepalive-client.sh:ro
     # =============================================================================
     # DNS Leak Testing Configuration
     # =============================================================================
@@ -149,7 +152,7 @@ services:
     #   - 208.67.222.222    # OpenDNS (US-based)
     #   - 9.9.9.9           # Quad9 DNS (various locations)
     # =============================================================================
-    network_mode: service:gluetun  # 🔄 CHANGE 'gluetun' to YOUR VPN container name!
+    network_mode: service:vpn-client  # 🔄 CHANGE 'vpn-client' to YOUR VPN container name!
     command: >
       sh -c "
       echo '🚀 VPN Sentinel Client Starting...' &&
@@ -158,13 +161,13 @@ services:
       sleep 30 &&
       echo '📁 Setting up monitoring script...' &&
       mkdir -p /home/curl_user &&
-      cp /tmp/keepalive.sh /home/curl_user/keepalive.sh &&
-      chmod +x /home/curl_user/keepalive.sh &&
+      cp /tmp/keepalive-client.sh /home/curl_user/keepalive-client.sh &&
+      chmod +x /home/curl_user/keepalive-client.sh &&
       echo '🔍 Starting continuous VPN monitoring...' &&
-      exec /home/curl_user/keepalive.sh
+      exec /home/curl_user/keepalive-client.sh
       "
     depends_on:
-      - gluetun                  # 🔄 CHANGE 'gluetun' to YOUR VPN container name!
+      - vpn-client               # 🔄 CHANGE 'vpn-client' to YOUR VPN container name!
       - vpn-sentinel-server      # Requires monitoring server for reporting
     restart: unless-stopped
 
@@ -194,7 +197,7 @@ services:
       - ./keepalive-server/keepalive-server.py:/app/keepalive-server.py:ro
     working_dir: /app
     networks:
-      - vpn-sentinel-isolated  # Isolated network (bypasses VPN for guaranteed access)
+      - vpn-sentinel-server  # Server network (bypasses VPN for guaranteed access)
     command: >
       sh -c "
       echo '📦 Installing VPN Sentinel Server dependencies...' &&
@@ -222,62 +225,20 @@ networks:
     name: vpn-sentinel-internal
     ipam:
       config:
-        - subnet: 10.50.0.0/16
-          gateway: 10.50.0.1
+        - subnet: 172.28.0.0/16
     labels:
       - "vpn-sentinel.network.type=internal"
       - "vpn-sentinel.network.purpose=vpn-communication"
   
-  # Isolated network for VPN Sentinel Server
+  # Server network for VPN Sentinel Server
   # Ensures the monitoring server can always send Telegram notifications
   # even when VPN connection fails completely
-  vpn-sentinel-isolated:
+  vpn-sentinel-server:
     driver: bridge
-    name: vpn-sentinel-isolated
+    name: vpn-sentinel-server
     ipam:
       config:
-        - subnet: 10.51.0.0/16
-          gateway: 10.51.0.1
+        - subnet: 172.29.0.0/16
     labels:
-      - "vpn-sentinel.network.type=isolated" 
+      - "vpn-sentinel.network.type=server" 
       - "vpn-sentinel.network.purpose=telegram-notifications"
-
-# =============================================================================
-# VPN SENTINEL DEPLOYMENT GUIDE
-# =============================================================================
-#
-# 🚀 Quick Start:
-# 1. Copy .env.example to .env: cp .env.example .env
-# 2. Edit .env with your VPN credentials and Telegram bot info
-# 3. (Optional) Replace 'gluetun' with your preferred VPN client
-# 4. Start the stack: docker compose up -d
-# 5. Check logs: docker compose logs -f vpn-sentinel-client
-# 6. Test with Telegram: Send /ping to your bot
-#
-# 🔗 Key URLs:
-# - VPN Sentinel API: http://localhost:5000
-# - Health Check: http://localhost:5000/health
-# - Status API: http://localhost:5000/status
-#
-# 🔄 Replace Gluetun with your VPN client:
-# 1. Replace 'gluetun' service with your VPN client configuration
-# 2. Change network_mode: service:your-vpn-container-name
-# 3. Update depends_on: your-vpn-container-name
-# 4. VPN Sentinel will work exactly the same!
-#
-# 📱 Telegram Commands:
-# - /ping - Test connectivity
-# - /status - Get VPN status  
-# - /help - Show all commands
-#
-# 🛡️ Security Features:
-# - API key authentication (set KEEPALIVE_API_KEY in .env)
-# - Rate limiting (30 req/min by default)
-# - IP whitelisting (set ALLOWED_IPS in .env)
-#
-# 🔧 Customization:
-# - Change monitoring interval: Edit INTERVAL in keepalive.sh (default: 5min)
-# - Change alert threshold: Edit ALERT_THRESHOLD_MINUTES in keepalive-server.py (default: 15min)
-# - Add your applications: Use network_mode: service:gluetun
-#
-# =============================================================================

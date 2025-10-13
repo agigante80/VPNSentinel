@@ -170,7 +170,7 @@ docker compose logs -f keepalive-server
 | Service | URL | Purpose |
 |---------|-----|---------|
 | **Keepalive Server API** | http://your-server:5000 | Monitor VPN status, health checks |
-| **Gluetun VPN (Example)** | - | Your VPN container (replace with any VPN) |
+| **VPN Client Container** | - | Your VPN container (any Docker VPN solution) |
 
 ### 📱 **Telegram Bot Commands**
 Once your Telegram bot is configured, use these commands:
@@ -257,12 +257,12 @@ services:
       - KEEPALIVE_API_KEY=${KEEPALIVE_API_KEY}
       - TZ=${TZ}
     volumes:
-      - ./keepalive-client/keepalive.sh:/tmp/keepalive.sh:ro
-    network_mode: service:your-vpn-container  # Routes through your VPN tunnel
+      - ./keepalive-client/keepalive-client.sh:/tmp/keepalive-client.sh:ro
+    network_mode: service:vpn-client  # Routes through your VPN tunnel
     command: >
-      sh -c "sleep 30 && cp /tmp/keepalive.sh /home/curl_user/keepalive.sh && 
-             chmod +x /home/curl_user/keepalive.sh && 
-             exec /home/curl_user/keepalive.sh"
+      sh -c "sleep 30 && cp /tmp/keepalive-client.sh /home/curl_user/keepalive-client.sh && 
+             chmod +x /home/curl_user/keepalive-client.sh && 
+             exec /home/curl_user/keepalive-client.sh"
     depends_on:
       - your-vpn-container
     restart: unless-stopped
@@ -277,15 +277,16 @@ services:
 VPN Sentinel provides REST API endpoints for integration with monitoring tools:
 
 ```bash
-# Get current VPN status (JSON response)
-curl http://your-server:5000/status
+# Get current VPN status (JSON response) - requires API key
+curl -H "Authorization: Bearer your-api-key-here" http://your-server:5000/status
 
-# Health check (uptime monitoring)
-curl http://your-server:5000/health
+# Health check (uptime monitoring) - requires API key
+curl -H "Authorization: Bearer your-api-key-here" http://your-server:5000/health
 
-# Test heartbeat (for debugging)
+# Test heartbeat (for debugging) - requires API key
 curl -X POST http://your-server:5000/fake-heartbeat \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key-here" \
   -d '{"client_id": "test", "public_ip": "1.2.3.4"}'
 ```
 
@@ -431,8 +432,8 @@ docker logs vpn-sentinel-client | tail -20
 # Test server connectivity from client (through VPN)
 docker exec vpn-sentinel-client curl -v http://your-server-ip:5000/health
 
-# Check if server is running and port is open
-curl http://localhost:5000/health
+# Check if server is running and port is open (requires API key)
+curl -H "Authorization: Bearer your-api-key-here" http://localhost:5000/health
 
 # Verify port 5000 is accessible from internet
 # From another machine: curl http://your-public-ip:5000/health
@@ -473,9 +474,9 @@ docker exec gluetun nslookup google.com
 ```bash
 # Some VPN providers use different countries for DNS
 # Check if this is expected behavior from your provider
-# You can modify the DNS leak detection logic in keepalive.sh
+# You can modify the DNS leak detection logic in keepalive-client.sh
 
-# Temporary disable DNS leak alerts (edit keepalive.sh)
+# Temporary disable DNS leak alerts (edit keepalive-client.sh)
 # Comment out DNS leak comparison section if needed
 ```
 
@@ -534,9 +535,10 @@ keepalive-client:
 
 #### 🔄 **Manual Testing**
 ```bash
-# Send fake heartbeat to test notifications
+# Send fake heartbeat to test notifications (requires API key)
 curl -X POST http://localhost:5000/fake-heartbeat \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key-here" \
   -d '{
     "client_id": "test-client",
     "public_ip": "1.2.3.4", 
@@ -552,10 +554,15 @@ curl -X POST http://localhost:5000/fake-heartbeat \
 
 ### 🔒 **Security Hardening**
 ```bash
-# Set strong API key
+# 🔐 REQUIRED: Set strong API key (server won't start without it)
 KEEPALIVE_API_KEY=$(openssl rand -hex 32)
 
-# Enable IP whitelisting
+# 🔒 ALL endpoints now require API key authentication:
+# - /health, /status, /keepalive, /fake-heartbeat
+# - Server returns no response without valid API key
+# - Helps hide server existence from unauthorized access
+
+# Enable IP whitelisting for additional security
 ALLOWED_IPS="192.168.1.0/24,10.0.0.0/8"  
 
 # Reduce rate limits for production
@@ -564,15 +571,15 @@ MAX_REQUESTS_PER_MINUTE=10
 
 ### 📊 **Monitoring Integration**
 ```bash
-# Add to your monitoring stack
+# Add to your monitoring stack (all endpoints require API key authentication)
 # Prometheus endpoint (future feature)
-curl http://localhost:5000/metrics
+curl -H "Authorization: Bearer your-api-key-here" http://localhost:5000/metrics
 
 # Health check for uptime monitoring
-curl http://localhost:5000/health
+curl -H "Authorization: Bearer your-api-key-here" http://localhost:5000/health
 
 # JSON status for dashboards
-curl http://localhost:5000/status
+curl -H "Authorization: Bearer your-api-key-here" http://localhost:5000/status
 ```
 
 ### 🔄 **Backup Configuration**
@@ -628,8 +635,9 @@ VPN Sentinel works with **any Docker VPN container**. Below are configuration ex
 
 ### 🔹 **Gluetun (Example - 70+ providers)**
 ```yaml
-gluetun:
+vpn-client:  # Generic container name - works with VPN Sentinel
   image: qmcgaw/gluetun
+  container_name: vpn-client
   environment:
     - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}
     - OPENVPN_USER=${VPN_USER}
@@ -638,16 +646,18 @@ gluetun:
 
 ### 🔹 **OpenVPN**
 ```yaml
-openvpn-client:
+vpn-client:  # Generic container name - works with VPN Sentinel
   image: dperson/openvpn-client
+  container_name: vpn-client
   volumes:
     - ./vpn-config.ovpn:/vpn/config.ovpn
 ```
 
 ### 🔹 **WireGuard**
 ```yaml
-wireguard:
+vpn-client:  # Generic container name - works with VPN Sentinel
   image: linuxserver/wireguard
+  container_name: vpn-client
   environment:
     - PEERS=1
   volumes:
@@ -656,15 +666,16 @@ wireguard:
 
 ### 🔹 **Transmission with VPN**
 ```yaml
-transmission-vpn:
+vpn-client:  # Generic container name - works with VPN Sentinel
   image: haugene/transmission-openvpn
+  container_name: vpn-client
   environment:
     - OPENVPN_PROVIDER=NORDVPN
     - OPENVPN_USERNAME=${VPN_USER}
     - OPENVPN_PASSWORD=${VPN_PASSWORD}
 ```
 
-**Just change the `network_mode: service:gluetun` to match your VPN container name!**
+**Just use the generic `network_mode: service:vpn-client` - works with any VPN container!**
 
 ## � **VPN Client Comparison**
 
@@ -695,26 +706,32 @@ VPN Sentinel is **VPN client agnostic** - it works with any Docker VPN solution.
 
 ### 🔄 **Switching VPN Clients**
 
-To use a different VPN client with VPN Sentinel:
+VPN Sentinel uses a **generic "vpn-client" container name**, making it easy to switch VPN solutions:
 
-1. **Replace the VPN service** in `docker-compose.yaml`
-2. **Update network_mode** in `vpn-sentinel-client` to match your VPN container name
+1. **Replace the VPN service** in `docker-compose.yaml` 
+2. **Keep the container name as "vpn-client"** - no network_mode changes needed!
 3. **Adjust environment variables** in `.env` to match your VPN client's requirements
-4. **Keep VPN Sentinel components unchanged** - they work with any VPN!
+4. **VPN Sentinel components work unchanged** - they always connect to "vpn-client"
 
 **Example with WireGuard:**
 ```yaml
-# Replace gluetun service with:
-wireguard:
+# Replace the vpn-client service with WireGuard:
+vpn-client:  # Keep this generic name - VPN Sentinel connects to this
   image: linuxserver/wireguard
-  container_name: my-wireguard-vpn
+  container_name: vpn-client  # Generic name - no changes needed elsewhere
   # ... your WireGuard config ...
 
-# Update VPN Sentinel client:
+# VPN Sentinel client automatically works - no changes needed:
 vpn-sentinel-client:
   # ... other config ...
-  network_mode: service:my-wireguard-vpn  # Changed from 'gluetun'
+  network_mode: service:vpn-client  # Generic name - always works!
 ```
+
+**🎯 Benefits of Generic Naming:**
+- ✅ **No Configuration Changes**: VPN Sentinel always connects to "vpn-client"
+- ✅ **Easy VPN Switching**: Just replace the service definition  
+- ✅ **Universal Compatibility**: Works with any Docker VPN container
+- ✅ **Simplified Setup**: No need to update multiple references
 
 ## ⚠️ **Current Limitations**
 
