@@ -78,7 +78,7 @@ import time              # Time handling and sleep functions
 import threading         # Background thread management for monitoring
 import os                # Environment variable access
 from datetime import datetime, timedelta  # Date/time operations
-from flask import Flask, request, jsonify # Web framework and HTTP utilities
+from flask import Flask, request, jsonify, render_template_string # Web framework and HTTP utilities
 from collections import defaultdict, deque # Data structures for rate limiting
 import requests          # HTTP client for Telegram API communication
 import pytz             # Timezone handling for accurate timestamps
@@ -87,8 +87,9 @@ import pytz             # Timezone handling for accurate timestamps
 # Application Configuration and Constants
 # =============================================================================
 
-# Initialize Flask application
-app = Flask(__name__)
+# Initialize Flask applications
+api_app = Flask(__name__)               # API server application
+dashboard_app = Flask(__name__)         # Dashboard web application
 
 # Telegram Bot Configuration
 # These credentials enable the server to send notifications via Telegram Bot API
@@ -108,8 +109,15 @@ RATE_LIMIT_REQUESTS = int(os.getenv("VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS", "
 RATE_LIMIT_WINDOW = 60                                                # Time window in seconds
 
 # Monitoring Configuration
-ALERT_THRESHOLD_MINUTES = 15    # Minutes before considering a client offline
-CHECK_INTERVAL_MINUTES = 5      # How often to check client status (background thread)
+ALERT_THRESHOLD_MINUTES = int(os.getenv("VPN_SENTINEL_SERVER_ALERT_THRESHOLD_MINUTES", "15"))    # Minutes before considering a client offline
+CHECK_INTERVAL_MINUTES = int(os.getenv("VPN_SENTINEL_SERVER_CHECK_INTERVAL_MINUTES", "5"))      # How often to check client status (background thread)
+
+# Server Port Configuration  
+API_PORT = int(os.getenv("VPN_SENTINEL_SERVER_API_PORT", "5000"))                               # API server port for client connections
+DASHBOARD_PORT = int(os.getenv("VPN_SENTINEL_SERVER_DASHBOARD_PORT", "8080"))                   # Web dashboard port
+
+# Web Dashboard Configuration
+WEB_DASHBOARD_ENABLED = os.getenv("VPN_SENTINEL_SERVER_DASHBOARD_ENABLED", "true").lower() == "true"  # Enable/disable web dashboard
 
 # Timezone Configuration
 # Ensures consistent timestamp formatting across different deployment environments
@@ -443,7 +451,7 @@ def security_middleware():
 # Flask Application Middleware
 # =============================================================================
 
-@app.before_request
+@api_app.before_request
 def before_request():
     """
     Apply security middleware to all incoming HTTP requests.
@@ -456,6 +464,7 @@ def before_request():
     
     Exemptions:
         - /health endpoint bypasses security for monitoring systems
+        - /dashboard endpoint bypasses security when web dashboard is enabled
         - Additional paths can be added to exemption list as needed
         
     Returns:
@@ -468,9 +477,12 @@ def before_request():
         3. Log all access attempts with detailed information
         4. Block or allow request based on security results
     """
-    # Exempt health check endpoint from authentication for monitoring systems
+    # Exempt public endpoints from authentication
     if request.path == f'{API_PATH}/health':
-        return None
+        return None  # Health check endpoint for monitoring systems
+    
+    if request.path == '/dashboard' and WEB_DASHBOARD_ENABLED:
+        return None  # Web dashboard endpoint (public access when enabled)
         
     # Apply comprehensive security middleware to all other endpoints
     security_result = security_middleware()
@@ -481,7 +493,7 @@ def before_request():
 # API Route Handlers
 # =============================================================================
 
-@app.route(f'{API_PATH}/keepalive', methods=['POST'])
+@api_app.route(f'{API_PATH}/keepalive', methods=['POST'])
 def keepalive():
     """
     Main keepalive endpoint for receiving VPN client status updates.
@@ -648,7 +660,7 @@ def keepalive():
         log_error("api", f"Error processing keepalive: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
-@app.route(f'{API_PATH}/status', methods=['GET'])
+@api_app.route(f'{API_PATH}/status', methods=['GET'])
 def status():
     now = get_current_time()
     status_info = {}
@@ -664,7 +676,7 @@ def status():
     
     return jsonify(status_info)
 
-@app.route(f'{API_PATH}/fake-heartbeat', methods=['POST'])
+@api_app.route(f'{API_PATH}/fake-heartbeat', methods=['POST'])
 def fake_heartbeat():
     """Testing endpoint to simulate client heartbeats"""
     try:
@@ -781,7 +793,7 @@ def fake_heartbeat():
         log_error("api", f"Error processing fake heartbeat: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
-@app.route(f'{API_PATH}/health', methods=['GET'])
+@api_app.route(f'{API_PATH}/health', methods=['GET'])
 def health():
     """Health check endpoint - public endpoint for monitoring systems (no authentication required)"""
     # Log health check access (this endpoint bypasses authentication)
@@ -797,10 +809,442 @@ def health():
     })
 
 # =============================================================================
+# Web Dashboard - Client Status Viewer
+# =============================================================================
+
+# HTML template for the web dashboard
+DASHBOARD_HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPN Sentinel Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .refresh-info {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #666;
+            font-size: 0.95em;
+        }
+        
+        .auto-refresh {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            min-width: 800px;
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+        }
+        
+        th, td {
+            padding: 15px 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.5px;
+        }
+        
+        tbody tr:hover {
+            background: #f8f9fa;
+            transform: translateY(-1px);
+            transition: all 0.2s ease;
+        }
+        
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .status-online {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .status-offline {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .status-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .ip-address {
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        
+        .location {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .time-info {
+            font-size: 0.85em;
+            color: #888;
+        }
+        
+        .no-clients {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .no-clients-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9em;
+            border-top: 1px solid #eee;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .stats {
+                gap: 15px;
+            }
+            
+            .stat-card {
+                padding: 10px 15px;
+            }
+            
+            .content {
+                padding: 20px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔒 VPN Sentinel Dashboard</h1>
+            <div class="subtitle">Real-time VPN Client Monitoring</div>
+            <div class="stats">
+                <div class="stat-card">
+                    <span class="stat-number">{{ total_clients }}</span>
+                    <span class="stat-label">Total Clients</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number">{{ online_clients }}</span>
+                    <span class="stat-label">Online</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number">{{ offline_clients }}</span>
+                    <span class="stat-label">Offline</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="refresh-info">
+                <span class="auto-refresh">🔄 Auto-refresh: 30s</span> | Last updated: {{ current_time }}
+            </div>
+            
+            {% if clients %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Client ID</th>
+                            <th>Status</th>
+                            <th>Public IP</th>
+                            <th>Location</th>
+                            <th>Provider</th>
+                            <th>DNS Status</th>
+                            <th>Last Seen</th>
+                            <th>Last Contact</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for client in clients %}
+                        <tr>
+                            <td><strong>{{ client.id }}</strong></td>
+                            <td>
+                                <span class="status-badge {{ client.status_class }}">
+                                    {{ client.status_icon }} {{ client.status_text }}
+                                </span>
+                            </td>
+                            <td><code class="ip-address">{{ client.public_ip }}</code></td>
+                            <td class="location">
+                                🌍 {{ client.location_display }}<br>
+                                <small>🕒 {{ client.timezone }}</small>
+                            </td>
+                            <td>{{ client.provider }}</td>
+                            <td>
+                                {{ client.dns_status_icon }} {{ client.dns_location }}<br>
+                                <small>{{ client.dns_server }}</small>
+                            </td>
+                            <td class="time-info">
+                                <strong>{{ client.minutes_ago }}m ago</strong><br>
+                                <small>{{ client.last_seen_relative }}</small>
+                            </td>
+                            <td class="time-info">{{ client.last_seen_formatted }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="no-clients">
+                <div class="no-clients-icon">🔌</div>
+                <h3>No VPN Clients Connected</h3>
+                <p>Waiting for VPN clients to connect and report their status...</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="footer">
+            <p>VPN Sentinel Server | Server Time: {{ server_time }} | Dashboard Port: {{ dashboard_port }}</p>
+        </div>
+    </div>
+    
+    <script>
+        // Auto-refresh the page every 30 seconds
+        setTimeout(function() {
+            window.location.reload();
+        }, 30000);
+        
+        // Add real-time clock
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleString();
+            // Update any existing clock elements
+        }
+        setInterval(updateClock, 1000);
+    </script>
+</body>
+</html>
+'''
+
+@dashboard_app.route('/dashboard', methods=['GET'])
+def web_dashboard():
+    """Web dashboard showing client status in a table format"""
+    if not WEB_DASHBOARD_ENABLED:
+        return jsonify({
+            'error': 'Web dashboard is disabled',
+            'message': 'Set VPN_SENTINEL_SERVER_DASHBOARD_ENABLED=true to enable'
+        }), 404
+    
+    # Log dashboard access
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    log_info("dashboard", f"🌐 Dashboard access from {client_ip} | UA: {user_agent[:50]}...")
+    
+    now = get_current_time()
+    client_data = []
+    online_count = 0
+    offline_count = 0
+    
+    for client_id, info in clients.items():
+        minutes_ago = int((now - info['last_seen']).total_seconds() / 60)
+        
+        # Determine status
+        if minutes_ago < ALERT_THRESHOLD_MINUTES:
+            status_text = "Online"
+            status_icon = "🟢"
+            status_class = "status-online"
+            online_count += 1
+        else:
+            status_text = "Offline"
+            status_icon = "🔴"
+            status_class = "status-offline"
+            offline_count += 1
+        
+        # Format location information
+        location_info = info.get('location', {})
+        city = location_info.get('city', 'Unknown')
+        region = location_info.get('region', '')
+        country = location_info.get('country', 'Unknown')
+        timezone = location_info.get('timezone', 'Unknown')
+        org = location_info.get('org', 'Unknown Provider')
+        
+        if city != 'Unknown' and region:
+            location_display = f"{city}, {region}, {country}"
+        elif city != 'Unknown':
+            location_display = f"{city}, {country}"
+        else:
+            location_display = country
+            
+        # Format DNS information
+        dns_info = info.get('dns_test', {})
+        dns_location = dns_info.get('location', 'Unknown')
+        dns_colo = dns_info.get('colo', 'Unknown')
+        
+        # DNS leak detection
+        if dns_location != 'Unknown' and country != 'Unknown':
+            if dns_location.upper() == country.upper():
+                dns_status_icon = "✅"
+            else:
+                dns_status_icon = "⚠️"
+        else:
+            dns_status_icon = "❓"
+            
+        # Time formatting
+        last_seen_formatted = info['last_seen'].strftime('%Y-%m-%d %H:%M:%S %Z')
+        if minutes_ago < 60:
+            last_seen_relative = f"{minutes_ago} minute(s) ago"
+        elif minutes_ago < 1440:  # Less than 24 hours
+            hours_ago = minutes_ago // 60
+            last_seen_relative = f"{hours_ago} hour(s) ago"
+        else:
+            days_ago = minutes_ago // 1440
+            last_seen_relative = f"{days_ago} day(s) ago"
+        
+        client_data.append({
+            'id': client_id,
+            'status_text': status_text,
+            'status_icon': status_icon,
+            'status_class': status_class,
+            'public_ip': info['public_ip'],
+            'location_display': location_display,
+            'timezone': timezone,
+            'provider': org,
+            'dns_location': dns_location,
+            'dns_server': dns_colo,
+            'dns_status_icon': dns_status_icon,
+            'minutes_ago': minutes_ago,
+            'last_seen_relative': last_seen_relative,
+            'last_seen_formatted': last_seen_formatted
+        })
+    
+    # Sort clients by status (online first) then by client_id
+    client_data.sort(key=lambda x: (x['status_text'] != 'Online', x['id']))
+    
+    template_data = {
+        'clients': client_data,
+        'total_clients': len(clients),
+        'online_clients': online_count,
+        'offline_clients': offline_count,
+        'current_time': now.strftime('%Y-%m-%d %H:%M:%S %Z'),
+        'server_time': now.strftime('%Y-%m-%d %H:%M:%S %Z'),
+        'dashboard_port': DASHBOARD_PORT
+    }
+    
+    return render_template_string(DASHBOARD_HTML_TEMPLATE, **template_data)
+
+# =============================================================================
 # Error Handlers for Structured Logging
 # =============================================================================
 
-@app.errorhandler(404)
+@api_app.errorhandler(404)
 def handle_not_found(error):
     """Handle 404 Not Found errors with structured logging"""
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
@@ -810,7 +1254,7 @@ def handle_not_found(error):
     log_access(endpoint, client_ip, user_agent, auth_header, "404_NOT_FOUND")
     return jsonify({'error': 'Endpoint not found'}), 404
 
-@app.errorhandler(405)
+@api_app.errorhandler(405)
 def handle_method_not_allowed(error):
     """Handle 405 Method Not Allowed errors with structured logging"""
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
@@ -820,7 +1264,7 @@ def handle_method_not_allowed(error):
     log_access(endpoint, client_ip, user_agent, auth_header, "405_METHOD_NOT_ALLOWED")
     return jsonify({'error': 'Method not allowed'}), 405
 
-@app.errorhandler(500)
+@api_app.errorhandler(500)
 def handle_internal_error(error):
     """Handle 500 Internal Server errors with structured logging"""
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
@@ -829,6 +1273,15 @@ def handle_internal_error(error):
     endpoint = request.path or 'unknown'
     log_access(endpoint, client_ip, user_agent, auth_header, "500_INTERNAL_ERROR")
     return jsonify({'error': 'Internal server error'}), 500
+
+# Dashboard App Error Handlers
+@dashboard_app.errorhandler(404)
+def dashboard_not_found(error):
+    return "<h1>404 - Page Not Found</h1><p>The dashboard is only available at <a href='/dashboard'>/dashboard</a></p>", 404
+
+@dashboard_app.errorhandler(500)
+def dashboard_internal_error(error):
+    return "<h1>500 - Internal Server Error</h1><p>Please try again later or contact support.</p>", 500
 
 def check_clients():
     global no_clients_alert_sent
@@ -1060,6 +1513,9 @@ if __name__ == '__main__':
     log_info("security", f"Rate limiting: {RATE_LIMIT_REQUESTS} req/min")
     log_info("security", f"API key auth: {'Enabled' if API_KEY else 'Disabled'}")
     log_info("security", f"IP whitelist: {'Enabled' if ALLOWED_IPS and ALLOWED_IPS != [''] else 'Disabled'}")
+    log_info("dashboard", f"Web dashboard: {'Enabled' if WEB_DASHBOARD_ENABLED else 'Disabled'}")
+    if WEB_DASHBOARD_ENABLED:
+        log_info("dashboard", f"Dashboard URL: http://localhost:{DASHBOARD_PORT}/dashboard")
     
     startup_message = f"🚀 <b>VPN Keepalive Server Started</b>\n\n"
     startup_message += f"Server is now monitoring VPN connections.\n"
@@ -1067,6 +1523,8 @@ if __name__ == '__main__':
     startup_message += f"Check interval: {CHECK_INTERVAL_MINUTES} minutes\n"
     startup_message += f"🛡️ Security: Rate limiting ({RATE_LIMIT_REQUESTS} req/min)\n"
     startup_message += f"🔐 API Auth: Required and Enabled\n"
+    if WEB_DASHBOARD_ENABLED:
+        startup_message += f"🌐 Web Dashboard: http://localhost:{DASHBOARD_PORT}/dashboard\n"
     startup_message += f"Started at: {server_start_time.strftime('%Y-%m-%d %H:%M:%S %Z')}\n\n"
     startup_message += f"💡 Send /ping to test the connection!\n"
     startup_message += f"📊 Send /status for detailed VPN status\n"
@@ -1091,4 +1549,28 @@ if __name__ == '__main__':
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.ERROR)  # Only show errors, suppress access logs
     
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    # Start API server in a separate thread if dashboard is enabled and ports are different
+    if WEB_DASHBOARD_ENABLED and API_PORT != DASHBOARD_PORT:
+        def run_api_server():
+            api_app.run(host='0.0.0.0', port=API_PORT, debug=False, use_reloader=False)
+        
+        def run_dashboard_server():
+            dashboard_app.run(host='0.0.0.0', port=DASHBOARD_PORT, debug=False, use_reloader=False)
+        
+        # Start API server in background thread
+        api_thread = threading.Thread(target=run_api_server, daemon=True)
+        api_thread.start()
+        log_info("server", f"🚀 API Server started on port {API_PORT}")
+        
+        # Start dashboard server in main thread
+        log_info("server", f"🌐 Dashboard Server starting on port {DASHBOARD_PORT}")
+        run_dashboard_server()
+    else:
+        # Run both API and dashboard on the same port (single Flask app)
+        # Add dashboard route to API app for single-port mode
+        @api_app.route('/dashboard', methods=['GET'])
+        def dashboard_single_port():
+            return web_dashboard()
+        
+        log_info("server", f"🚀 Server starting on port {API_PORT} (API + Dashboard)")
+        api_app.run(host='0.0.0.0', port=API_PORT, debug=False)

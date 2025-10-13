@@ -17,6 +17,7 @@
 #
 # External Access Ports:
 # - VPN Sentinel API: http://YOUR_SERVER_IP:5000
+# - Web Dashboard: http://YOUR_SERVER_IP:8080
 #
 # Key Features:
 # - Real-time VPN connection monitoring with 5-minute intervals
@@ -197,17 +198,29 @@ services:
     image: python:3.11-alpine
     container_name: vpn-sentinel-server
     ports:
-      - "${VPN_SENTINEL_SERVER_PORT:-5000}:5000"  # External API access
+      - "${VPN_SENTINEL_SERVER_API_PORT:-5000}:${VPN_SENTINEL_SERVER_API_PORT:-5000}"      # External API access
+      - "${VPN_SENTINEL_SERVER_DASHBOARD_PORT:-8080}:${VPN_SENTINEL_SERVER_DASHBOARD_PORT:-8080}" # Web Dashboard access
     environment:
       # Telegram Configuration (highly recommended)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      
+      # Server Port Configuration
+      - VPN_SENTINEL_SERVER_API_PORT=${VPN_SENTINEL_SERVER_API_PORT:-5000}
+      - VPN_SENTINEL_SERVER_DASHBOARD_PORT=${VPN_SENTINEL_SERVER_DASHBOARD_PORT:-8080}
       
       # Security & API Configuration  
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
       - VPN_SENTINEL_SERVER_API_PATH=${VPN_SENTINEL_SERVER_API_PATH:-/api/v1}
       - VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS=${VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS:-30}
       - VPN_SENTINEL_SERVER_ALLOWED_IPS=${VPN_SENTINEL_SERVER_ALLOWED_IPS:-}  # Comma-separated IP whitelist (optional)
+      
+      # Web Dashboard Configuration
+      - VPN_SENTINEL_SERVER_DASHBOARD_ENABLED=${VPN_SENTINEL_SERVER_DASHBOARD_ENABLED:-true}
+      
+      # Server Monitoring Configuration
+      - VPN_SENTINEL_SERVER_ALERT_THRESHOLD_MINUTES=${VPN_SENTINEL_SERVER_ALERT_THRESHOLD_MINUTES:-15}
+      - VPN_SENTINEL_SERVER_CHECK_INTERVAL_MINUTES=${VPN_SENTINEL_SERVER_CHECK_INTERVAL_MINUTES:-5}
       
       # System Configuration
       - TZ=${TZ:-UTC}
