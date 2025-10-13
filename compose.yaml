@@ -207,7 +207,7 @@ services:
       python vpn-sentinel-server.py
       "
     restart: unless-stopped
-    # Health check to ensure server is responding
+    # Health check to ensure server is responding (uses public health endpoint)
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/api/v1/health"]
       interval: 60s

@@ -467,8 +467,11 @@ def before_request():
         3. Log all access attempts with detailed information
         4. Block or allow request based on security results
     """
-    # Apply comprehensive security middleware to ALL endpoints
-    # No exemptions - all endpoints require proper authentication
+    # Exempt health check endpoint from authentication for monitoring systems
+    if request.path == f'{API_PATH}/health':
+        return None
+        
+    # Apply comprehensive security middleware to all other endpoints
     security_result = security_middleware()
     if security_result:
         return security_result
@@ -779,13 +782,52 @@ def fake_heartbeat():
 
 @app.route(f'{API_PATH}/health', methods=['GET'])
 def health():
-    """Health check endpoint - requires API key authentication like all other endpoints"""
+    """Health check endpoint - public endpoint for monitoring systems (no authentication required)"""
+    # Log health check access (this endpoint bypasses authentication)
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    log_access('health', client_ip, user_agent, None, "200_OK")
+    
     return jsonify({
         'status': 'healthy',
         'server_time': get_current_time().isoformat(),
         'active_clients': len(clients),
         'uptime_info': 'VPN Keepalive Server is running'
     })
+
+# =============================================================================
+# Error Handlers for Structured Logging
+# =============================================================================
+
+@app.errorhandler(404)
+def handle_not_found(error):
+    """Handle 404 Not Found errors with structured logging"""
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    auth_header = request.headers.get('Authorization')
+    endpoint = request.path or 'unknown'
+    log_access(endpoint, client_ip, user_agent, auth_header, "404_NOT_FOUND")
+    return jsonify({'error': 'Endpoint not found'}), 404
+
+@app.errorhandler(405)
+def handle_method_not_allowed(error):
+    """Handle 405 Method Not Allowed errors with structured logging"""
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    auth_header = request.headers.get('Authorization')
+    endpoint = request.path or 'unknown'
+    log_access(endpoint, client_ip, user_agent, auth_header, "405_METHOD_NOT_ALLOWED")
+    return jsonify({'error': 'Method not allowed'}), 405
+
+@app.errorhandler(500)
+def handle_internal_error(error):
+    """Handle 500 Internal Server errors with structured logging"""
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    auth_header = request.headers.get('Authorization')
+    endpoint = request.path or 'unknown'
+    log_access(endpoint, client_ip, user_agent, auth_header, "500_INTERNAL_ERROR")
+    return jsonify({'error': 'Internal server error'}), 500
 
 def check_clients():
     global no_clients_alert_sent
@@ -1042,5 +1084,10 @@ if __name__ == '__main__':
     telegram_thread = threading.Thread(target=handle_telegram_commands, daemon=True)
     telegram_thread.start()
     log_info("Telegram bot polling started")
+    
+    # Suppress Flask's built-in access logging since we have structured logging
+    import logging
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)  # Only show errors, suppress access logs
     
     app.run(host='0.0.0.0', port=5000, debug=False)
