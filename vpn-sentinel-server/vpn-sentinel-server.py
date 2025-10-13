@@ -212,6 +212,61 @@ def get_server_public_ip():
     
     return 'Unknown'
 
+def get_server_info():
+    """
+    Get comprehensive server information including location, provider, and DNS status.
+    
+    Returns:
+        dict: Server information with IP, location, provider, and DNS details
+        
+    Note:
+        Uses ipinfo.io to get detailed server information for dashboard display.
+        Caches key information to avoid repeated API calls during server operation.
+    """
+    server_info = {
+        'public_ip': 'Unknown',
+        'location': 'Unknown',
+        'provider': 'Unknown', 
+        'dns_status': 'Unknown'
+    }
+    
+    try:
+        # Get detailed server information from ipinfo.io
+        response = requests.get('https://ipinfo.io/json', timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Extract server information
+            server_info['public_ip'] = data.get('ip', 'Unknown')
+            
+            # Format location information
+            city = data.get('city', '')
+            region = data.get('region', '')
+            country = data.get('country', 'Unknown')
+            
+            if city and region:
+                server_info['location'] = f"{city}, {region}, {country}"
+            elif city:
+                server_info['location'] = f"{city}, {country}"
+            else:
+                server_info['location'] = country
+            
+            # Provider information
+            server_info['provider'] = data.get('org', 'Unknown Provider')
+            
+            # DNS status - check if we can resolve DNS properly
+            try:
+                import socket
+                socket.gethostbyname('google.com')
+                server_info['dns_status'] = 'Operational'
+            except Exception:
+                server_info['dns_status'] = 'Issues Detected'
+                
+    except Exception as e:
+        log_error("server_info", f"Failed to get server information: {str(e)}")
+    
+    return server_info
+
 def send_telegram_message(message):
     """
     Send notification message via Telegram Bot API.
@@ -848,6 +903,7 @@ DASHBOARD_HTML_TEMPLATE = '''
             color: white;
             padding: 30px;
             text-align: center;
+            position: relative;
         }
         
         .header h1 {
@@ -859,6 +915,40 @@ DASHBOARD_HTML_TEMPLATE = '''
         .header .subtitle {
             font-size: 1.1em;
             opacity: 0.9;
+        }
+        
+        .server-info {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 0.9em;
+            text-align: right;
+            backdrop-filter: blur(10px);
+        }
+        
+        .server-info h4 {
+            margin: 0 0 8px 0;
+            font-size: 1em;
+            opacity: 0.9;
+        }
+        
+        .server-info .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            min-width: 250px;
+        }
+        
+        .server-info .info-label {
+            opacity: 0.8;
+        }
+        
+        .server-info .info-value {
+            font-weight: bold;
+            color: #ecf0f1;
         }
         
         .stats {
@@ -1014,6 +1104,10 @@ DASHBOARD_HTML_TEMPLATE = '''
         }
         
         @media (max-width: 768px) {
+            .header {
+                padding: 20px 15px;
+            }
+            
             .header h1 {
                 font-size: 2em;
             }
@@ -1029,12 +1123,40 @@ DASHBOARD_HTML_TEMPLATE = '''
             .content {
                 padding: 20px 15px;
             }
+            
+            .server-info {
+                position: static;
+                margin: 0 auto 20px auto;
+                max-width: 300px;
+                right: auto;
+                top: auto;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
+            <div class="server-info">
+                <h4>🖥️ Server Details</h4>
+                <div class="info-row">
+                    <span class="info-label">Public IP:</span>
+                    <span class="info-value">{{ server_info.public_ip }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Location:</span>
+                    <span class="info-value">{{ server_info.location }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Provider:</span>
+                    <span class="info-value">{{ server_info.provider }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">DNS Status:</span>
+                    <span class="info-value">{{ server_info.dns_status }}</span>
+                </div>
+            </div>
+            
             <h1>🔒 VPN Sentinel Dashboard</h1>
             <div class="subtitle">Real-time VPN Client Monitoring</div>
             <div class="stats">
@@ -1153,14 +1275,29 @@ def web_dashboard():
     online_count = 0
     offline_count = 0
     
+    # Get server information for dashboard display
+    server_info = get_server_info()
+    
+    # Get server IP for same-IP detection
+    global server_public_ip
+    if server_public_ip is None:
+        server_public_ip = get_server_public_ip()
+    
     for client_id, info in clients.items():
         minutes_ago = int((now - info['last_seen']).total_seconds() / 60)
+        client_ip = info['public_ip']
         
-        # Determine status
+        # Determine status with same-IP warning logic
         if minutes_ago < ALERT_THRESHOLD_MINUTES:
-            status_text = "Online"
-            status_icon = "🟢"
-            status_class = "status-online"
+            # Check if client is using same IP as server (VPN not active)
+            if client_ip != 'unknown' and server_public_ip != 'Unknown' and client_ip == server_public_ip:
+                status_text = "Online"
+                status_icon = "⚠️"
+                status_class = "status-warning"  # Yellow warning for same-IP clients
+            else:
+                status_text = "Online"
+                status_icon = "🟢"
+                status_class = "status-online"
             online_count += 1
         else:
             status_text = "Offline"
@@ -1235,7 +1372,8 @@ def web_dashboard():
         'offline_clients': offline_count,
         'current_time': now.strftime('%Y-%m-%d %H:%M:%S %Z'),
         'server_time': now.strftime('%Y-%m-%d %H:%M:%S %Z'),
-        'dashboard_port': DASHBOARD_PORT
+        'dashboard_port': DASHBOARD_PORT,
+        'server_info': server_info
     }
     
     return render_template_string(DASHBOARD_HTML_TEMPLATE, **template_data)
@@ -1440,6 +1578,11 @@ def handle_status_command():
     """Handle /status command"""
     now = get_current_time()
     
+    # Get server IP for same-IP detection
+    global server_public_ip
+    if server_public_ip is None:
+        server_public_ip = get_server_public_ip()
+    
     if len(clients) == 0:
         message = f"📊 <b>VPN Status</b>\n\n"
         message += f"❌ No VPN clients connected\n\n"
@@ -1448,10 +1591,16 @@ def handle_status_command():
         message = f"📊 <b>VPN Status</b>\n\n"
         for client_id, info in clients.items():
             minutes_ago = int((now - info['last_seen']).total_seconds() / 60)
+            client_ip = info['public_ip']
             
             if minutes_ago < ALERT_THRESHOLD_MINUTES:
-                status_icon = "🟢"
-                status_text = "Online"
+                # Check if client is using same IP as server (VPN not active)
+                if client_ip != 'unknown' and server_public_ip != 'Unknown' and client_ip == server_public_ip:
+                    status_icon = "⚠️"
+                    status_text = "Online (Same IP as server)"
+                else:
+                    status_icon = "🟢"
+                    status_text = "Online"
             else:
                 status_icon = "🔴"
                 status_text = "Offline"

@@ -17,6 +17,7 @@ logs/
 # Temporary files
 .DS_Store
 Thumbs.db
+test/
 
 # Backup files
 *.backup
