@@ -84,7 +84,7 @@ jobs:
           cd tests
           python -m pytest unit/ -v --tb=short --junitxml=unit-test-results.xml
       - name: Upload unit test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: unit-test-results
@@ -136,7 +136,7 @@ jobs:
           export VPN_SENTINEL_SERVER_API_BASE_URL=http://localhost:15554
           python -m pytest integration/ -v --tb=short --junitxml=integration-test-results.xml
       - name: Upload integration test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: integration-test-results
