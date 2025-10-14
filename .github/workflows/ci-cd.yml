@@ -223,6 +223,11 @@ jobs:
           tags: vpn-sentinel-${{ matrix.component }}:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Build VPN Sentinel server image
+        if: matrix.component == 'vpn-sentinel-server'
+        run: |
+          docker build -t vpn-sentinel-vpn-sentinel-server:test .
+        working-directory: vpn-sentinel-server
       - name: Test Docker image
         run: |
           if [ "${{ matrix.component }}" = "vpn-sentinel-server" ]; then
@@ -233,7 +238,7 @@ jobs:
               -e VPN_SENTINEL_SERVER_DASHBOARD_ENABLED=false \
               -e TELEGRAM_BOT_TOKEN=test:token \
               -e TELEGRAM_CHAT_ID=123456789 \
-              vpn-sentinel-${{ matrix.component }}:test
+              vpn-sentinel-vpn-sentinel-server:test
             sleep 10
             if docker ps | grep test-container; then
               echo "✅ Server container is running"
