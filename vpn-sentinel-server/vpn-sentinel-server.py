@@ -1,3 +1,6 @@
+import os                # Environment variable access
+TRUST_SELF_SIGNED_CERTIFICATES = os.getenv("TRUST_SELF_SIGNED_CERTIFICATES", "false").lower() == "true"
+VERIFY_SSL = not TRUST_SELF_SIGNED_CERTIFICATES
 #!/usr/bin/env python3
 
 """
@@ -123,6 +126,10 @@ WEB_DASHBOARD_ENABLED = os.getenv("VPN_SENTINEL_SERVER_DASHBOARD_ENABLED", "true
 # Ensures consistent timestamp formatting across different deployment environments
 TIMEZONE = pytz.timezone(os.getenv("TZ", "UTC"))
 
+# TLS/SSL Configuration
+TLS_CERT_PATH = os.getenv("VPN_SENTINEL_TLS_CERT_PATH")
+TLS_KEY_PATH = os.getenv("VPN_SENTINEL_TLS_KEY_PATH")
+
 # =============================================================================
 # Global State Management
 # =============================================================================
@@ -194,22 +201,22 @@ def get_server_public_ip():
     """
     try:
         # Use the same service as clients to ensure consistent IP detection
-        response = requests.get('https://ipinfo.io/json', timeout=10)
+        response = requests.get('https://ipinfo.io/json', timeout=10, verify=True)
         if response.status_code == 200:
             data = response.json()
             return data.get('ip', 'Unknown')
     except Exception:
         pass
-    
+
     # Fallback to alternative service
     try:
-        response = requests.get('https://api.ipify.org?format=json', timeout=10)
+        response = requests.get('https://api.ipify.org?format=json', timeout=10, verify=True)
         if response.status_code == 200:
             data = response.json()
             return data.get('ip', 'Unknown')
     except Exception:
         pass
-    
+
     return 'Unknown'
 
 def get_server_info():
@@ -293,26 +300,25 @@ def send_telegram_message(message):
     try:
         # Construct Telegram Bot API endpoint URL
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        
+
         # Prepare message payload with HTML parsing enabled
         data = {
-            "chat_id": TELEGRAM_CHAT_ID, 
-            "text": message, 
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": message,
             "parse_mode": "HTML"
         }
-        
+
         # Send POST request with timeout protection
-        response = requests.post(url, json=data, timeout=10)
+        response = requests.post(url, json=data, timeout=10, verify=True)
         success = response.status_code == 200
-        
+
         # Log operation result with structured format
         if success:
             log_info("telegram", "✅ Message sent successfully")
         else:
             log_error("telegram", f"❌ Failed to send message: HTTP {response.status_code}")
-        
+
         return success
-        
     except Exception as e:
         # Handle network errors, timeouts, and other exceptions
         log_error("telegram", f"❌ Error: {e}")
@@ -1527,21 +1533,22 @@ def handle_telegram_commands():
             # Get updates from Telegram
             url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
             params = {"offset": last_update_id + 1, "timeout": 30}
-            response = requests.get(url, params=params, timeout=35)
-            
+            response = requests.get(url, params=params, timeout=35, verify=True)
+            log_info("telegram", f"Polling Telegram getUpdates: status={response.status_code}")
             if response.status_code == 200:
                 data = response.json()
-                
+                log_info("telegram", f"Received {len(data.get('result', []))} updates from Telegram.")
                 for update in data.get("result", []):
                     last_update_id = update["update_id"]
-                    
+                    log_info("telegram", f"Processing update_id={last_update_id}")
                     if "message" in update:
                         message = update["message"]
                         chat_id = message["chat"]["id"]
                         text = message.get("text", "")
-                        
+                        log_info("telegram", f"Received message from chat_id={chat_id}: {text}")
                         # Only respond to messages from the configured chat
                         if str(chat_id) != TELEGRAM_CHAT_ID:
+                            log_info("telegram", f"Ignoring message from chat_id={chat_id} (not configured chat)")
                             continue
                         
                         log_info("telegram", f"📥 Command received: {text}")
@@ -1666,6 +1673,17 @@ if __name__ == '__main__':
     if WEB_DASHBOARD_ENABLED:
         log_info("dashboard", f"Dashboard URL: http://localhost:{DASHBOARD_PORT}/dashboard")
     
+    # TLS/SSL Configuration
+    if TLS_CERT_PATH and TLS_KEY_PATH:
+        log_info("config", f"🔒 TLS certificate and key enabled for HTTPS: {TLS_CERT_PATH}, {TLS_KEY_PATH}")
+        ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
+    elif TLS_CERT_PATH and not TLS_KEY_PATH:
+        log_info("config", f"🔒 TLS certificate enabled for HTTPS: {TLS_CERT_PATH} (no key provided)")
+        ssl_ctx = TLS_CERT_PATH
+    else:
+        log_warn("config", "⚠️ No TLS certificate/key provided; HTTPS disabled (using HTTP only)")
+        ssl_ctx = None
+    
     startup_message = f"🚀 <b>VPN Keepalive Server Started</b>\n\n"
     startup_message += f"Server is now monitoring VPN connections.\n"
     startup_message += f"Alert threshold: {ALERT_THRESHOLD_MINUTES} minutes\n"
@@ -1701,11 +1719,15 @@ if __name__ == '__main__':
     # Start API server in a separate thread if dashboard is enabled and ports are different
     if WEB_DASHBOARD_ENABLED and API_PORT != DASHBOARD_PORT:
         def run_api_server():
-            api_app.run(host='0.0.0.0', port=API_PORT, debug=False, use_reloader=False)
-        
+            ssl_ctx = None
+            if TLS_CERT_PATH and TLS_KEY_PATH:
+                ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
+            api_app.run(host='0.0.0.0', port=API_PORT, debug=False, use_reloader=False, ssl_context=ssl_ctx)
         def run_dashboard_server():
-            dashboard_app.run(host='0.0.0.0', port=DASHBOARD_PORT, debug=False, use_reloader=False)
-        
+            ssl_ctx = None
+            if TLS_CERT_PATH and TLS_KEY_PATH:
+                ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
+            dashboard_app.run(host='0.0.0.0', port=DASHBOARD_PORT, debug=False, use_reloader=False, ssl_context=ssl_ctx)
         # Start API server in background thread
         api_thread = threading.Thread(target=run_api_server, daemon=True)
         api_thread.start()
@@ -1715,11 +1737,11 @@ if __name__ == '__main__':
         log_info("server", f"🌐 Dashboard Server starting on port {DASHBOARD_PORT}")
         run_dashboard_server()
     else:
-        # Run both API and dashboard on the same port (single Flask app)
-        # Add dashboard route to API app for single-port mode
         @api_app.route('/dashboard', methods=['GET'])
         def dashboard_single_port():
             return web_dashboard()
-        
         log_info("server", f"🚀 Server starting on port {API_PORT} (API + Dashboard)")
-        api_app.run(host='0.0.0.0', port=API_PORT, debug=False)
+        ssl_ctx = None
+        if TLS_CERT_PATH and TLS_KEY_PATH:
+            ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
+        api_app.run(host='0.0.0.0', port=API_PORT, debug=False, ssl_context=ssl_ctx)

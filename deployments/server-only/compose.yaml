@@ -40,6 +40,10 @@ services:
       
       # Timezone
       - TZ=${TZ:-UTC}
+      
+      # TLS Configuration
+      - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH}
+      - VPN_SENTINEL_TLS_KEY_PATH=${VPN_SENTINEL_TLS_KEY_PATH}
     
     # Expose both API and dashboard ports
     ports:
@@ -48,6 +52,8 @@ services:
     
     volumes:
       - ../../vpn-sentinel-server/vpn-sentinel-server.py:/app/vpn-sentinel-server.py:ro
+      - ${VPN_SENTINEL_TLS_CERT_PATH:-../../vpn-sentinel-server/vpn-sentinel-cert.pem}:${VPN_SENTINEL_TLS_CERT_PATH:-/vpn-sentinel-cert.pem}:ro
+      - ${VPN_SENTINEL_TLS_KEY_PATH:-../../vpn-sentinel-server/vpn-sentinel-key.pem}:${VPN_SENTINEL_TLS_KEY_PATH:-/vpn-sentinel-key.pem}:ro
     working_dir: /app
     networks:
       - vpn-sentinel-server

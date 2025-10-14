@@ -79,3 +79,6 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Certificates and keys
+certs/

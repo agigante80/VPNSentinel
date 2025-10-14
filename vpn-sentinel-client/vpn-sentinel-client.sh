@@ -1,4 +1,7 @@
+
 #!/bin/sh
+# Trust self-signed certificates (true/false)
+TRUST_SELF_SIGNED_CERTIFICATES="${TRUST_SELF_SIGNED_CERTIFICATES:-false}"
 
 # =============================================================================
 # VPN Keepalive Client with DNS Leak Detection
@@ -112,6 +115,14 @@ if [ -n "$TZ" ]; then
     log_info "config" "🌍 Timezone set to: $TZ"
 fi
 
+# TLS certificate for HTTPS
+TLS_CERT_PATH="${VPN_SENTINEL_TLS_CERT_PATH:-}"
+if [ -n "$TLS_CERT_PATH" ]; then
+    log_info "config" "🔒 TLS certificate enabled for HTTPS: $TLS_CERT_PATH"
+else
+    log_info "config" "⚠️ No TLS certificate provided; HTTPS verification disabled (using default curl behavior)"
+fi
+
 # -----------------------------------------------------------------------------
 # Main Keepalive Function
 # -----------------------------------------------------------------------------
@@ -188,6 +199,7 @@ send_keepalive() {
       --fail \
       -H "Content-Type: application/json" \
       ${VPN_SENTINEL_API_KEY:+-H "Authorization: Bearer $VPN_SENTINEL_API_KEY"} \
+      ${TLS_CERT_PATH:+--cacert "$TLS_CERT_PATH"} \
       -d "{
         \"client_id\": \"$CLIENT_ID\",
         \"timestamp\": \"$TIMESTAMP\",

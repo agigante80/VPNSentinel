@@ -20,8 +20,6 @@ When VPN containers fail, your applications often continue running but **leak yo
 - ❌ Don't provide real-time notifications
 - ❌ Don't detect DNS leaks
 
-**VPN Sentinel solves ALL of these problems with a revolutionary dual-system approach.**
-
 ### 🔄 **VPN Client Agnostic Design**
 
 VPN Sentinel works with **ANY Docker VPN client**:
@@ -41,7 +39,19 @@ VPN Sentinel works with **ANY Docker VPN client**:
 - Performs continuous DNS leak detection using Cloudflare's trace endpoint
 - Tests IP geolocation and provider information every 5 minutes
 - **Communicates with server over internet via VPN connection** (not internal network)
-- Sends encrypted status reports to the external monitoring server
+- Sends status reports to the external monitoring server over HTTPS (TLS) when enabled. You can generate your own self-signed certificates for private deployments:
+- **How to enable HTTPS encryption:**
+1. Generate a self-signed certificate and key:
+   ```bash
+   openssl req -x509 -newkey rsa:4096 -keyout vpn-sentinel-key.pem -out vpn-sentinel-cert.pem -days 365 -nodes -subj "/CN=your-server"
+   ```
+2. Configure the VPN Sentinel server to use these files:
+   ```python
+   app.run(host="0.0.0.0", port=5000, ssl_context=("vpn-sentinel-cert.pem", "vpn-sentinel-key.pem"))
+   ```
+3. Update client URLs to use `https://` and, if using curl, add `--insecure` to skip certificate verification for self-signed certs.
+
+This ensures all status reports and API requests are encrypted in transit, protecting your data from interception.
 - Detects when DNS requests leak outside the VPN tunnel
 
 **📡 VPN Sentinel Server (Outside VPN Network):**
@@ -476,8 +486,7 @@ DNS Server: MAD
 │  │  │  │📡 CLIENT   │ │ │           🌐 INTERNET CONNECTION           │
 │  │  │  │• Monitors  │ │ │           (via VPN tunnel)               │
 │  │  │  │• DNS Tests │ │ │                      │                   │
-│  │  │  │• Reports   │ │ │                      │                   │
-│  │  │  └────────────┘ │ │                      ▼                   │
+│  │  │  │• Reports   │ │ │                      ▼                   │
 │  │  └─────────────────┘ │          ┌──────────────────────────────┐ │
 │  │                      │          │                              │ │
 │  │  ┌─────────────────┐ │          │    📡 VPN SENTINEL SERVER    │ │
@@ -589,7 +598,7 @@ docker exec gluetun nslookup google.com
 ```
 
 #### ❌ **DNS leak false positives**
-```bash
+```yaml
 # Some VPN providers use different countries for DNS
 # Check if this is expected behavior from your provider
 # You can modify the DNS leak detection logic in vpn-sentinel-client.sh
@@ -791,6 +800,16 @@ vpn-client:  # Generic container name - works with VPN Sentinel
     - OPENVPN_PROVIDER=NORDVPN
     - OPENVPN_USERNAME=${VPN_USER}
     - OPENVPN_PASSWORD=${VPN_PASSWORD}
+```
+
+### 🔹 **PIA WireGuard**
+```yaml
+vpn-client:  # Generic container name - works with VPN Sentinel
+  image: thrnz/docker-wireguard-pia
+  container_name: vpn-client
+  environment:
+    - PIA_USERNAME=${VPN_USER}
+    - PIA_PASSWORD=${VPN_PASSWORD}
 ```
 
 **Just use the generic `network_mode: service:vpn-client` - works with any VPN container!**
