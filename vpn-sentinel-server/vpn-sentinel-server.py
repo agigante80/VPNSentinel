@@ -706,7 +706,8 @@ def keepalive():
                 message += f"• Test VPN connection manually\n"
                 message += f"• Ensure proper network isolation"
             
-            send_telegram_message(message)
+            if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+                send_telegram_message(message)
             announced_clients.add(client_id)
         
         log_info("api", f"Keepalive received from {client_id} - IP: {public_ip}")
@@ -833,9 +834,8 @@ def fake_heartbeat():
                 message += f"⚠️ Client IP matches server IP: <code>{public_ip}</code>\n"
                 message += f"🔴 This indicates VPN is not working properly!"
             
-            message += f"\n\n<i>This was a test heartbeat via /fake-heartbeat endpoint</i>"
-            
-            send_telegram_message(message)
+            if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+                send_telegram_message(message)
             announced_clients.add(client_id)
         
         log_info("api", f"FAKE heartbeat received from {client_id} - IP: {public_ip}")
@@ -1439,7 +1439,7 @@ def check_clients():
                 log_info("monitor", "🔍 Check: No clients registered")
                 
                 # Send Telegram alert for no clients (only once)
-                if not no_clients_alert_sent:
+                if not no_clients_alert_sent and TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
                     message = f"⚠️ <b>No VPN Clients Connected</b>\n\n"
                     message += f"No active VPN connections detected.\n"
                     message += f"Time: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}\n\n"
@@ -1706,10 +1706,13 @@ if __name__ == '__main__':
     checker_thread = threading.Thread(target=check_clients, daemon=True)
     checker_thread.start()
     
-    # Start Telegram bot polling thread
-    telegram_thread = threading.Thread(target=handle_telegram_commands, daemon=True)
-    telegram_thread.start()
-    log_info("telegram", "Bot polling started")
+    # Start Telegram bot polling thread only if credentials are provided
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        telegram_thread = threading.Thread(target=handle_telegram_commands, daemon=True)
+        telegram_thread.start()
+        log_info("telegram", "Bot polling started")
+    else:
+        log_info("telegram", "Telegram integration disabled - no bot token or chat ID provided")
     
     # Suppress Flask's built-in access logging since we have structured logging
     import logging
