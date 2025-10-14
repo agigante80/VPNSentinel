@@ -54,6 +54,7 @@ services:
     restart: unless-stopped
     volumes:
       - test_db_data:/var/lib/postgresql/data
+      - ./create-root-user.sql:/docker-entrypoint-initdb.d/create-root-user.sql:ro
 
 networks:
   vpn-sentinel-test:
