@@ -125,6 +125,12 @@ jobs:
           sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose version
+      - name: Remove old Docker containers
+        run: docker-compose -f tests/docker-compose.test.yaml down -v
+      - name: Remove dangling volumes
+        run: docker volume prune -f
+      - name: Build fresh containers
+        run: docker-compose -f tests/docker-compose.test.yaml build --no-cache
       - name: Build and start test environment
         run: |
           docker-compose -f tests/docker-compose.test.yaml up -d --build
@@ -134,13 +140,7 @@ jobs:
         run: |
           cd tests
           export VPN_SENTINEL_SERVER_API_BASE_URL=http://localhost:15554
-          python -m pytest integration/ -v --tb=short --junitxml=integration-test-results.xml
-      - name: Upload integration test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: integration-test-results
-          path: tests/integration-test-results.xml
+          python -m pytest integration/ -v --
       - name: Get server logs on failure
         if: failure()
         run: |
@@ -238,7 +238,7 @@ jobs:
               -e VPN_SENTINEL_SERVER_DASHBOARD_ENABLED=false \
               -e TELEGRAM_BOT_TOKEN=test:token \
               -e TELEGRAM_CHAT_ID=123456789 \
-              vpn-sentinel-vpn-sentinel-server:test
+              vpn
             sleep 10
             if docker ps | grep test-container; then
               echo "✅ Server container is running"
