@@ -21,6 +21,13 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
+    develop:
+      watch:
+        - action: sync
+          path: ../vpn-sentinel-server
+          target: /app
+        - action: rebuild
+          path: ../vpn-sentinel-server/Dockerfile
 
   # Test VPN Sentinel Client
   vpn-sentinel-client-test:
@@ -38,6 +45,13 @@ services:
     networks:
       - vpn-sentinel-test
     restart: unless-stopped
+    develop:
+      watch:
+        - action: sync
+          path: ../vpn-sentinel-client
+          target: /app
+        - action: rebuild
+          path: ../vpn-sentinel-client/Dockerfile
 
   # Test database for storing test results (optional)
   test-db:
