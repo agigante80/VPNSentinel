@@ -1,6 +1,3 @@
-import os                # Environment variable access
-TRUST_SELF_SIGNED_CERTIFICATES = os.getenv("TRUST_SELF_SIGNED_CERTIFICATES", "false").lower() == "true"
-VERIFY_SSL = not TRUST_SELF_SIGNED_CERTIFICATES
 #!/usr/bin/env python3
 
 """
@@ -20,6 +17,7 @@ Features:
 - IP change detection and geolocation tracking
 - Client health monitoring with customizable thresholds
 - RESTful API endpoints for status queries
+- Interactive web dashboard for client monitoring
 - Interactive Telegram commands (/ping, /status, /help)
 
 Architecture:
@@ -30,19 +28,19 @@ Architecture:
 - Security features: rate limiting, IP whitelisting, API key auth
 
 Environment Variables:
-- TELEGRAM_BOT_TOKEN: Telegram bot token for notifications (required)
-- TELEGRAM_CHAT_ID: Target chat ID for notifications (required) 
-- VPN_SENTINEL_API_KEY: API key for client authentication (optional)
+- TELEGRAM_BOT_TOKEN: Telegram bot token for notifications (optional)
+- TELEGRAM_CHAT_ID: Target chat ID for notifications (optional)
+- VPN_SENTINEL_API_KEY: API key for client authentication (required)
 - VPN_SENTINEL_SERVER_ALLOWED_IPS: Comma-separated IP whitelist (optional)
-- VPN_SENTINEL_SERVER_API_PATH: API path prefix (default: /api/v1)
+- API_PATH: API path prefix for endpoints (default: /api/v1)
 - TZ: Timezone for timestamps (default: UTC)
 - VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS: Rate limit per IP (default: 30)
 
 API Endpoints:
-- POST /keepalive: Receive client status updates
-- GET /status: Get server and client status
-- POST /heartbeat: Simulate keepalive for testing
-- GET /health: Health check endpoint
+- POST {API_PATH}/keepalive: Receive client status updates
+- GET {API_PATH}/status: Get server and client status
+- POST {API_PATH}/fake-heartbeat: Simulate keepalive for testing
+- GET {API_PATH}/health: Health check endpoint
 
 Security Features:
 - API key authentication for keepalive endpoints
@@ -63,6 +61,7 @@ Docker Usage:
     docker run -p 5000:5000 \
         -e TELEGRAM_BOT_TOKEN=your_token \
         -e TELEGRAM_CHAT_ID=your_chat_id \
+        -e VPN_SENTINEL_API_KEY=your_api_key \
         vpn-sentinel/server
 
 Author: VPN Sentinel Project
@@ -100,10 +99,10 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # API Configuration
-API_PATH = os.getenv("VPN_SENTINEL_SERVER_API_PATH", "/api/v1")          # API path prefix for endpoints
+API_PATH = os.getenv("API_PATH", "/api/v1")          # API path prefix for endpoints
 
 # Security Configuration
-API_KEY = os.getenv("VPN_SENTINEL_API_KEY", "")                          # Optional API key for authentication
+API_KEY = os.getenv("VPN_SENTINEL_API_KEY", "")                          # Required API key for authentication
 ALLOWED_IPS = os.getenv("VPN_SENTINEL_SERVER_ALLOWED_IPS", "").split(",") if os.getenv("VPN_SENTINEL_SERVER_ALLOWED_IPS") else []  # IP whitelist
 
 # Rate Limiting Configuration
@@ -135,16 +134,24 @@ TLS_KEY_PATH = os.getenv("VPN_SENTINEL_TLS_KEY_PATH")
 # =============================================================================
 
 # Client Status Storage
-# In production environments, consider using Redis or a database for persistence
+# Dictionary storing active client information and status
+# Key: client_id, Value: dict with client details
 clients = {}                    # Dict[str, Dict]: Active client information and status
-announced_clients = set()       # Set[str]: Clients that have been announced to prevent spam
-no_clients_alert_sent = False   # Bool: Flag to prevent repeated "no clients" notifications
+
+# Announced Clients Set
+# Tracks clients that have already been announced to prevent spam notifications
+announced_clients = set()       # Set[str]: Clients that have been announced
+
+# Alert Flag
+# Prevents repeated "no clients" notifications when no clients are connected
+no_clients_alert_sent = False   # Bool: Flag to prevent repeated alerts
 
 # Rate Limiting Storage
-# Maps IP addresses to deque of recent request timestamps
+# Maps IP addresses to deque of recent request timestamps for sliding window rate limiting
 rate_limit_storage = defaultdict(deque)  # Dict[str, deque]: IP -> request timestamps
 
-# Server IP Detection (cached)
+# Server IP Cache
+# Cached server public IP to avoid repeated API calls and enable VPN bypass detection
 server_public_ip = None  # Cached server public IP for VPN detection warnings
 
 # =============================================================================
@@ -452,30 +459,25 @@ def security_middleware():
     """
     Apply comprehensive security checks to incoming requests.
     
+    Performs three layers of security validation:
+    1. IP Whitelist Validation - Block non-whitelisted IPs
+    2. Rate Limiting - Prevent abuse via request frequency limits  
+    3. API Key Authentication - Verify Bearer token in Authorization header
+    
     Returns:
         tuple: (error_response, status_code) if request blocked, None if allowed
-        
-    Security Checks Applied:
-        1. IP Whitelist Validation - Block non-whitelisted IPs
-        2. Rate Limiting - Prevent abuse via request frequency limits
         
     Response Codes:
         - 403: IP address not in whitelist
         - 429: Rate limit exceeded
+        - 401: Missing or invalid API key
+        - 500: Server configuration error (API key not set)
         
-    Logging:
+    Security Notes:
         - All blocked requests are logged with full details
-        - Includes IP, endpoint, auth status, and block reason
-        
-    Integration:
-        - Called by Flask before_request hook
-        - Automatically applied to all routes
-        - Returns early with error response if request should be blocked
-        
-    Performance:
-        - Efficient O(1) IP lookups
-        - Sliding window rate limiting with automatic cleanup
-        - Minimal overhead for allowed requests
+        - API key is required for server operation (returns 500 if not configured)
+        - Rate limiting uses sliding window algorithm
+        - IP whitelist is optional (allows all if not configured)
     """
     client_ip = get_client_ip()
     user_agent = request.headers.get('User-Agent', 'Unknown')
@@ -492,8 +494,8 @@ def security_middleware():
         log_access(endpoint, client_ip, user_agent, auth_header, "429_RATE_LIMITED")
         return jsonify({'error': 'Rate limit exceeded'}), 429
     
-    # API Key Authentication Check (REQUIRED - not optional)
-    # Server will not respond to any requests without valid API key
+    # API Key Authentication Check (REQUIRED for server operation)
+    # Server will not function without proper API key configuration
     if not API_KEY:
         # API key not configured - server should not start
         log_access(endpoint, client_ip, user_agent, auth_header, "500_NO_API_KEY")
@@ -724,6 +726,38 @@ def keepalive():
 
 @api_app.route(f'{API_PATH}/status', methods=['GET'])
 def status():
+    """
+    Get comprehensive status information for all registered VPN clients.
+    
+    HTTP Method: GET
+    Authentication: Bearer token (if VPN_SENTINEL_API_KEY is configured)
+    
+    Returns:
+        dict: Status information for each client containing:
+            - last_seen: ISO timestamp of last keepalive
+            - minutes_ago: Minutes since last contact
+            - public_ip: Client's current public IP
+            - status: 'alive' or 'dead' based on ALERT_THRESHOLD_MINUTES
+            
+    Response Format:
+        {
+            "client-1": {
+                "last_seen": "2025-10-14T19:30:45+00:00",
+                "minutes_ago": 2,
+                "public_ip": "89.40.181.202", 
+                "status": "alive"
+            }
+        }
+        
+    Status Logic:
+        - 'alive': Client contacted within ALERT_THRESHOLD_MINUTES (default: 15)
+        - 'dead': Client hasn't contacted beyond threshold
+        
+    Use Cases:
+        - Monitoring dashboards
+        - Health check systems
+        - Administrative status queries
+    """
     now = get_current_time()
     status_info = {}
     
@@ -740,7 +774,39 @@ def status():
 
 @api_app.route(f'{API_PATH}/fake-heartbeat', methods=['POST'])
 def fake_heartbeat():
-    """Testing endpoint to simulate client heartbeats"""
+    """
+    Testing endpoint to simulate client heartbeats without real VPN clients.
+    
+    HTTP Method: POST
+    Content-Type: application/json
+    Authentication: Bearer token (if VPN_SENTINEL_API_KEY is configured)
+    
+    This endpoint mimics the behavior of /keepalive but:
+    - Uses "TEST" prefixes in Telegram notifications
+    - Provides default test data if fields are missing
+    - Includes additional response fields for testing
+    - Helps validate server logic without real VPN clients
+    
+    Request Payload (all fields optional with defaults):
+        {
+            "client_id": "test-client-123",
+            "public_ip": "192.168.1.100",
+            "country": "Spain",
+            "city": "Madrid",
+            "org": "Test VPN Provider",
+            "dns_location": "Spain",
+            "dns_colo": "MAD"
+        }
+        
+    Response includes testing metadata:
+        - is_new_connection: Whether this created a new client entry
+        - ip_changed: Whether the IP changed from previous value
+        
+    Use Cases:
+        - Development and testing
+        - CI/CD pipeline validation
+        - Server functionality verification
+    """
     try:
         # Get data from request or use defaults for testing
         data = request.get_json() or {}
@@ -1264,7 +1330,36 @@ DASHBOARD_HTML_TEMPLATE = '''
 
 @dashboard_app.route('/dashboard', methods=['GET'])
 def web_dashboard():
-    """Web dashboard showing client status in a table format"""
+    """
+    Render the web-based dashboard showing VPN client status and server information.
+    
+    HTTP Method: GET
+    Authentication: None (public access when dashboard is enabled)
+    
+    Features:
+        - Real-time client status display with online/offline indicators
+        - Detailed client information (IP, location, provider, DNS status)
+        - Server information and configuration display
+        - Responsive HTML table layout with modern styling
+        - Automatic refresh capability (client-side)
+        
+    Dashboard Content:
+        - Client status table with connection details
+        - Online/offline counts and statistics
+        - Server location and network information
+        - Last seen timestamps and connection status
+        - DNS leak detection results
+        
+    Security:
+        - Public access (no authentication required)
+        - Can be disabled via WEB_DASHBOARD_ENABLED setting
+        - Access is logged for monitoring purposes
+        
+    Response:
+        - HTML page with embedded CSS and JavaScript
+        - 404 error if dashboard is disabled
+        - Includes comprehensive client and server data
+    """
     if not WEB_DASHBOARD_ENABLED:
         return jsonify({
             'error': 'Web dashboard is disabled',
@@ -1380,7 +1475,7 @@ def web_dashboard():
         'server_time': now.strftime('%Y-%m-%d %H:%M:%S %Z'),
         'dashboard_port': DASHBOARD_PORT,
         'server_info': server_info
-    }
+    };
     
     return render_template_string(DASHBOARD_HTML_TEMPLATE, **template_data)
 
@@ -1421,13 +1516,45 @@ def handle_internal_error(error):
 # Dashboard App Error Handlers
 @dashboard_app.errorhandler(404)
 def dashboard_not_found(error):
+    """Handle 404 errors for the dashboard app with user-friendly HTML response."""
     return "<h1>404 - Page Not Found</h1><p>The dashboard is only available at <a href='/dashboard'>/dashboard</a></p>", 404
 
 @dashboard_app.errorhandler(500)
 def dashboard_internal_error(error):
+    """Handle 500 errors for the dashboard app with user-friendly HTML response."""
     return "<h1>500 - Internal Server Error</h1><p>Please try again later or contact support.</p>", 500
 
 def check_clients():
+    """
+    Background monitoring thread that periodically checks client status.
+    
+    This function runs in a daemon thread and performs the following tasks:
+    1. Monitors client connectivity and detects offline clients
+    2. Sends Telegram alerts for client disconnections
+    3. Logs comprehensive status information for all clients
+    4. Manages alert state to prevent spam notifications
+    
+    Monitoring Logic:
+        - Runs every CHECK_INTERVAL_MINUTES (default: 5 minutes)
+        - Compares last_seen time against ALERT_THRESHOLD_MINUTES (default: 15)
+        - Sends alerts only once per disconnection event
+        - Resets alert flags when clients reconnect
+        
+    Alert Types:
+        - No clients connected (sent once until clients return)
+        - Individual client disconnections with full details
+        - Includes location, DNS status, and connection history
+        
+    State Management:
+        - alerted_clients: Set of clients already alerted for disconnection
+        - announced_clients: Reset when clients go offline
+        - no_clients_alert_sent: Prevents repeated "no clients" alerts
+        
+    Threading:
+        - Runs as daemon thread (terminates automatically on shutdown)
+        - Uses time.sleep() for periodic checking
+        - Handles exceptions gracefully to prevent thread crashes
+    """
     global no_clients_alert_sent
     alerted_clients = set()
     
@@ -1522,7 +1649,32 @@ def check_clients():
         time.sleep(CHECK_INTERVAL_MINUTES * 60)
 
 def handle_telegram_commands():
-    """Poll Telegram for incoming commands"""
+    """
+    Background thread that polls Telegram Bot API for incoming commands.
+    
+    This function runs continuously when Telegram credentials are configured,
+    checking for new messages and processing supported commands.
+    
+    Supported Commands:
+        - /ping: Test bot responsiveness
+        - /status: Get server and client status summary
+        - /help: Display available commands
+        
+    Polling Mechanism:
+        - Uses long polling with update IDs to avoid duplicates
+        - Processes only messages (ignores other update types)
+        - Handles commands from any chat (not restricted to TELEGRAM_CHAT_ID)
+        
+    Error Handling:
+        - Graceful handling of network errors and API failures
+        - Continues polling even if individual commands fail
+        - Logs errors for debugging while maintaining operation
+        
+    Threading:
+        - Runs as daemon thread (terminates on shutdown)
+        - Independent of main server operation
+        - Can be disabled by not setting Telegram credentials
+    """
     if not TELEGRAM_BOT_TOKEN:
         return
     
@@ -1652,50 +1804,68 @@ def handle_unknown_command(text):
     if send_telegram_message(message):
         log_info("telegram", f"✅ Unknown command response sent for: {text}")
 
-if __name__ == '__main__':
-    server_start_time = get_current_time()
+# =============================================================================
+# Server Initialization and Startup
+# =============================================================================
+
+if __name__ == "__main__":
+    """
+    Main server entry point - initializes and starts the VPN Sentinel server.
     
-    # SECURITY: Require API key for server to start
-    if not API_KEY:
-        log_error("config", "❌ SECURITY ERROR: VPN_SENTINEL_API_KEY environment variable is required!")
-        log_error("config", "The server will not start without proper API key configuration.")
-        log_error("config", "Set VPN_SENTINEL_API_KEY in your .env file or environment variables.")
-        exit(1)
+    Startup Sequence:
+    1. Validate configuration and log startup information
+    2. Send Telegram startup notification (if configured)
+    3. Start background client monitoring thread
+    4. Start Telegram bot polling thread (if configured)
+    5. Configure Flask logging (suppress access logs)
+    6. Start web servers (API + Dashboard)
     
+    Server Modes:
+        - Single Port: API and Dashboard on same port (default API_PORT)
+        - Dual Port: API on API_PORT, Dashboard on DASHBOARD_PORT
+        
+    Threading:
+        - Client checker runs as daemon thread
+        - Telegram polling runs as daemon thread (if enabled)
+        - API server runs in background thread (dual port mode)
+        - Dashboard server runs in main thread
+        
+    Shutdown:
+        - Graceful shutdown on SIGTERM/SIGINT
+        - Daemon threads automatically terminate
+    """
+    
+    # Validate configuration and prepare startup
     log_info("server", "🚀 Starting VPN Sentinel Server...")
     log_info("config", f"API path: {API_PATH}")
     log_info("config", f"Alert threshold: {ALERT_THRESHOLD_MINUTES} minutes")
     log_info("config", f"Check interval: {CHECK_INTERVAL_MINUTES} minutes")
     log_info("security", f"Rate limiting: {RATE_LIMIT_REQUESTS} req/min")
     log_info("security", f"API key auth: {'Enabled' if API_KEY else 'Disabled'}")
-    log_info("security", f"IP whitelist: {'Enabled' if ALLOWED_IPS and ALLOWED_IPS != [''] else 'Disabled'}")
+    log_info("security", f"IP whitelist: {'Disabled' if not ALLOWED_IPS or ALLOWED_IPS == [''] else 'Enabled'}")
     log_info("dashboard", f"Web dashboard: {'Enabled' if WEB_DASHBOARD_ENABLED else 'Disabled'}")
-    if WEB_DASHBOARD_ENABLED:
-        log_info("dashboard", f"Dashboard URL: http://localhost:{DASHBOARD_PORT}/dashboard")
+    log_info("dashboard", f"Dashboard URL: http://localhost:{DASHBOARD_PORT}/dashboard")
     
-    # TLS/SSL Configuration
-    if TLS_CERT_PATH and TLS_KEY_PATH:
-        log_info("config", f"🔒 TLS certificate and key enabled for HTTPS: {TLS_CERT_PATH}, {TLS_KEY_PATH}")
-        ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
-    elif TLS_CERT_PATH and not TLS_KEY_PATH:
-        log_info("config", f"🔒 TLS certificate enabled for HTTPS: {TLS_CERT_PATH} (no key provided)")
-        ssl_ctx = TLS_CERT_PATH
-    else:
+    if not TLS_CERT_PATH or not TLS_KEY_PATH:
         log_warn("config", "⚠️ No TLS certificate/key provided; HTTPS disabled (using HTTP only)")
-        ssl_ctx = None
     
-    startup_message = f"🚀 <b>VPN Keepalive Server Started</b>\n\n"
-    startup_message += f"Server is now monitoring VPN connections.\n"
-    startup_message += f"Alert threshold: {ALERT_THRESHOLD_MINUTES} minutes\n"
-    startup_message += f"Check interval: {CHECK_INTERVAL_MINUTES} minutes\n"
-    startup_message += f"🛡️ Security: Rate limiting ({RATE_LIMIT_REQUESTS} req/min)\n"
-    startup_message += f"🔐 API Auth: Required and Enabled\n"
-    if WEB_DASHBOARD_ENABLED:
-        startup_message += f"🌐 Web Dashboard: http://localhost:{DASHBOARD_PORT}/dashboard\n"
-    startup_message += f"Started at: {server_start_time.strftime('%Y-%m-%d %H:%M:%S %Z')}\n\n"
-    startup_message += f"💡 Send /ping to test the connection!\n"
-    startup_message += f"📊 Send /status for detailed VPN status\n"
-    startup_message += f"❓ Send /help for all commands"
+    # Check for registered clients on startup
+    log_info("monitor", f"🔍 Check: {len(clients)} clients registered")
+    
+    # Send startup notification
+    startup_message = f"🚀 <b>VPN Sentinel Server Started</b>\n\n"
+    startup_message += f"📊 <b>Configuration:</b>\n"
+    startup_message += f"• API Port: <code>{API_PORT}</code>\n"
+    startup_message += f"• Dashboard Port: <code>{DASHBOARD_PORT}</code>\n"
+    startup_message += f"• Alert Threshold: <code>{ALERT_THRESHOLD_MINUTES} minutes</code>\n"
+    startup_message += f"• Check Interval: <code>{CHECK_INTERVAL_MINUTES} minutes</code>\n"
+    startup_message += f"• Rate Limit: <code>{RATE_LIMIT_REQUESTS} req/min</code>\n"
+    startup_message += f"• TLS: <code>{'Enabled' if TLS_CERT_PATH and TLS_KEY_PATH else 'Disabled'}</code>\n\n"
+    startup_message += f"🌐 <b>Access URLs:</b>\n"
+    startup_message += f"• API: <code>http://your-server:{API_PORT}{API_PATH}</code>\n"
+    startup_message += f"• Dashboard: <code>http://your-server:{DASHBOARD_PORT}/dashboard</code>\n"
+    startup_message += f"• Health: <code>http://your-server:{API_PORT}{API_PATH}/health</code>\n\n"
+    startup_message += f"✅ <b>Server is ready to receive VPN client connections!</b>"
     
     if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
         if send_telegram_message(startup_message):
@@ -1703,6 +1873,7 @@ if __name__ == '__main__':
         else:
             log_warn("telegram", "Failed to send startup notification")
     
+    # Start background monitoring thread
     checker_thread = threading.Thread(target=check_clients, daemon=True)
     checker_thread.start()
     
@@ -1719,18 +1890,21 @@ if __name__ == '__main__':
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.ERROR)  # Only show errors, suppress access logs
     
-    # Start API server in a separate thread if dashboard is enabled and ports are different
+    # Start web servers based on configuration
     if WEB_DASHBOARD_ENABLED and API_PORT != DASHBOARD_PORT:
+        # Dual port mode: API and Dashboard on separate ports
         def run_api_server():
             ssl_ctx = None
             if TLS_CERT_PATH and TLS_KEY_PATH:
-                ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
+                               ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
             api_app.run(host='0.0.0.0', port=API_PORT, debug=False, use_reloader=False, ssl_context=ssl_ctx)
+        
         def run_dashboard_server():
             ssl_ctx = None
             if TLS_CERT_PATH and TLS_KEY_PATH:
                 ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
             dashboard_app.run(host='0.0.0.0', port=DASHBOARD_PORT, debug=False, use_reloader=False, ssl_context=ssl_ctx)
+        
         # Start API server in background thread
         api_thread = threading.Thread(target=run_api_server, daemon=True)
         api_thread.start()
@@ -1740,9 +1914,11 @@ if __name__ == '__main__':
         log_info("server", f"🌐 Dashboard Server starting on port {DASHBOARD_PORT}")
         run_dashboard_server()
     else:
+        # Single port mode: API and Dashboard on same port
         @api_app.route('/dashboard', methods=['GET'])
         def dashboard_single_port():
             return web_dashboard()
+        
         log_info("server", f"🚀 Server starting on port {API_PORT} (API + Dashboard)")
         ssl_ctx = None
         if TLS_CERT_PATH and TLS_KEY_PATH:
