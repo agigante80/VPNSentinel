@@ -1,4 +1,3 @@
-
 #!/bin/sh
 # Trust self-signed certificates (true/false)
 TRUST_SELF_SIGNED_CERTIFICATES="${TRUST_SELF_SIGNED_CERTIFICATES:-false}"
