@@ -10,12 +10,12 @@ services:
     container_name: vpn-sentinel-server-test
     env_file: .env.test
     ports:
-      - "15554:5554"  # Different ports for testing
-      - "15553:5553"
+      - "5000:5000"  # API port
+      - "5001:5001"  # Dashboard port
     networks:
       - vpn-sentinel-test
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5554/test/v1/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/test/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -37,7 +37,7 @@ services:
     container_name: vpn-sentinel-client-test
     env_file: .env.test
     environment:
-      - VPN_SENTINEL_SERVER_API_BASE_URL=http://vpn-sentinel-server-test:5554
+      - VPN_SENTINEL_SERVER_API_BASE_URL=http://vpn-sentinel-server-test:5000
       - VPN_SENTINEL_CLIENT_ID=test-client-docker
     depends_on:
       vpn-sentinel-server-test:
