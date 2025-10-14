@@ -18,6 +18,8 @@ logs/
 .DS_Store
 Thumbs.db
 test/
+.env-TEST
+compose-TEST.yaml
 
 # Backup files
 *.backup
