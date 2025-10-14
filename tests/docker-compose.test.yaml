@@ -45,7 +45,7 @@ services:
     container_name: vpn-sentinel-test-db
     environment:
       POSTGRES_DB: vpn_sentinel_test
-      POSTGRES_USER: test_user
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: test_password
     ports:
       - "15432:5432"
