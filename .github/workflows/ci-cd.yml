@@ -134,12 +134,12 @@ jobs:
       - name: Build and start test environment
         run: |
           docker-compose -f tests/docker-compose.test.yaml up -d --build
-          timeout 60s bash -c 'while ! curl -s http://localhost:15554/test/v1/health > /dev/null; do sleep 2; done'
+          timeout 60s bash -c 'while ! curl -s http://localhost:5000/test/v1/health > /dev/null; do sleep 2; done'
           echo "✅ Test server is ready"
       - name: Run integration tests
         run: |
           cd tests
-          export VPN_SENTINEL_SERVER_API_BASE_URL=http://localhost:15554
+          export VPN_SENTINEL_SERVER_API_BASE_URL=http://localhost:5000
           python -m pytest integration/ -v --
       - name: Get server logs on failure
         if: failure()

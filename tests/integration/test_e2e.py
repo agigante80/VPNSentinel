@@ -24,10 +24,10 @@ class TestServerClientIntegration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up test environment for integration tests"""
-        cls.server_url = "http://localhost:5554"
-        cls.api_path = "/04ffc8/v1"
-        cls.dashboard_url = "http://localhost:5553"
-        cls.api_key = "YorZpnLB7yjrJiInBo4Y61kJLHhuCcT7yVL2iItmJUyR1kjl107hS6JyOuEBgEqZYiQ"
+        cls.server_url = os.getenv("VPN_SENTINEL_SERVER_API_BASE_URL", "http://localhost:5000")
+        cls.api_path = "/test/v1"
+        cls.dashboard_url = "http://localhost:5001"
+        cls.api_key = os.getenv("VPN_SENTINEL_API_KEY", "test-api-key-abcdef123456789")
     
     def test_server_health_endpoint(self):
         """Test server health check endpoint"""
