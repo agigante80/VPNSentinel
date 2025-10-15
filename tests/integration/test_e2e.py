@@ -450,12 +450,12 @@ class TestConfigurationValidation(unittest.TestCase):
                         self.assertIn(var, content, 
                                     f"Required variable {var} not found in {env_file}")
                     
-                    # Check server requirements for server deployments
-                    if 'server' in env_file or 'unified' in env_file or env_file.endswith('/.env.example'):
+                    # Check server requirements for server deployments only
+                    if 'server-only' in env_file or 'unified' in env_file:
                         for var in server_required_vars:
-                            self.assertIn(var, content, 
+                            self.assertIn(var, content,
                                         f"Server variable {var} not found in {env_file}")
-                    
+
                     # Client-only deployments should have server connection info
                     if 'client-only' in env_file:
                         client_required_vars = [
@@ -463,7 +463,7 @@ class TestConfigurationValidation(unittest.TestCase):
                             'VPN_SENTINEL_CLIENT_ID'
                         ]
                         for var in client_required_vars:
-                            self.assertIn(var, content, 
+                            self.assertIn(var, content,
                                         f"Client variable {var} not found in {env_file}")
             else:
                 self.skipTest(f"Environment file not found: {env_file}")

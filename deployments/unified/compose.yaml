@@ -1,0 +1,140 @@
+# =============================================================================
+# VPN SENTINEL UNIFIED DEPLOYMENT
+# =============================================================================
+#
+# DESCRIPTION:
+#   Complete VPN Sentinel deployment with VPN client, monitoring client, and server.
+#   This is the full-stack configuration that provides end-to-end VPN monitoring.
+#
+# USE CASES:
+#   - Complete VPN monitoring solution in a single deployment
+#   - Self-contained VPN setup with monitoring
+#   - Development and testing environments
+#   - Single-server VPN monitoring deployments
+#
+# COMPONENTS INCLUDED:
+#   ✅ VPN Client (Gluetun or alternative)
+#   ✅ VPN Sentinel Client (monitoring from inside VPN)
+#   ✅ VPN Sentinel Server (API, dashboard, notifications)
+#   ✅ VPN Sentinel Database (persistent storage)
+#   ✅ Your Applications (add via network_mode: service:vpn-client)
+#
+# NETWORKING:
+#   - Dual-network architecture for reliable monitoring
+#   - VPN network isolates protected applications
+#   - Server network provides external access for notifications
+#   - Internal network bridges VPN and server components
+#
+# CONFIGURATION:
+#   - Copy .env.example to .env and configure all components
+#   - Set up VPN provider credentials
+#   - Configure Telegram bot for notifications
+#   - Add your applications using network_mode
+#
+# DEPLOYMENT:
+#   docker compose -f deployments/unified/compose.yaml up -d
+#
+# =============================================================================
+
+services:
+  # =============================================================================
+  # VPN CLIENT SERVICE - Your VPN Connection Provider
+  # =============================================================================
+  vpn-client:
+    image: qmcgaw/gluetun
+    container_name: vpn-client
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - ../../vpn-client:/gluetun
+    environment:
+      - UPDATER_PERIOD=${UPDATER_PERIOD:-24h}
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES}
+      - OPENVPN_USER=${VPN_USER}
+      - OPENVPN_PASSWORD=${VPN_PASSWORD}
+      - FIREWALL_OUTBOUND_SUBNETS=172.28.0.0/16
+    restart: always
+
+  # =============================================================================
+  # VPN SENTINEL CLIENT - Monitors from inside VPN network
+  # =============================================================================
+  vpn-sentinel-client:
+    image: curlimages/curl:latest
+    container_name: vpn-sentinel-client
+    environment:
+      - VPN_SENTINEL_SERVER_API_BASE_URL=http://vpn-sentinel-server:5000
+      - VPN_SENTINEL_SERVER_API_PATH=/api/v1
+      - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-main}
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
+      - TZ=${TZ:-UTC}
+      - TRUST_SELF_SIGNED_CERTIFICATES=${TRUST_SELF_SIGNED_CERTIFICATES:-false}
+    volumes:
+      - ../../vpn-sentinel-client/vpn-sentinel-client.sh:/tmp/vpn-sentinel-client.sh:ro
+    network_mode: service:vpn-client
+    restart: always
+    depends_on:
+      - vpn-client
+      - vpn-sentinel-server
+
+  # =============================================================================
+  # VPN SENTINEL SERVER - Central monitoring server
+  # =============================================================================
+  vpn-sentinel-server:
+    image: python:3.9-slim
+    container_name: vpn-sentinel-server
+    ports:
+      - "5000:5000"
+      - "8080:8080"
+    environment:
+      - VPN_SENTINEL_SERVER_API_PORT=5000
+      - VPN_SENTINEL_SERVER_DASHBOARD_PORT=8080
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
+      - TZ=${TZ:-UTC}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH}
+      - VPN_SENTINEL_TLS_KEY_PATH=${VPN_SENTINEL_TLS_KEY_PATH}
+      - VPN_SENTINEL_SERVER_ALLOWED_IPS=${VPN_SENTINEL_SERVER_ALLOWED_IPS}
+      - VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS=${VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS:-30}
+    volumes:
+      - ../../vpn-sentinel-server:/app:ro
+      - ${VPN_SENTINEL_TLS_CERT_PATH:-../../certs/server.crt}:/certs/server.crt:ro
+      - ${VPN_SENTINEL_TLS_KEY_PATH:-../../certs/server.key}:/certs/server.key:ro
+    networks:
+      - vpn-sentinel-internal
+      - vpn-sentinel-server
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # VPN SENTINEL DATABASE - Persistent storage
+  # =============================================================================
+  vpn-sentinel-db:
+    image: nouchka/sqlite3:latest
+    container_name: vpn-sentinel-db
+    environment:
+      - SQLITE_DATABASE_PATH=/data/vpn_sentinel.db
+    volumes:
+      - ../../vpn-sentinel-db:/data
+    networks:
+      - vpn-sentinel-internal
+    restart: unless-stopped
+
+networks:
+  vpn-sentinel-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+  vpn-sentinel-server:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
