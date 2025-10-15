@@ -75,9 +75,9 @@ services:
 
     volumes:
       - ../../vpn-sentinel-server:/app:ro
-      # TLS certificates (optional)
-      - ${VPN_SENTINEL_TLS_CERT_PATH:-../../certs/server.crt}:/certs/server.crt:ro
-      - ${VPN_SENTINEL_TLS_KEY_PATH:-../../certs/server.key}:/certs/server.key:ro
+      # TLS certificates (optional) - commented out for basic testing
+      # - ${VPN_SENTINEL_TLS_CERT_PATH:-../../certs/server.crt}:/certs/server.crt:ro
+      # - ${VPN_SENTINEL_TLS_KEY_PATH:-../../certs/server.key}:/certs/server.key:ro
 
     restart: unless-stopped
     healthcheck:

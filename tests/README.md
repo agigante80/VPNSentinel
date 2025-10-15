@@ -130,7 +130,7 @@ docker-compose -f tests/docker-compose.test.yaml down -v
 The test environment uses different ports and configuration:
 - **API Port**: 15554 (instead of 5554)
 - **Dashboard Port**: 15553 (instead of 5553)
-- **API Path**: `/test/v1` (instead of `/04ffc8/v1`)
+- **API Path**: `/test/v1` (instead of `/api/v1`)
 - **Test API Key**: `test-api-key-abcdef123456789`
 
 ## Continuous Integration

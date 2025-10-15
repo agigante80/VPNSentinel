@@ -295,9 +295,9 @@ class TestEndToEndWorkflow(unittest.TestCase):
     
     def setUp(self):
         """Set up for E2E tests"""
-        self.server_url = "http://localhost:5554"
-        self.api_path = "/04ffc8/v1"
-        self.api_key = "YorZpnLB7yjrJiInBo4Y61kJLHhuCcT7yVL2iItmJUyR1kjl107hS6JyOuEBgEqZYiQ"
+        self.server_url = "http://localhost:5000"
+        self.api_path = "/test/v1"  # Match test environment API path
+        self.api_key = "test-api-key-abcdef123456789"  # Match test environment API key
         
     def test_client_registration_workflow(self):
         """Test complete client registration and monitoring workflow"""
