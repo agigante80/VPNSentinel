@@ -23,7 +23,7 @@ Features:
 Architecture:
 - Flask web server for HTTP API endpoints
 - Threading for concurrent client monitoring
-- In-memory storage for client status (production: consider Redis/DB)
+- In-memory storage for client status
 - Telegram Bot API integration for notifications
 - Security features: rate limiting, IP whitelisting, API key auth
 

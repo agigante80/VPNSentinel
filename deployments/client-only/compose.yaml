@@ -1,49 +1,4 @@
-# =============================================================================
-# VPN SENTINEL CLIENT-ONLY DEPLOYMENT
-# =============================================================================
-#
-# DESCRIPTION:
-#   Client-only deployment of VPN Sentinel monitoring system. This configuration
-#   includes the VPN client and monitoring client components, but not the server.
-#   Use this when you want to monitor a VPN setup that reports to an external server.
-#
-# USE CASES:
-#   - VPN monitoring clients that report to a centralized server
-#   - Distributed monitoring across multiple VPN locations
-#   - Remote VPN monitoring with centralized alerting
-#   - Adding monitoring to existing VPN setups
-#
-# COMPONENTS INCLUDED:
-#   ✅ VPN Client (Gluetun or alternative)
-#   ✅ VPN Sentinel Client (monitoring from inside VPN)
-#   ❌ VPN Sentinel Server (connects to external server)
-#   ❌ VPN Sentinel Database (uses external server storage)
-#
-# NETWORKING:
-#   - VPN network isolates protected applications
-#   - Monitoring client reports to external VPN Sentinel server
-#   - No local server or dashboard (uses external server)
-#
-# CONFIGURATION:
-#   - Copy .env.example to .env and configure VPN and server connection
-#   - Set VPN_SENTINEL_SERVER_API_BASE_URL to point to your server
-#   - Set VPN_SENTINEL_API_KEY to match server configuration
-#   - Configure VPN provider credentials
-#
-# DEPLOYMENT:
-#   docker compose -f deployments/client-only/compose.yaml up -d
-#
-# EXTERNAL SERVER REQUIREMENTS:
-#   - VPN Sentinel server running and accessible
-#   - Matching API key for authentication
-#   - Network connectivity to server endpoints
-#
-# =============================================================================
-
 services:
-  # =============================================================================
-  # VPN CLIENT SERVICE - Your VPN Connection Provider
-  # =============================================================================
   vpn-client:
     image: qmcgaw/gluetun
     container_name: vpn-sentinel-vpn-client
@@ -61,10 +16,6 @@ services:
       - OPENVPN_PASSWORD=${VPN_PASSWORD}
       - FIREWALL_OUTBOUND_SUBNETS=${FIREWALL_OUTBOUND_SUBNETS}
     restart: always
-
-  # =============================================================================
-  # VPN SENTINEL CLIENT - Monitors from inside VPN network
-  # =============================================================================
   vpn-sentinel-client:
     image: curlimages/curl:latest
     container_name: vpn-sentinel-client
@@ -81,17 +32,3 @@ services:
     restart: always
     depends_on:
       - vpn-client
-
-  # =============================================================================
-  # YOUR APPLICATIONS - Add containers that need VPN protection here
-  # =============================================================================
-  #
-  # To add your applications, copy this example and modify:
-  #
-  # your-app:
-  #   image: your-app:latest
-  #   container_name: your-app
-  #   network_mode: service:vpn-client
-  #   depends_on:
-  #     - vpn-client
-  #   restart: unless-stopped

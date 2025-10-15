@@ -1,41 +1,3 @@
-# =============================================================================
-# VPN SENTINEL UNIFIED DEPLOYMENT
-# =============================================================================
-#
-# DESCRIPTION:
-#   Complete VPN Sentinel deployment with VPN client, monitoring client, and server.
-#   This is the full-stack configuration that provides end-to-end VPN monitoring.
-#
-# USE CASES:
-#   - Complete VPN monitoring solution in a single deployment
-#   - Self-contained VPN setup with monitoring
-#   - Development and testing environments
-#   - Single-server VPN monitoring deployments
-#
-# COMPONENTS INCLUDED:
-#   ✅ VPN Client (Gluetun or alternative)
-#   ✅ VPN Sentinel Client (monitoring from inside VPN)
-#   ✅ VPN Sentinel Server (API, dashboard, notifications)
-#   ✅ VPN Sentinel Database (persistent storage)
-#   ✅ Your Applications (add via network_mode: service:vpn-client)
-#
-# NETWORKING:
-#   - Dual-network architecture for reliable monitoring
-#   - VPN network isolates protected applications
-#   - Server network provides external access for notifications
-#   - Internal network bridges VPN and server components
-#
-# CONFIGURATION:
-#   - Copy .env.example to .env and configure all components
-#   - Set up VPN provider credentials
-#   - Configure Telegram bot for notifications
-#   - Add your applications using network_mode
-#
-# DEPLOYMENT:
-#   docker compose -f deployments/unified/compose.yaml up -d
-#
-# =============================================================================
-
 services:
   # =============================================================================
   # VPN CLIENT SERVICE - Your VPN Connection Provider
@@ -112,20 +74,6 @@ services:
       interval: 60s
       timeout: 10s
       retries: 3
-
-  # =============================================================================
-  # VPN SENTINEL DATABASE - Persistent storage
-  # =============================================================================
-  vpn-sentinel-db:
-    image: nouchka/sqlite3:latest
-    container_name: vpn-sentinel-db
-    environment:
-      - SQLITE_DATABASE_PATH=/data/vpn_sentinel.db
-    volumes:
-      - ../../vpn-sentinel-db:/data
-    networks:
-      - vpn-sentinel-internal
-    restart: unless-stopped
 
 networks:
   vpn-sentinel-internal:

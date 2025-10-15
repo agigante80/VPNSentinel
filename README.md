@@ -162,7 +162,6 @@ Body: {
 - Single server supports 100+ concurrent clients
 - API response time: <100ms for status queries
 - Notification delivery: <5 seconds from event detection
-- Database operations: Sub-millisecond for status updates
 
 ## 🚀 Deployment Architecture
 
@@ -466,21 +465,9 @@ curl http://localhost:5000/health | grep -q "healthy"
 docker compose logs vpn-sentinel-server --json | jq .
 ```
 
-### Backup Strategy
-
-```bash
-# Configuration backup
-tar -czf vpn-sentinel-backup-$(date +%Y%m%d).tar.gz \
-  .env docker-compose.yaml keepalive-*/
-
-# Database backup (future SQLite implementation)
-docker exec vpn-sentinel-server sqlite3 /app/data.db .dump > backup.sql
-```
-
 ## 🔮 Roadmap & Technical Evolution
 
 ### Phase 1: Multi-Client Architecture (Q4 2025)
-- **Database Integration:** SQLite/PostgreSQL for client state management
 - **Client Registry:** Dynamic client registration and identification
 - **Unified Dashboard:** Single interface for multiple VPN monitoring
 - **Alert Aggregation:** Consolidated notifications across all clients
