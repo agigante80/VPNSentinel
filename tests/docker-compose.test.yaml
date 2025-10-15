@@ -1,5 +1,5 @@
 # Docker Compose for Test Environment
-version: "3"
+version: "3.8"
 
 services:
   # Test VPN Sentinel Server
@@ -15,19 +15,12 @@ services:
     networks:
       - vpn-sentinel-test
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/test/v1/health"]
+      test: ["CMD", "python3", "-c", "import requests; requests.get('http://localhost:5000/test/v1/health', timeout=5).raise_for_status()"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
     restart: unless-stopped
-    develop:
-      watch:
-        - action: sync
-          path: ../vpn-sentinel-server
-          target: /app
-        - action: rebuild
-          path: ../vpn-sentinel-server/Dockerfile
 
   # Test VPN Sentinel Client
   vpn-sentinel-client-test:
@@ -45,13 +38,6 @@ services:
     networks:
       - vpn-sentinel-test
     restart: unless-stopped
-    develop:
-      watch:
-        - action: sync
-          path: ../vpn-sentinel-client
-          target: /app
-        - action: rebuild
-          path: ../vpn-sentinel-client/Dockerfile
 
   # Test database for storing test results (optional)
   test-db:

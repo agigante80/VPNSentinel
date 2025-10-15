@@ -132,7 +132,7 @@ run_integration_tests() {
     echo -e "${YELLOW}🔗 Running integration tests...${NC}"
     
     # Check if server is running
-    if curl -s "http://localhost:5554/04ffc8/v1/health" > /dev/null 2>&1; then
+    if curl -s "http://localhost:5000/test/v1/health" > /dev/null 2>&1; then
         echo -e "${GREEN}✅ Server is running, proceeding with integration tests${NC}"
         
         cd "$TEST_DIR"
