@@ -102,7 +102,7 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 API_PATH = os.getenv("VPN_SENTINEL_SERVER_API_PATH", "/api/v1")          # API path prefix for endpoints
 
 # Security Configuration
-API_KEY = os.getenv("VPN_SENTINEL_API_KEY", "")                          # Required API key for authentication
+API_KEY = os.getenv("VPN_SENTINEL_API_KEY", "")                          # Optional API key for authentication
 ALLOWED_IPS = os.getenv("VPN_SENTINEL_SERVER_ALLOWED_IPS", "").split(",") if os.getenv("VPN_SENTINEL_SERVER_ALLOWED_IPS") else []  # IP whitelist
 
 # Rate Limiting Configuration
@@ -494,17 +494,14 @@ def security_middleware():
         log_access(endpoint, client_ip, user_agent, auth_header, "429_RATE_LIMITED")
         return jsonify({'error': 'Rate limit exceeded'}), 429
     
-    # API Key Authentication Check (REQUIRED for server operation)
-    # Server will not function without proper API key configuration
-    if not API_KEY:
-        # API key not configured - server should not start
-        log_access(endpoint, client_ip, user_agent, auth_header, "500_NO_API_KEY")
-        return jsonify({'error': 'Server configuration error'}), 500
-    
-    if auth_header != f'Bearer {API_KEY}':
-        log_access(endpoint, client_ip, user_agent, auth_header, "401_UNAUTHORIZED")
-        # Return no response body to hide server existence
-        return '', 401
+    # API Key Authentication Check (OPTIONAL for server operation)
+    # Only enforce authentication if API key is explicitly configured
+    if API_KEY:
+        # API key is configured - require authentication
+        if auth_header != f'Bearer {API_KEY}':
+            log_access(endpoint, client_ip, user_agent, auth_header, "401_UNAUTHORIZED")
+            # Return no response body to hide server existence
+            return '', 401
     
     # Request allowed - log successful access
     log_access(endpoint, client_ip, user_agent, auth_header, "200_OK")
