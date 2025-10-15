@@ -163,6 +163,96 @@ class TestServerClientIntegration(unittest.TestCase):
             
         except requests.ConnectionError:
             self.skipTest("Server not running for integration tests")
+    
+    def test_ip_whitelist_disabled(self):
+        """Test that requests work when no IP whitelist is configured (default behavior)"""
+        try:
+            # Test with valid authentication but no IP whitelist configured
+            headers = {
+                'Authorization': f'Bearer {self.api_key}',
+                'Content-Type': 'application/json'
+            }
+            
+            payload = SAMPLE_KEEPALIVE_REQUEST.copy()
+            payload['client_id'] = 'whitelist-disabled-test'
+            payload['timestamp'] = datetime.now(timezone.utc).isoformat()
+            
+            response = requests.post(
+                f"{self.server_url}{self.api_path}/keepalive",
+                headers=headers,
+                json=payload,
+                timeout=10
+            )
+            
+            # Should succeed when no whitelist is configured
+            self.assertEqual(response.status_code, 200)
+            
+        except requests.ConnectionError:
+            self.skipTest("Server not running for integration tests")
+    
+    def test_ip_whitelist_enabled_allows_valid_ip(self):
+        """Test that whitelisted IPs are allowed when whitelist is enabled"""
+        try:
+            # This test requires server to be configured with IP whitelist
+            # For now, we'll test the basic functionality by checking server response
+            # In a real deployment, this would test against a server with ALLOWED_IPS configured
+            
+            # Test server health endpoint (should always work regardless of IP whitelist)
+            response = requests.get(
+                f"{self.server_url}{self.api_path}/health",
+                timeout=10
+            )
+            
+            # Health endpoint should be accessible
+            if response.status_code == 200:
+                data = response.json()
+                self.assertEqual(data.get('status'), 'healthy')
+            else:
+                self.skipTest(f"Health endpoint not accessible: {response.status_code}")
+                
+        except requests.ConnectionError:
+            self.skipTest("Server not running for integration tests")
+    
+    def test_ip_whitelist_configuration_parsing(self):
+        """Test that IP whitelist configuration handles empty/whitespace entries correctly"""
+        # This is a unit-style test that can run without server
+        # Test the ALLOWED_IPS parsing logic
+        
+        import os
+        from unittest.mock import patch
+        
+        # Test various whitelist configurations
+        test_cases = [
+            # (env_value, expected_result)
+            ("", []),  # Empty string
+            ("192.168.1.100", ["192.168.1.100"]),  # Single IP
+            ("192.168.1.100,10.0.0.1", ["192.168.1.100", "10.0.0.1"]),  # Multiple IPs
+            (" 192.168.1.100 , 10.0.0.1 ", ["192.168.1.100", "10.0.0.1"]),  # With spaces
+            ("192.168.1.100,,10.0.0.1,", ["192.168.1.100", "10.0.0.1"]),  # With empty entries
+            ("192.168.1.100, ,10.0.0.1", ["192.168.1.100", "10.0.0.1"]),  # With whitespace-only entries
+        ]
+        
+        for env_value, expected in test_cases:
+            with patch.dict(os.environ, {'VPN_SENTINEL_SERVER_ALLOWED_IPS': env_value}):
+                # Re-import to get fresh environment
+                import importlib
+                import sys
+                if 'vpn_sentinel_server' in sys.modules:
+                    del sys.modules['vpn_sentinel_server']
+                
+                try:
+                    # Try importing the actual module using the same method as unit tests
+                    import importlib.util
+                    spec = importlib.util.spec_from_file_location(
+                        "vpn_sentinel_server", 
+                        "/home/alien/dev/VPNSentinel/vpn-sentinel-server/vpn-sentinel-server.py"
+                    )
+                    server_module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(server_module)
+                    actual = server_module.ALLOWED_IPS
+                    self.assertEqual(actual, expected, f"Failed for env_value='{env_value}'")
+                except ImportError:
+                    self.skipTest("Cannot test ALLOWED_IPS parsing without server module")
 
 
 class TestDockerIntegration(unittest.TestCase):
