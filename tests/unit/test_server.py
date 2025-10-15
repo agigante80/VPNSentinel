@@ -45,6 +45,9 @@ class TestServerFunctions(unittest.TestCase):
             )
             server_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(server_module)  # Execute the module to define functions
+        
+        # Make server_module available as instance attribute
+        self.server_module = server_module
     
     def tearDown(self):
         """Clean up test environment"""
@@ -82,6 +85,154 @@ class TestServerFunctions(unittest.TestCase):
         # Verify time is timezone-aware
         self.assertIsNotNone(now.tzinfo)
         self.assertEqual(now.tzinfo, timezone.utc)
+    
+    @patch('requests.get')
+    def test_get_server_info_success_ipinfo(self, mock_get):
+        """Test successful server info retrieval from ipinfo.io"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'ip': '172.67.163.127',
+            'city': 'Madrid',
+            'region': 'Madrid',
+            'country': 'ES',
+            'org': 'Digi Spain Telecom S.L.'
+        }
+        mock_get.return_value = mock_response
+        
+        # Use the server_module from setUp if available
+        if hasattr(self, 'server_module') and hasattr(self.server_module, 'get_server_info'):
+            result = self.server_module.get_server_info()
+            
+            self.assertEqual(result['public_ip'], '172.67.163.127')
+            self.assertEqual(result['location'], 'Madrid, Madrid, ES')
+            self.assertEqual(result['provider'], 'Digi Spain Telecom S.L.')
+            self.assertEqual(result['dns_status'], 'Operational')
+        else:
+            # Skip if module not available
+            self.skipTest("Server module not available in test environment")
+    
+    @patch('requests.get')
+    def test_get_server_info_fallback_to_ipapi(self, mock_get):
+        """Test server info fallback from ipinfo.io to ip-api.com"""
+        # Mock ipinfo.io failing, ip-api.com succeeding
+        mock_ipinfo_response = Mock()
+        mock_ipinfo_response.status_code = 500
+        
+        mock_ipapi_response = Mock()
+        mock_ipapi_response.status_code = 200
+        mock_ipapi_response.json.return_value = {
+            'query': '172.67.163.127',
+            'city': 'Madrid',
+            'regionName': 'Madrid',
+            'countryCode': 'ES',
+            'isp': 'Digi Spain Telecom S.L.'
+        }
+        
+        mock_get.side_effect = [mock_ipinfo_response, mock_ipapi_response]
+        
+        if hasattr(self, 'server_module') and hasattr(self.server_module, 'get_server_info'):
+            result = self.server_module.get_server_info()
+            
+            self.assertEqual(result['public_ip'], '172.67.163.127')
+            self.assertEqual(result['location'], 'Madrid, Madrid, ES')
+            self.assertEqual(result['provider'], 'Digi Spain Telecom S.L.')
+            self.assertEqual(result['dns_status'], 'Operational')
+        else:
+            self.skipTest("Server module not available in test environment")
+    
+    @patch('requests.get')
+    def test_get_server_info_both_services_fail(self, mock_get):
+        """Test server info when both geolocation services fail"""
+        # Mock both services failing
+        mock_get.side_effect = Exception("Network error")
+        
+        if hasattr(self, 'server_module') and hasattr(self.server_module, 'get_server_info'):
+            result = self.server_module.get_server_info()
+            
+            # Should return default values
+            self.assertEqual(result['public_ip'], 'Unknown')
+            self.assertEqual(result['location'], 'Unknown')
+            self.assertEqual(result['provider'], 'Unknown')
+            self.assertEqual(result['dns_status'], 'Unknown')
+        else:
+            self.skipTest("Server module not available in test environment")
+    
+    @patch('requests.get')
+    def test_get_server_info_ipapi_field_mapping(self, mock_get):
+        """Test correct field mapping for ip-api.com responses"""
+        # Mock ipinfo.io failing first, then ip-api.com succeeding
+        mock_ipinfo_response = Mock()
+        mock_ipinfo_response.status_code = 500  # Make ipinfo.io fail
+        
+        mock_ipapi_response = Mock()
+        mock_ipapi_response.status_code = 200
+        mock_ipapi_response.json.return_value = {
+            'query': '1.2.3.4',           # IP field
+            'countryCode': 'US',         # Country field
+            'city': 'New York',          # City field
+            'regionName': 'New York',    # Region field
+            'isp': 'Verizon Communications'  # Provider field
+        }
+        
+        mock_get.side_effect = [mock_ipinfo_response, mock_ipapi_response]
+        
+        if hasattr(self, 'server_module') and hasattr(self.server_module, 'get_server_info'):
+            result = self.server_module.get_server_info()
+            
+            self.assertEqual(result['public_ip'], '1.2.3.4')
+            self.assertEqual(result['location'], 'New York, New York, US')
+            self.assertEqual(result['provider'], 'Verizon Communications')
+        else:
+            self.skipTest("Server module not available in test environment")
+    
+    @patch('requests.get')
+    def test_get_server_info_partial_location_data(self, mock_get):
+        """Test server info with partial location data"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'ip': '5.6.7.8',
+            'city': 'London',
+            # Missing region
+            'country': 'GB',
+            'org': 'British Telecom'
+        }
+        mock_get.return_value = mock_response
+        
+        if hasattr(self, 'server_module') and hasattr(self.server_module, 'get_server_info'):
+            result = self.server_module.get_server_info()
+            
+            self.assertEqual(result['public_ip'], '5.6.7.8')
+            self.assertEqual(result['location'], 'London, GB')  # Should handle missing region
+            self.assertEqual(result['provider'], 'British Telecom')
+        else:
+            self.skipTest("Server module not available in test environment")
+    
+    @patch('requests.get')
+    def test_get_server_info_invalid_ip(self, mock_get):
+        """Test server info retrieval with invalid IP address"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'ip': 'invalid-ip',
+            'city': '',
+            'region': '',
+            'country': '',
+            'org': ''
+        }
+        mock_get.return_value = mock_response
+        
+        try:
+            from vpn_sentinel_server import get_server_info
+            result = get_server_info()
+            
+            # Invalid IP should return empty or default values
+            self.assertEqual(result['public_ip'], 'invalid-ip')
+            self.assertEqual(result['location'], 'Unknown')
+            self.assertEqual(result['provider'], 'Unknown')
+        except ImportError:
+            self.skipTest("Server module import failed")
 
 
 class TestKeepAliveEndpoint(unittest.TestCase):
@@ -497,6 +648,9 @@ class TestInputValidation(unittest.TestCase):
             )
             server_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(server_module)  # Execute the module to define functions
+        
+        # Make server_module available as instance attribute
+        self.server_module = server_module
     
     def tearDown(self):
         """Clean up test environment"""

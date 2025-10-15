@@ -245,12 +245,43 @@ def get_server_info():
     }
     
     try:
-        # Get detailed server information from ipinfo.io
+        # Get detailed server information from ipinfo.io (primary service)
         response = requests.get('https://ipinfo.io/json', timeout=10)
-        if response.status_code == 200:
-            data = response.json()
+        geolocation_source = "ipinfo.io"
+        
+        if response.status_code != 200:
+            # Primary service failed, try fallback service (ip-api.com)
+            log_warn("server_info", "⚠️ Primary geolocation service (ipinfo.io) failed, trying fallback...")
+            response = requests.get('http://ip-api.com/json', timeout=10)
+            geolocation_source = "ip-api.com"
             
-            # Extract server information
+            if response.status_code != 200:
+                raise Exception(f"Both geolocation services failed: ipinfo.io ({response.status_code}), ip-api.com failed")
+        
+        data = response.json()
+        log_info("server_info", f"📡 Server geolocation from: {geolocation_source}")
+        
+        # Extract server information with field mapping for different services
+        if geolocation_source == "ip-api.com":
+            # ip-api.com field mapping
+            server_info['public_ip'] = data.get('query', 'Unknown')
+            
+            # Format location information
+            city = data.get('city', '')
+            region = data.get('regionName', '')  # Note: regionName vs region
+            country = data.get('countryCode', 'Unknown')  # Note: countryCode vs country
+            
+            if city and region:
+                server_info['location'] = f"{city}, {region}, {country}"
+            elif city:
+                server_info['location'] = f"{city}, {country}"
+            else:
+                server_info['location'] = country
+            
+            # Provider information (ip-api.com uses 'isp' field)
+            server_info['provider'] = data.get('isp', 'Unknown Provider')
+        else:
+            # ipinfo.io field mapping (existing logic)
             server_info['public_ip'] = data.get('ip', 'Unknown')
             
             # Format location information
@@ -267,15 +298,15 @@ def get_server_info():
             
             # Provider information
             server_info['provider'] = data.get('org', 'Unknown Provider')
+        
+        # DNS status - check if we can resolve DNS properly
+        try:
+            import socket
+            socket.gethostbyname('google.com')
+            server_info['dns_status'] = 'Operational'
+        except Exception:
+            server_info['dns_status'] = 'Issues Detected'
             
-            # DNS status - check if we can resolve DNS properly
-            try:
-                import socket
-                socket.gethostbyname('google.com')
-                server_info['dns_status'] = 'Operational'
-            except Exception:
-                server_info['dns_status'] = 'Issues Detected'
-                
     except Exception as e:
         log_error("server_info", f"Failed to get server information: {str(e)}")
     
