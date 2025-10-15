@@ -107,15 +107,14 @@ RUN addgroup -g 1001 -S appgroup && \
 # Dependencies explained:
 # - flask: Lightweight web framework for REST API endpoints
 # - requests: HTTP client library for Telegram Bot API communication  
-# - pytz: Timezone handling for accurate timestamp formatting
+# - zoneinfo: Built-in timezone handling for accurate timestamp formatting (Python 3.9+)
 #
 # Alpine optimizations:
 # - Uses pip cache for faster subsequent builds
 # - Installs only runtime dependencies (no build tools needed)
 RUN pip install --no-cache-dir \
     flask==3.1.2 \
-    requests==2.32.5 \
-    pytz==2024.1 && \
+    requests==2.32.5 && \
     echo "✅ Python dependencies installed successfully" && \
     pip list
 

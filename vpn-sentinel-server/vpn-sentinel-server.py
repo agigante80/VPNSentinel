@@ -83,7 +83,7 @@ from datetime import datetime, timedelta  # Date/time operations
 from flask import Flask, request, jsonify, render_template_string # Web framework and HTTP utilities
 from collections import defaultdict, deque # Data structures for rate limiting
 import requests          # HTTP client for Telegram API communication
-import pytz             # Timezone handling for accurate timestamps
+import zoneinfo          # Timezone handling for accurate timestamps
 
 # =============================================================================
 # Application Configuration and Constants
@@ -123,7 +123,7 @@ WEB_DASHBOARD_ENABLED = os.getenv("VPN_SENTINEL_SERVER_DASHBOARD_ENABLED", "true
 
 # Timezone Configuration
 # Ensures consistent timestamp formatting across different deployment environments
-TIMEZONE = pytz.timezone(os.getenv("TZ", "UTC"))
+TIMEZONE = zoneinfo.ZoneInfo(os.getenv("TZ", "UTC"))
 
 # TLS/SSL Configuration
 TLS_CERT_PATH = os.getenv("VPN_SENTINEL_TLS_CERT_PATH")
@@ -180,7 +180,7 @@ def log_message(level, component, message):
         component (str): Component name (server, api, security, telegram, monitor, config)
         message (str): Message to log
     """
-    timestamp = datetime.now(pytz.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
+    timestamp = datetime.now(zoneinfo.ZoneInfo("UTC")).strftime('%Y-%m-%dT%H:%M:%SZ')
     print(f"{timestamp} {level} [{component}] {message}", flush=True)
 
 def log_info(component, message):
@@ -1967,7 +1967,7 @@ if __name__ == "__main__":
     log_info("config", f"Check interval: {CHECK_INTERVAL_MINUTES} minutes")
     log_info("security", f"Rate limiting: {RATE_LIMIT_REQUESTS} req/min")
     log_info("security", f"API key auth: {'Enabled' if API_KEY else 'Disabled'}")
-    log_info("security", f"IP whitelist: {'Disabled' if not ALLOWED_IPS or ALLOWED_IPS == [''] else 'Enabled'}")
+    log_info("security", f"IP whitelist: {'Disabled' if not ALLOWED_IPS else 'Enabled'}")
     log_info("dashboard", f"Web dashboard: {'Enabled' if WEB_DASHBOARD_ENABLED else 'Disabled'}")
     log_info("dashboard", f"Dashboard URL: http://localhost:{DASHBOARD_PORT}/dashboard")
     
