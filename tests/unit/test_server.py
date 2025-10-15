@@ -41,9 +41,10 @@ class TestServerFunctions(unittest.TestCase):
             import importlib.util
             spec = importlib.util.spec_from_file_location(
                 "vpn_sentinel_server", 
-                "../../vpn-sentinel-server/vpn-sentinel-server.py"
+                "/home/alien/dev/VPNSentinel/vpn-sentinel-server/vpn-sentinel-server.py"
             )
             server_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(server_module)  # Execute the module to define functions
     
     def tearDown(self):
         """Clean up test environment"""
@@ -473,6 +474,115 @@ class TestServerLogging(unittest.TestCase):
         
         self.assertEqual(location_display, "Toruń, Kujawsko-Pomorskie, PL")
         self.assertEqual(minutes_ago, 3)
+
+
+class TestInputValidation(unittest.TestCase):
+    """Test input validation and sanitization functions"""
+    
+    def setUp(self):
+        """Set up test environment"""
+        self.env_patcher = patch.dict(os.environ, TEST_ENV_VARS)
+        self.env_patcher.start()
+        
+        # Import server module after environment is set
+        global server_module
+        try:
+            import vpn_sentinel_server as server_module
+        except ImportError:
+            # If direct import fails, try importing the actual module
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(
+                "vpn_sentinel_server", 
+                "/home/alien/dev/VPNSentinel/vpn-sentinel-server/vpn-sentinel-server.py"
+            )
+            server_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(server_module)  # Execute the module to define functions
+    
+    def tearDown(self):
+        """Clean up test environment"""
+        self.env_patcher.stop()
+    
+    def test_validate_client_id_valid(self):
+        """Test validate_client_id with valid inputs"""
+        # Valid client IDs
+        self.assertEqual(server_module.validate_client_id("client-123"), "client-123")
+        self.assertEqual(server_module.validate_client_id("my_vpn_client"), "my_vpn_client")
+        self.assertEqual(server_module.validate_client_id("client.123"), "client.123")
+    
+    def test_validate_client_id_invalid(self):
+        """Test validate_client_id with invalid inputs"""
+        # Invalid client IDs - should return 'unknown'
+        self.assertEqual(server_module.validate_client_id(""), "unknown")  # Empty string
+        self.assertEqual(server_module.validate_client_id("   "), "unknown")  # Whitespace only
+        self.assertEqual(server_module.validate_client_id("client@123"), "unknown")  # Invalid character
+        self.assertEqual(server_module.validate_client_id("client with spaces"), "unknown")  # Spaces
+        self.assertEqual(server_module.validate_client_id("a" * 101), "unknown")  # Too long
+        
+        # Non-string inputs
+        self.assertEqual(server_module.validate_client_id(None), "unknown")
+        self.assertEqual(server_module.validate_client_id(123), "unknown")
+        self.assertEqual(server_module.validate_client_id([]), "unknown")
+    
+    def test_validate_public_ip_valid(self):
+        """Test validate_public_ip with valid IP addresses"""
+        # Valid IPv4 addresses
+        self.assertEqual(server_module.validate_public_ip("192.168.1.1"), "192.168.1.1")
+        self.assertEqual(server_module.validate_public_ip("10.0.0.1"), "10.0.0.1")
+        self.assertEqual(server_module.validate_public_ip("172.16.0.1"), "172.16.0.1")
+        
+        # Valid IPv6 addresses
+        self.assertEqual(server_module.validate_public_ip("2001:db8::1"), "2001:db8::1")
+        self.assertEqual(server_module.validate_public_ip("::1"), "::1")
+    
+    def test_validate_public_ip_invalid(self):
+        """Test validate_public_ip with invalid inputs"""
+        # Invalid IP addresses
+        self.assertEqual(server_module.validate_public_ip(""), "unknown")  # Empty string
+        self.assertEqual(server_module.validate_public_ip("   "), "unknown")  # Whitespace only
+        self.assertEqual(server_module.validate_public_ip("192.168.1.256"), "unknown")  # Invalid IPv4
+        self.assertEqual(server_module.validate_public_ip("not-an-ip"), "unknown")  # Not an IP
+        self.assertEqual(server_module.validate_public_ip("192.168.1.1.1"), "unknown")  # Too many octets
+        self.assertEqual(server_module.validate_public_ip("a" * 46), "unknown")  # Too long
+        
+        # Non-string inputs
+        self.assertEqual(server_module.validate_public_ip(None), "unknown")
+        self.assertEqual(server_module.validate_public_ip(123), "unknown")
+    
+    def test_validate_location_string_valid(self):
+        """Test validate_location_string with valid inputs"""
+        # Valid location strings
+        self.assertEqual(server_module.validate_location_string("New York", "city"), "New York")
+        self.assertEqual(server_module.validate_location_string("United States", "country"), "United States")
+        self.assertEqual(server_module.validate_location_string("AS12345 Provider Name", "org"), "AS12345 Provider Name")
+        self.assertEqual(server_module.validate_location_string("America/New_York", "timezone"), "America/New_York")
+    
+    def test_validate_location_string_invalid(self):
+        """Test validate_location_string with invalid inputs"""
+        # Invalid location strings - should return 'Unknown'
+        self.assertEqual(server_module.validate_location_string("", "city"), "Unknown")  # Empty string
+        self.assertEqual(server_module.validate_location_string("   ", "city"), "Unknown")  # Whitespace only
+        self.assertEqual(server_module.validate_location_string("a" * 101, "city"), "Unknown")  # Too long
+        self.assertEqual(server_module.validate_location_string("City<script>", "city"), "Unknown")  # Dangerous chars
+        
+        # Non-string inputs
+        self.assertEqual(server_module.validate_location_string(None, "city"), "Unknown")
+        self.assertEqual(server_module.validate_location_string(123, "city"), "Unknown")
+    
+    def test_validate_location_string_sanitization(self):
+        """Test that validate_location_string properly sanitizes dangerous characters"""
+        # These should be rejected due to dangerous characters
+        dangerous_inputs = [
+            "City<script>alert('xss')</script>",
+            "Country; rm -rf /",
+            "Location`whoami`",
+            "Place$(evil_command)",
+            "Area|malicious",
+            "Region\x00null_byte"
+        ]
+        
+        for dangerous_input in dangerous_inputs:
+            result = server_module.validate_location_string(dangerous_input, "test_field")
+            self.assertEqual(result, "Unknown", f"Should reject dangerous input: {dangerous_input}")
 
 
 if __name__ == '__main__':

@@ -461,8 +461,10 @@ def validate_location_string(value, field_name):
     
     # Basic sanitization - remove potentially dangerous characters
     # Allow only printable ASCII characters, spaces, and basic punctuation
+    # Allow forward slashes and underscores for timezone fields (e.g., "America/New_York")
     import re
-    if not re.match(r'^[a-zA-Z0-9\s.,\'"-]+$', value):
+    allowed_pattern = r'^[a-zA-Z0-9\s.,\'"-]+$' if field_name != 'timezone' else r'^[a-zA-Z0-9\s.,\'"-/_]+$' 
+    if not re.match(allowed_pattern, value):
         log_warn("security", f"Potentially dangerous characters in {field_name}: {value}")
         return 'Unknown'
     
