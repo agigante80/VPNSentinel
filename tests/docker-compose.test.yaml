@@ -39,25 +39,6 @@ services:
       - vpn-sentinel-test
     restart: unless-stopped
 
-  # Test database for storing test results (optional)
-  test-db:
-    image: postgres:15-alpine
-    container_name: vpn-sentinel-test-db
-    environment:
-      POSTGRES_DB: vpn_sentinel_test
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: test_password
-    ports:
-      - "15432:5432"
-    networks:
-      - vpn-sentinel-test
-    restart: unless-stopped
-    volumes:
-      - test_db_data:/var/lib/postgresql/data
-
 networks:
   vpn-sentinel-test:
     driver: bridge
-
-volumes:
-  test_db_data:

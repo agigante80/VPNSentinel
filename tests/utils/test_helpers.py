@@ -40,13 +40,7 @@ def create_test_env():
         'VPN_SENTINEL_CHECK_INTERVAL_MINUTES': '5',
         'TELEGRAM_BOT_TOKEN': 'test-bot-token',
         'TELEGRAM_CHAT_ID': 'test-chat-id',
-        'TZ': 'UTC',
-        # Database configuration for future database integration
-        'DB_USER': 'postgres',
-        'DB_PASSWORD': 'test_password',
-        'DB_HOST': 'localhost',
-        'DB_PORT': '15432',
-        'DB_NAME': 'vpn_sentinel_test'
+        'TZ': 'UTC'
     }
 
 
