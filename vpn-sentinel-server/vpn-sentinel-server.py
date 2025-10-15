@@ -99,7 +99,7 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # API Configuration
-API_PATH = os.getenv("API_PATH", "/api/v1")          # API path prefix for endpoints
+API_PATH = os.getenv("VPN_SENTINEL_SERVER_API_PATH", "/api/v1")          # API path prefix for endpoints
 
 # Security Configuration
 API_KEY = os.getenv("VPN_SENTINEL_API_KEY", "")                          # Required API key for authentication

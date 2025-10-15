@@ -15,7 +15,7 @@ services:
     networks:
       - vpn-sentinel-test
     healthcheck:
-      test: ["CMD", "python3", "-c", "import requests; requests.get('http://localhost:5000/test/v1/health').raise_for_status()"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/test/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
