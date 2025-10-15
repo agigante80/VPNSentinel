@@ -114,7 +114,7 @@ RUN addgroup -g 1001 -S appgroup && \
 # - Installs only runtime dependencies (no build tools needed)
 RUN pip install --no-cache-dir \
     flask==3.1.2 \
-    requests==2.32.3 \
+    requests==2.32.5 \
     pytz==2024.1 && \
     echo "✅ Python dependencies installed successfully" && \
     pip list
