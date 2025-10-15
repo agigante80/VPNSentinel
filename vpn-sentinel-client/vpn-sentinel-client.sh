@@ -153,11 +153,19 @@ if [ -z "${VPN_SENTINEL_CLIENT_ID}" ]; then
     CLIENT_ID="vpn-client-${TIMESTAMP_PART}${RANDOM_PART}"
     log_info "config" "🎲 Generated random client ID: $CLIENT_ID"
 else
-    # Validate kebab-case format (lowercase with dashes, no spaces)
+    # Validate and sanitize CLIENT_ID to prevent JSON injection
+    # Remove any characters that aren't lowercase letters, numbers, or dashes
     if echo "$VPN_SENTINEL_CLIENT_ID" | grep -q '[^a-z0-9-]'; then
-        log_warn "config" "⚠️ CLIENT_ID should be kebab-case (lowercase, dashes only): $VPN_SENTINEL_CLIENT_ID"
+        log_warn "config" "⚠️ CLIENT_ID contains invalid characters, sanitizing: $VPN_SENTINEL_CLIENT_ID"
+        # Sanitize by removing invalid characters and replacing spaces with dashes
+        CLIENT_ID=$(echo "$VPN_SENTINEL_CLIENT_ID" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-//' | sed 's/-$//')
+        if [ -z "$CLIENT_ID" ]; then
+            CLIENT_ID="sanitized-client"
+        fi
+        log_info "config" "✅ Sanitized CLIENT_ID: $CLIENT_ID"
+    else
+        CLIENT_ID="${VPN_SENTINEL_CLIENT_ID}"
     fi
-    CLIENT_ID="${VPN_SENTINEL_CLIENT_ID}"
 fi
 
 # Timing Configuration
@@ -243,6 +251,21 @@ json_escape() {
     printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+# sanitize_string(): Sanitize strings from external APIs to prevent JSON issues
+# Removes or escapes potentially dangerous characters
+#
+# Parameters:
+#   $1: String to sanitize
+# Returns:
+#   Sanitized string safe for JSON inclusion
+#
+# Security Note:
+#   Prevents JSON parsing failures from malformed external data
+sanitize_string() {
+    # Remove null bytes, control characters, and limit length
+    printf '%s' "$1" | tr -d '\000-\037' | head -c 100
+}
+
 # -----------------------------------------------------------------------------
 # Main Keepalive Function
 # -----------------------------------------------------------------------------
@@ -292,12 +315,12 @@ send_keepalive() {
     # Parse JSON response using sed regex patterns (avoids jq dependency)
     # Extracts key-value pairs from JSON structure for location and provider data
     # Pattern: "key": "value" -> extracts the value portion
-    PUBLIC_IP=$(echo "$VPN_INFO" | sed -n 's/.*"ip"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-    COUNTRY=$(echo "$VPN_INFO" | sed -n 's/.*"country"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-    CITY=$(echo "$VPN_INFO" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-    REGION=$(echo "$VPN_INFO" | sed -n 's/.*"region"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-    ORG=$(echo "$VPN_INFO" | sed -n 's/.*"org"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-    VPN_TIMEZONE=$(echo "$VPN_INFO" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    PUBLIC_IP=$(echo "$VPN_INFO" | sed -n 's/.*"ip"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+    COUNTRY=$(echo "$VPN_INFO" | sed -n 's/.*"country"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+    CITY=$(echo "$VPN_INFO" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+    REGION=$(echo "$VPN_INFO" | sed -n 's/.*"region"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+    ORG=$(echo "$VPN_INFO" | sed -n 's/.*"org"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+    VPN_TIMEZONE=$(echo "$VPN_INFO" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
     
     # -----------------------------------------------------------------------------
     # DNS Leak Detection Section
@@ -318,8 +341,8 @@ send_keepalive() {
     # - Fast, reliable, and doesn't require API keys
     #
     DNS_INFO=$(curl -s --max-time 10 https://1.1.1.1/cdn-cgi/trace 2>/dev/null || echo '')
-    DNS_LOC=$(echo "$DNS_INFO" | grep '^loc=' | cut -d'=' -f2)      # Country code where DNS resolved
-    DNS_COLO=$(echo "$DNS_INFO" | grep '^colo=' | cut -d'=' -f2)    # Cloudflare data center identifier
+    DNS_LOC=$(echo "$DNS_INFO" | grep '^loc=' | cut -d'=' -f2 | sanitize_string)      # Country code where DNS resolved
+    DNS_COLO=$(echo "$DNS_INFO" | grep '^colo=' | cut -d'=' -f2 | sanitize_string)    # Cloudflare data center identifier
 
     # -----------------------------------------------------------------------------
     # DNS Leak Testing Mode (Development/Testing Only)
@@ -409,7 +432,7 @@ send_keepalive() {
       ${TLS_CERT_PATH:+--cacert "$TLS_CERT_PATH"} \
       -d "{
         \"client_id\": \"$(json_escape "$CLIENT_ID")\",
-        \"timestamp\": \"$TIMESTAMP\",
+        \"timestamp\": \"$(json_escape "$TIMESTAMP")\",
         \"public_ip\": \"$(json_escape "$PUBLIC_IP")\",
         \"status\": \"alive\",
         \"location\": {
