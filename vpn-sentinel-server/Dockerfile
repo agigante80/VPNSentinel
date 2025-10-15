@@ -68,10 +68,10 @@
 # -----------------------------------------------------------------------------
 # Base Image Selection
 # -----------------------------------------------------------------------------
-# Python 3.11 Alpine - optimal balance of features, security, and size
+# Python 3.12 Alpine - optimal balance of features, security, and size
 # Alpine Linux provides a minimal attack surface (~15MB base)
-# Python 3.11 offers modern language features and performance improvements
-FROM python:3.11-alpine
+# Python 3.12 offers modern language features and performance improvements
+FROM python:3.12-alpine
 
 # -----------------------------------------------------------------------------
 # Container Metadata and Documentation
@@ -81,7 +81,7 @@ LABEL maintainer="VPN Sentinel Project" \
       description="VPN Sentinel Server - VPN Monitoring & Telegram Notifications" \
       version="1.0.0" \
       license="MIT" \
-      python.version="3.11" \
+      python.version="3.12" \
       framework="Flask" \
       purpose="vpn-monitoring" \
       usage="docker run -p 5421:5000 -e TELEGRAM_BOT_TOKEN=xxx vpn-sentinel/server"
