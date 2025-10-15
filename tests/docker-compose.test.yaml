@@ -1,8 +1,5 @@
-# Docker Compose for Test Environment
 version: "3.8"
-
 services:
-  # Test VPN Sentinel Server
   vpn-sentinel-server-test:
     build: 
       context: ../vpn-sentinel-server
@@ -10,8 +7,8 @@ services:
     container_name: vpn-sentinel-server-test
     env_file: .env.test
     ports:
-      - "5000:5000"  # API port
-      - "5001:5001"  # Dashboard port
+      - "5000:5000"  
+      - "5001:5001"  
     networks:
       - vpn-sentinel-test
     healthcheck:
@@ -21,8 +18,6 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
-
-  # Test VPN Sentinel Client
   vpn-sentinel-client-test:
     build:
       context: ../vpn-sentinel-client  
@@ -38,7 +33,22 @@ services:
     networks:
       - vpn-sentinel-test
     restart: unless-stopped
-
+  test-db:
+    image: postgres:15-alpine
+    container_name: vpn-sentinel-test-db
+    environment:
+      POSTGRES_DB: vpn_sentinel_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test_password
+    ports:
+      - "15432:5432"
+    networks:
+      - vpn-sentinel-test
+    restart: unless-stopped
+    volumes:
+      - test_db_data:/var/lib/postgresql/data
 networks:
   vpn-sentinel-test:
     driver: bridge
+volumes:
+  test_db_data:
