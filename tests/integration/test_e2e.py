@@ -95,6 +95,29 @@ class TestServerClientIntegration(unittest.TestCase):
         except requests.ConnectionError:
             self.skipTest("Server not running for integration tests")
     
+    def test_keepalive_endpoint_with_wrong_auth(self):
+        """Test keepalive endpoint with incorrect authentication (should fail)"""
+        try:
+            headers = {
+                'Authorization': 'Bearer wrong-api-key-12345',
+                'Content-Type': 'application/json'
+            }
+            
+            payload = SAMPLE_KEEPALIVE_REQUEST.copy()
+            
+            response = requests.post(
+                f"{self.server_url}{self.api_path}/keepalive",
+                headers=headers,
+                json=payload,
+                timeout=10
+            )
+            
+            # Should return 401 Unauthorized for wrong API key
+            self.assertEqual(response.status_code, 401)
+            
+        except requests.ConnectionError:
+            self.skipTest("Server not running for integration tests")
+    
     def test_dashboard_accessibility(self):
         """Test dashboard web interface accessibility"""
         try:
