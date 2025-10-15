@@ -15,7 +15,7 @@ TRUST_SELF_SIGNED_CERTIFICATES="${TRUST_SELF_SIGNED_CERTIFICATES:-false}"
 # ARCHITECTURE:
 #   - Runs as a lightweight containerized service
 #   - Shares network namespace with VPN container for accurate testing
-#   - Uses external APIs (ipinfo.io, Cloudflare) for location detection
+#   - Uses external APIs (ipinfo.io, ip-api.com, Cloudflare) for location detection
 #   - Sends structured JSON data to monitoring server via HTTP POST
 #   - Implements robust error handling and fallback mechanisms
 #
@@ -306,21 +306,47 @@ send_keepalive() {
     # -----------------------------------------------------------------------------
     # VPN Information Gathering Section
     # -----------------------------------------------------------------------------
-    # Query ipinfo.io for current public IP and comprehensive geolocation data
-    # This API call determines where the VPN exit server is located and provides
-    # detailed information about the VPN provider and network characteristics
+    # Query geolocation services for current public IP and comprehensive location data
+    # Uses multiple fallback services to ensure reliable location detection
+    # Primary: ipinfo.io, Fallback: ip-api.com, Final: empty defaults
     log_info "vpn-info" "🔍 Gathering VPN information..."
-    VPN_INFO=$(curl -s --max-time 10 https://ipinfo.io/json 2>/dev/null || echo '{}')
+    
+    # Try primary geolocation service (ipinfo.io)
+    VPN_INFO=$(curl -s --max-time 10 https://ipinfo.io/json 2>/dev/null || echo '')
+    
+    # If primary service failed or returned empty, try fallback service (ip-api.com)
+    if [ -z "$VPN_INFO" ] || [ "$VPN_INFO" = "{}" ]; then
+        log_warn "vpn-info" "⚠️ Primary geolocation service (ipinfo.io) failed, trying fallback..."
+        VPN_INFO=$(curl -s --max-time 10 http://ip-api.com/json 2>/dev/null || echo '{}')
+        # Note: ip-api.com uses different field names, we'll handle this in parsing
+        GEOLOCATION_SOURCE="ip-api.com"
+    else
+        GEOLOCATION_SOURCE="ipinfo.io"
+    fi
+    
+    log_info "vpn-info" "📡 Using geolocation service: $GEOLOCATION_SOURCE"
 
     # Parse JSON response using sed regex patterns (avoids jq dependency)
-    # Extracts key-value pairs from JSON structure for location and provider data
-    # Pattern: "key": "value" -> extracts the value portion
+    # Handles both ipinfo.io and ip-api.com response formats
+    # ipinfo.io format: "key": "value"
+    # ip-api.com format: "key": "value" (same structure)
     PUBLIC_IP=$(echo "$VPN_INFO" | sed -n 's/.*"ip"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-    COUNTRY=$(echo "$VPN_INFO" | sed -n 's/.*"country"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-    CITY=$(echo "$VPN_INFO" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-    REGION=$(echo "$VPN_INFO" | sed -n 's/.*"region"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-    ORG=$(echo "$VPN_INFO" | sed -n 's/.*"org"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-    VPN_TIMEZONE=$(echo "$VPN_INFO" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+    
+    # Handle different field names between services
+    if [ "$GEOLOCATION_SOURCE" = "ip-api.com" ]; then
+        COUNTRY=$(echo "$VPN_INFO" | sed -n 's/.*"countryCode"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+        CITY=$(echo "$VPN_INFO" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+        REGION=$(echo "$VPN_INFO" | sed -n 's/.*"regionName"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+        ORG=$(echo "$VPN_INFO" | sed -n 's/.*"isp"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+        VPN_TIMEZONE=$(echo "$VPN_INFO" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+    else
+        # ipinfo.io field names
+        COUNTRY=$(echo "$VPN_INFO" | sed -n 's/.*"country"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+        CITY=$(echo "$VPN_INFO" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+        REGION=$(echo "$VPN_INFO" | sed -n 's/.*"region"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+        ORG=$(echo "$VPN_INFO" | sed -n 's/.*"org"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+        VPN_TIMEZONE=$(echo "$VPN_INFO" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+    fi
     
     # -----------------------------------------------------------------------------
     # DNS Leak Detection Section

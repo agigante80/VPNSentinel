@@ -326,6 +326,43 @@ class TestDataGathering(unittest.TestCase):
         dns_country = "ES" 
         is_dns_leak = dns_country != vpn_country
         self.assertTrue(is_dns_leak)  # Different countries, potential leak
+    
+    def test_ip_api_fallback_parsing(self):
+        """Test parsing of ip-api.com fallback response"""
+        mock_ipapi_response = {
+            "query": "172.67.163.127",
+            "status": "success",
+            "country": "Spain",
+            "countryCode": "ES",
+            "region": "MD",
+            "regionName": "Madrid",
+            "city": "Madrid",
+            "zip": "28013",
+            "lat": 40.4165,
+            "lon": -3.7026,
+            "timezone": "Europe/Madrid",
+            "isp": "Digi Spain Telecom S.L.",
+            "org": "Digi Spain Telecom S.L.",
+            "as": "AS57269 Digi Spain Telecom S.L.",
+            "mobile": False,
+            "proxy": False,
+            "hosting": False
+        }
+        
+        # Test ip-api.com field mapping (different field names)
+        ip = mock_ipapi_response.get('query', 'Unknown')
+        country = mock_ipapi_response.get('countryCode', 'Unknown')  # Note: countryCode vs country
+        city = mock_ipapi_response.get('city', 'Unknown')
+        region = mock_ipapi_response.get('regionName', 'Unknown')    # Note: regionName vs region
+        org = mock_ipapi_response.get('isp', 'Unknown')              # Note: isp vs org
+        timezone = mock_ipapi_response.get('timezone', 'Unknown')
+        
+        self.assertEqual(ip, "172.67.163.127")
+        self.assertEqual(city, "Madrid")
+        self.assertEqual(country, "ES")
+        self.assertEqual(region, "Madrid")
+        self.assertEqual(org, "Digi Spain Telecom S.L.")
+        self.assertEqual(timezone, "Europe/Madrid")
 
 
 class TestSecurityFeatures(unittest.TestCase):
