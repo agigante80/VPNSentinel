@@ -226,6 +226,24 @@ log_warn() {
 }
 
 # -----------------------------------------------------------------------------
+# JSON Escaping Function
+# -----------------------------------------------------------------------------
+# json_escape(): Safely escape strings for JSON inclusion
+# Prevents JSON injection attacks by properly escaping special characters
+# 
+# Parameters:
+#   $1: String to escape
+# Returns:
+#   Escaped string safe for JSON inclusion
+#
+# Security Note:
+#   Prevents injection attacks if external data contains quotes or backslashes
+json_escape() {
+    # Escape backslashes first, then quotes
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+# -----------------------------------------------------------------------------
 # Main Keepalive Function
 # -----------------------------------------------------------------------------
 # send_keepalive(): Core monitoring function that gathers VPN information,
@@ -390,20 +408,20 @@ send_keepalive() {
       ${VPN_SENTINEL_API_KEY:+-H "Authorization: Bearer $VPN_SENTINEL_API_KEY"} \
       ${TLS_CERT_PATH:+--cacert "$TLS_CERT_PATH"} \
       -d "{
-        \"client_id\": \"$CLIENT_ID\",
+        \"client_id\": \"$(json_escape "$CLIENT_ID")\",
         \"timestamp\": \"$TIMESTAMP\",
-        \"public_ip\": \"$PUBLIC_IP\",
+        \"public_ip\": \"$(json_escape "$PUBLIC_IP")\",
         \"status\": \"alive\",
         \"location\": {
-          \"country\": \"$COUNTRY\",
-          \"city\": \"$CITY\",
-          \"region\": \"$REGION\",
-          \"org\": \"$ORG\",
-          \"timezone\": \"$VPN_TIMEZONE\"
+          \"country\": \"$(json_escape "$COUNTRY")\",
+          \"city\": \"$(json_escape "$CITY")\",
+          \"region\": \"$(json_escape "$REGION")\",
+          \"org\": \"$(json_escape "$ORG")\",
+          \"timezone\": \"$(json_escape "$VPN_TIMEZONE")\"
         },
         \"dns_test\": {
-          \"location\": \"$DNS_LOC\",
-          \"colo\": \"$DNS_COLO\"
+          \"location\": \"$(json_escape "$DNS_LOC")\",
+          \"colo\": \"$(json_escape "$DNS_COLO")\"
         }
       }" \
       "$SERVER_URL/keepalive" >/dev/null 2>&1; then
