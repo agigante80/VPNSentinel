@@ -103,7 +103,7 @@ API_PATH = os.getenv("VPN_SENTINEL_SERVER_API_PATH", "/api/v1")          # API p
 
 # Security Configuration
 API_KEY = os.getenv("VPN_SENTINEL_API_KEY", "")                          # Optional API key for authentication
-ALLOWED_IPS = os.getenv("VPN_SENTINEL_SERVER_ALLOWED_IPS", "").split(",") if os.getenv("VPN_SENTINEL_SERVER_ALLOWED_IPS") else []  # IP whitelist
+ALLOWED_IPS = [ip.strip() for ip in os.getenv("VPN_SENTINEL_SERVER_ALLOWED_IPS", "").split(",") if ip.strip()] if os.getenv("VPN_SENTINEL_SERVER_ALLOWED_IPS") else []  # IP whitelist
 
 # Rate Limiting Configuration
 # Prevents abuse by limiting requests per IP address
@@ -540,7 +540,7 @@ def check_ip_whitelist(ip):
     Security Note:
         Use in conjunction with proper firewall rules for defense in depth.
     """
-    if not ALLOWED_IPS or ALLOWED_IPS == ['']:
+    if not ALLOWED_IPS or not any(ip.strip() for ip in ALLOWED_IPS):
         return True  # No whitelist configured - allow all IPs
     return ip in ALLOWED_IPS
 
