@@ -362,6 +362,112 @@ def get_client_ip():
         # Direct connection IP
         return request.remote_addr
 
+def validate_client_id(client_id):
+    """
+    Validate and sanitize client_id input.
+    
+    Args:
+        client_id: Raw client identifier from request
+        
+    Returns:
+        str: Sanitized client_id or 'unknown' if invalid
+        
+    Validation Rules:
+        - Must be string type
+        - Maximum 100 characters
+        - Only alphanumeric, hyphens, underscores, and dots allowed
+        - No leading/trailing whitespace
+    """
+    if not isinstance(client_id, str):
+        return 'unknown'
+    
+    # Remove leading/trailing whitespace
+    client_id = client_id.strip()
+    
+    # Check length
+    if len(client_id) > 100 or len(client_id) == 0:
+        return 'unknown'
+    
+    # Check allowed characters (alphanumeric, hyphens, underscores, dots)
+    import re
+    if not re.match(r'^[a-zA-Z0-9._-]+$', client_id):
+        return 'unknown'
+    
+    return client_id
+
+def validate_public_ip(public_ip):
+    """
+    Validate public IP address format.
+    
+    Args:
+        public_ip: Raw IP address string from request
+        
+    Returns:
+        str: Validated IP address or 'unknown' if invalid
+        
+    Validation Rules:
+        - Must be valid IPv4 or IPv6 address format
+        - No leading/trailing whitespace
+        - Maximum 45 characters (IPv6 with brackets)
+    """
+    if not isinstance(public_ip, str):
+        return 'unknown'
+    
+    # Remove leading/trailing whitespace
+    public_ip = public_ip.strip()
+    
+    # Check length
+    if len(public_ip) > 45 or len(public_ip) == 0:
+        return 'unknown'
+    
+    # Basic IP validation using socket
+    import socket
+    try:
+        socket.inet_pton(socket.AF_INET, public_ip)
+        return public_ip  # Valid IPv4
+    except socket.error:
+        try:
+            socket.inet_pton(socket.AF_INET6, public_ip)
+            return public_ip  # Valid IPv6
+        except socket.error:
+            return 'unknown'  # Invalid IP
+
+def validate_location_string(value, field_name):
+    """
+    Validate and sanitize location string fields.
+    
+    Args:
+        value: Raw string value from location data
+        field_name: Name of the field for logging
+        
+    Returns:
+        str: Sanitized string or 'Unknown' if invalid
+        
+    Validation Rules:
+        - Must be string type
+        - Maximum 100 characters
+        - Basic sanitization (remove dangerous characters)
+        - No leading/trailing whitespace
+    """
+    if not isinstance(value, str):
+        return 'Unknown'
+    
+    # Remove leading/trailing whitespace
+    value = value.strip()
+    
+    # Check length
+    if len(value) > 100:
+        return 'Unknown'
+    
+    # Basic sanitization - remove potentially dangerous characters
+    # Allow only printable ASCII characters, spaces, and basic punctuation
+    import re
+    if not re.match(r'^[a-zA-Z0-9\s.,\'"-]+$', value):
+        log_warn("security", f"Potentially dangerous characters in {field_name}: {value}")
+        return 'Unknown'
+    
+    return value
+
 def check_rate_limit(ip):
     """
     Implement sliding window rate limiting per IP address.
@@ -617,9 +723,11 @@ def keepalive():
         if not data:
             return jsonify({'error': 'Invalid JSON payload'}), 400
             
-        client_id = data.get('client_id', 'unknown')
-        # Use client_id for both identification and display purposes
-        public_ip = data.get('public_ip', 'unknown')
+        # Validate and sanitize client_id
+        client_id = validate_client_id(data.get('client_id', 'unknown'))
+        
+        # Validate and sanitize public_ip
+        public_ip = validate_public_ip(data.get('public_ip', 'unknown'))
         
         # Determine if this is a new connection or IP change event
         is_new_connection = client_id not in clients
@@ -630,6 +738,17 @@ def keepalive():
         location = data.get('location', {})
         dns_test = data.get('dns_test', {})
         
+        # Validate location fields
+        country = validate_location_string(location.get('country', 'Unknown'), 'country')
+        city = validate_location_string(location.get('city', 'Unknown'), 'city')
+        region = validate_location_string(location.get('region', 'Unknown'), 'region')
+        org = validate_location_string(location.get('org', 'Unknown'), 'org')
+        timezone = validate_location_string(location.get('timezone', 'Unknown'), 'timezone')
+        
+        # Validate DNS test fields
+        dns_location = validate_location_string(dns_test.get('location', 'Unknown'), 'dns_location')
+        dns_colo = validate_location_string(dns_test.get('colo', 'Unknown'), 'dns_colo')
+        
         # Update client registry with comprehensive status information
         clients[client_id] = {
             'last_seen': get_current_time(),
@@ -637,27 +756,22 @@ def keepalive():
             'public_ip': public_ip,
             'status': 'alive',
             'location': {
-                'country': location.get('country', 'Unknown'),
-                'city': location.get('city', 'Unknown'),
-                'region': location.get('region', 'Unknown'),
-                'org': location.get('org', 'Unknown'),
-                'timezone': location.get('timezone', 'Unknown')
+                'country': country,
+                'city': city,
+                'region': region,
+                'org': org,
+                'timezone': timezone
             },
             'dns_test': {
-                'location': dns_test.get('location', 'Unknown'),
-                'colo': dns_test.get('colo', 'Unknown')
+                'location': dns_location,
+                'colo': dns_colo
             }
         }
         
         if is_new_connection or ip_changed:
             
-            country = location.get('country', 'Unknown')
-            city = location.get('city', 'Unknown')
-            region = location.get('region', 'Unknown')
-            org = location.get('org', 'Unknown')
-            vpn_timezone = location.get('timezone', 'Unknown')
-            dns_location = dns_test.get('location', 'Unknown')
-            dns_colo = dns_test.get('colo', 'Unknown')
+            # Use the already validated location data
+            # country, city, region, org, timezone, dns_location, dns_colo are already validated
             
             if is_new_connection:
                 message = f"✅ <b>VPN Connected!</b>\n\n"
@@ -812,6 +926,10 @@ def fake_heartbeat():
         # Use client_id for both identification and display purposes
         public_ip = data.get('public_ip', '192.168.1.100')
         
+        # Sanitize and validate inputs
+        client_id = validate_client_id(client_id)
+        public_ip = validate_public_ip(public_ip)
+        
         # Default test location data
         default_location = {
             'country': data.get('country', 'Spain'),
@@ -854,13 +972,8 @@ def fake_heartbeat():
         }
         
         if is_new_connection or ip_changed:
-            country = location.get('country', 'Unknown')
-            city = location.get('city', 'Unknown')
-            region = location.get('region', 'Unknown')
-            org = location.get('org', 'Unknown')
-            vpn_timezone = location.get('timezone', 'Unknown')
-            dns_location = dns_test.get('location', 'Unknown')
-            dns_colo = dns_test.get('colo', 'Unknown')
+            # Use the already validated location data
+            # country, city, region, org, timezone, dns_location, dns_colo are already validated
             
             if is_new_connection:
                 message = f"🧪 <b>TEST VPN Connected!</b>\n\n"
