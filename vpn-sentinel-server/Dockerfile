@@ -113,9 +113,9 @@ RUN addgroup -g 1001 -S appgroup && \
 # - Uses pip cache for faster subsequent builds
 # - Installs only runtime dependencies (no build tools needed)
 RUN pip install --no-cache-dir \
-    flask==2.3.3 \
-    requests==2.31.0 \
-    pytz==2023.3 && \
+    flask==3.0.3 \
+    requests==2.32.3 \
+    pytz==2024.1 && \
     echo "✅ Python dependencies installed successfully" && \
     pip list
 
