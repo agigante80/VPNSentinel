@@ -491,8 +491,20 @@ def check_rate_limit(ip):
     Memory Management:
         - Automatically cleans old timestamps to prevent memory leaks
         - Uses deque for efficient left-side operations (O(1) popleft)
+        - Periodically cleans up IPs with no recent activity
     """
     now = time.time()
+    
+    # Periodic cleanup: remove IPs that haven't been active in the last window
+    # This prevents memory leaks from accumulating old IP entries
+    global last_cleanup_time
+    if now - getattr(check_rate_limit, 'last_cleanup_time', 0) > RATE_LIMIT_WINDOW:
+        check_rate_limit.last_cleanup_time = now
+        # Remove IPs that have no timestamps or all timestamps are expired
+        expired_ips = [ip for ip, timestamps in rate_limit_storage.items() 
+                      if not timestamps or all(ts < now - RATE_LIMIT_WINDOW for ts in timestamps)]
+        for expired_ip in expired_ips:
+            del rate_limit_storage[expired_ip]
     
     # Clean expired entries for this IP (sliding window maintenance)
     while rate_limit_storage[ip] and rate_limit_storage[ip][0] < now - RATE_LIMIT_WINDOW:
@@ -1943,6 +1955,7 @@ if __name__ == "__main__":
     Shutdown:
         - Graceful shutdown on SIGTERM/SIGINT
         - Daemon threads automatically terminate
+
     """
     
     # Validate configuration and prepare startup
