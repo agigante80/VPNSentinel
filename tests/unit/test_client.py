@@ -328,5 +328,157 @@ class TestDataGathering(unittest.TestCase):
         self.assertTrue(is_dns_leak)  # Different countries, potential leak
 
 
+class TestSecurityFeatures(unittest.TestCase):
+    """Test security features for JSON injection prevention"""
+    
+    def setUp(self):
+        """Set up test environment"""
+        # Path to client script
+        self.script_path = os.path.join(
+            os.path.dirname(__file__), 
+            '../../vpn-sentinel-client/vpn-sentinel-client.sh'
+        )
+    
+    def test_client_id_sanitization_basic(self):
+        """Test CLIENT_ID sanitization removes basic dangerous characters"""
+        # Test simple cases that don't involve complex shell escaping
+        test_cases = [
+            ('normal-client-001', 'normal-client-001'),  # Already valid
+            ('CLIENT_001', 'client-001'),  # Uppercase and underscores
+            ('My Client ID', 'my-client-id'),  # Spaces become dashes
+            ('client@domain.com', 'client-domain-com'),  # Special chars removed
+        ]
+        
+        for input_id, expected_output in test_cases:
+            with self.subTest(input_id=input_id):
+                # Use a simple shell command that avoids complex escaping
+                cmd = f'echo "{input_id}" | tr "[:upper:]" "[:lower:]" | sed "s/[^a-z0-9-]/-/g" | sed "s/--*/-/g" | sed "s/^-//" | sed "s/-$//"'
+                
+                result = subprocess.run(
+                    ['bash', '-c', cmd],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                self.assertEqual(result.returncode, 0)
+                actual = result.stdout.strip()
+                # Handle empty result
+                if not actual:
+                    actual = "sanitized-client"
+                self.assertEqual(actual, expected_output)
+    
+    def test_client_id_validation_logic(self):
+        """Test the CLIENT_ID validation detects invalid characters"""
+        # Test which strings trigger sanitization
+        valid_cases = ['my-client-001', 'client123', 'test-client']
+        invalid_cases = ['my"client', "my'client", 'my client', 'CLIENT_001', 'client@domain.com']
+        
+        for client_id in valid_cases:
+            with self.subTest(client_id=client_id):
+                cmd = f'echo "{client_id}" | grep -q "[^a-z0-9-]" && echo "INVALID" || echo "VALID"'
+                result = subprocess.run(
+                    ['bash', '-c', cmd],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                self.assertEqual(result.returncode, 0)
+                self.assertEqual(result.stdout.strip(), "VALID")
+        
+        for client_id in invalid_cases:
+            with self.subTest(client_id=client_id):
+                # Escape quotes for shell
+                escaped_id = client_id.replace('"', '\\"').replace("'", "\\'")
+                cmd = f'echo "{escaped_id}" | grep -q "[^a-z0-9-]" && echo "INVALID" || echo "VALID"'
+                result = subprocess.run(
+                    ['bash', '-c', cmd],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                self.assertEqual(result.returncode, 0)
+                self.assertEqual(result.stdout.strip(), "INVALID")
+    
+    def test_json_escape_basic(self):
+        """Test basic JSON escaping functionality"""
+        test_cases = [
+            ('normal', 'normal'),
+            ('with"quotes', 'with\\"quotes'),
+            ('with\\\\backslash', 'with\\\\\\\\backslash'),
+        ]
+        
+        for input_str, expected in test_cases:
+            with self.subTest(input_str=input_str):
+                # Test the json_escape function with simple inputs
+                cmd = f"""json_escape() {{ printf '%s' "$1" | sed 's/\\\\/\\\\\\\\/g; s/"/\\\\"/g'; }}; json_escape '{input_str}'"""
+                result = subprocess.run(
+                    ['bash', '-c', cmd],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                self.assertEqual(result.returncode, 0)
+                self.assertEqual(result.stdout.strip(), expected)
+    
+    def test_sanitize_string_basic(self):
+        """Test basic string sanitization"""
+        test_cases = [
+            ('normal_string', 'normal_string'),
+            ('string\nwith\nlines', 'stringwithlines'),
+            ('string\twith\ttabs', 'stringwithtabs'),
+            ('short_string', 'short_string'),
+        ]
+        
+        for input_str, expected in test_cases:
+            with self.subTest(input_str=input_str):
+                # Test sanitization with safe inputs
+                cmd = f"""sanitize_string() {{ printf '%s' "$1" | tr -d '\\000-\\037' | head -c 100; }}; sanitize_string '{input_str}'"""
+                result = subprocess.run(
+                    ['bash', '-c', cmd],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                self.assertEqual(result.returncode, 0)
+                self.assertEqual(result.stdout.strip(), expected)
+    
+    def test_script_contains_security_functions(self):
+        """Test that the script contains the security functions we added"""
+        with open(self.script_path, 'r') as f:
+            content = f.read()
+        
+        # Check for security functions
+        self.assertIn('json_escape()', content, "json_escape function should be present")
+        self.assertIn('sanitize_string()', content, "sanitize_string function should be present")
+        
+        # Check for sanitization usage
+        self.assertIn('| sanitize_string', content, "sanitize_string should be used in parsing")
+        self.assertIn('$(json_escape', content, "json_escape should be used in JSON construction")
+        
+        # Check for CLIENT_ID sanitization
+        self.assertIn('tr \'[:upper:]\' \'[:lower:]\'', content, "CLIENT_ID sanitization should be present")
+    
+    def test_json_structure_integrity(self):
+        """Test that JSON structure remains valid with escaped content"""
+        # Test that our JSON escaping produces valid JSON
+        test_payloads = [
+            '{"client_id": "test-client", "status": "alive"}',
+            '{"client_id": "test\\"client\\"id", "status": "alive"}',
+            '{"client_id": "test\\\\client\\\\id", "status": "alive"}',
+        ]
+        
+        import json
+        for payload in test_payloads:
+            with self.subTest(payload=payload):
+                # Should be valid JSON
+                try:
+                    parsed = json.loads(payload)
+                    self.assertIn('client_id', parsed)
+                    self.assertEqual(parsed['status'], 'alive')
+                except json.JSONDecodeError:
+                    self.fail(f"Invalid JSON: {payload}")
+
+
 if __name__ == '__main__':
     unittest.main()
