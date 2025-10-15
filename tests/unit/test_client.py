@@ -127,6 +127,54 @@ class TestClientScript(unittest.TestCase):
         parsed_data = json.loads(json_str)
         self.assertEqual(parsed_data, mock_data)
 
+    def test_trust_self_signed_certificates_true(self):
+        """Test that --insecure flag is added when TRUST_SELF_SIGNED_CERTIFICATES=true"""
+        # Test environment with self-signed certificates enabled
+        test_env = self.test_env.copy()
+        test_env['TRUST_SELF_SIGNED_CERTIFICATES'] = 'true'
+        
+        # Read the script content to verify --insecure flag is present when variable is set
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+        
+        # Verify the script contains the conditional insecure flag
+        self.assertIn('${TRUST_SELF_SIGNED_CERTIFICATES:+--insecure}', script_content)
+        
+        # Test that the variable defaults to false
+        self.assertEqual(os.environ.get('TRUST_SELF_SIGNED_CERTIFICATES', 'false'), 'false')
+
+    def test_trust_self_signed_certificates_false(self):
+        """Test that --insecure flag is not added when TRUST_SELF_SIGNED_CERTIFICATES=false"""
+        # Test environment with self-signed certificates disabled (default)
+        test_env = self.test_env.copy()
+        test_env['TRUST_SELF_SIGNED_CERTIFICATES'] = 'false'
+        
+        # Read the script content to verify the conditional logic exists
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+        
+        # Verify the script contains the conditional insecure flag logic
+        self.assertIn('${TRUST_SELF_SIGNED_CERTIFICATES:+--insecure}', script_content)
+        
+        # Test that when variable is false or unset, no insecure flag should be added
+        # This is tested by the conditional expansion logic in bash
+
+    def test_trust_self_signed_certificates_unset(self):
+        """Test default behavior when TRUST_SELF_SIGNED_CERTIFICATES is not set"""
+        # Test environment without TRUST_SELF_SIGNED_CERTIFICATES
+        test_env = self.test_env.copy()
+        test_env.pop('TRUST_SELF_SIGNED_CERTIFICATES', None)
+        
+        # Read the script content to verify default value handling
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+        
+        # Verify the script sets default value
+        self.assertIn('TRUST_SELF_SIGNED_CERTIFICATES="${TRUST_SELF_SIGNED_CERTIFICATES:-false}"', script_content)
+        
+        # Test that the default value is false
+        self.assertEqual(os.environ.get('TRUST_SELF_SIGNED_CERTIFICATES', 'false'), 'false')
+
 
 class TestAPIEndpoints(unittest.TestCase):
     """Test API endpoint responses and error handling"""

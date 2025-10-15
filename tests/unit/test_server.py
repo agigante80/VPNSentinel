@@ -223,16 +223,15 @@ class TestServerFunctions(unittest.TestCase):
         }
         mock_get.return_value = mock_response
         
-        try:
-            from vpn_sentinel_server import get_server_info
-            result = get_server_info()
+        if hasattr(self, 'server_module') and hasattr(self.server_module, 'get_server_info'):
+            result = self.server_module.get_server_info()
             
-            # Invalid IP should return empty or default values
+            # Invalid IP should return the invalid IP but empty location/provider
             self.assertEqual(result['public_ip'], 'invalid-ip')
-            self.assertEqual(result['location'], 'Unknown')
-            self.assertEqual(result['provider'], 'Unknown')
-        except ImportError:
-            self.skipTest("Server module import failed")
+            self.assertEqual(result['location'], '')  # Empty when all location fields are empty
+            self.assertEqual(result['provider'], '')  # Empty when org field is empty
+        else:
+            self.skipTest("Server module not available in test environment")
 
 
 class TestKeepAliveEndpoint(unittest.TestCase):

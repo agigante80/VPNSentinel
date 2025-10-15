@@ -456,6 +456,7 @@ send_keepalive() {
       -H "Content-Type: application/json" \
       ${VPN_SENTINEL_API_KEY:+-H "Authorization: Bearer $VPN_SENTINEL_API_KEY"} \
       ${TLS_CERT_PATH:+--cacert "$TLS_CERT_PATH"} \
+      ${TRUST_SELF_SIGNED_CERTIFICATES:+--insecure} \
       -d "{
         \"client_id\": \"$(json_escape "$CLIENT_ID")\",
         \"timestamp\": \"$(json_escape "$TIMESTAMP")\",
