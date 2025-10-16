@@ -25,7 +25,7 @@ services:
     container_name: vpn-sentinel-client-test
     env_file: .env.test
     environment:
-      - VPN_SENTINEL_SERVER_API_BASE_URL=http://vpn-sentinel-server-test:5000
+      - VPN_SENTINEL_URL=http://vpn-sentinel-server-test:5000
       - VPN_SENTINEL_CLIENT_ID=test-client-docker
     depends_on:
       vpn-sentinel-server-test:

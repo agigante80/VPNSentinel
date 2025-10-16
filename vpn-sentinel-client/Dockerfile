@@ -19,14 +19,14 @@
 #     build: ./vpn-sentinel-client
 #     network_mode: service:gluetun
 #     environment:
-#       - VPN_SENTINEL_SERVER_API_BASE_URL=http://your-server:5000
-#       - VPN_SENTINEL_SERVER_API_PATH=/api/v1
+#       - VPN_SENTINEL_URL=http://your-server:5000
+#       - VPN_SENTINEL_API_PATH=/api/v1
 #       - VPN_SENTINEL_CLIENT_ID=unique-client-name
 #       - VPN_SENTINEL_API_KEY=your-api-key
 #
 # Environment Variables (configured in docker-compose.yaml):
-# - VPN_SENTINEL_SERVER_API_BASE_URL: Base URL of the monitoring server (required)
-# - VPN_SENTINEL_SERVER_API_PATH: API path prefix (default: /api/v1)
+# - VPN_SENTINEL_URL: Base URL of the monitoring server (required)
+# - VPN_SENTINEL_API_PATH: API path prefix (default: /api/v1)
 # - VPN_SENTINEL_CLIENT_ID: Unique identifier for this client
 # - VPN_SENTINEL_API_KEY: Optional API key for server authentication
 # - TZ: Timezone for log timestamps

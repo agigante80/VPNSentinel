@@ -1,6 +1,6 @@
 #!/bin/sh
-# Trust self-signed certificates (true/false)
-TRUST_SELF_SIGNED_CERTIFICATES="${TRUST_SELF_SIGNED_CERTIFICATES:-false}"
+# TLS certificate handling: if TLS_CERT_PATH is set, use it for verification;
+# otherwise trust self-signed certificates automatically
 
 # =============================================================================
 # VPN Sentinel Client - VPN Connectivity Monitor with DNS Leak Detection
@@ -45,19 +45,19 @@ TRUST_SELF_SIGNED_CERTIFICATES="${TRUST_SELF_SIGNED_CERTIFICATES:-false}"
 #
 # ENVIRONMENT VARIABLES:
 #   REQUIRED:
-#   - VPN_SENTINEL_SERVER_API_BASE_URL: Base URL of monitoring server
+#   - VPN_SENTINEL_URL: Base URL of monitoring server
 #     Example: https://vpn-monitor.example.com
 #
 #   OPTIONAL:
-#   - VPN_SENTINEL_SERVER_API_PATH: API path prefix (default: /api/v1)
+#   - VPN_SENTINEL_API_PATH: API path prefix (default: /api/v1)
 #   - VPN_SENTINEL_CLIENT_ID: Unique client identifier (kebab-case, no spaces)
 #     If empty, generates random 12-digit identifier
 #     Example: synology-vpn-media, office-vpn-primary
 #   - VPN_SENTINEL_API_KEY: Bearer token for server authentication
 #   - TZ: Timezone for timestamp formatting (default: UTC)
 #     Example: America/New_York, Europe/London, Asia/Tokyo
-#   - VPN_SENTINEL_TLS_CERT_PATH: Path to custom TLS certificate for HTTPS
-#   - TRUST_SELF_SIGNED_CERTIFICATES: Trust self-signed certificates (default: false)
+#   - VPN_SENTINEL_TLS_CERT_PATH: Path to custom TLS certificate for HTTPS verification
+#     If set, uses the specified certificate; otherwise automatically trusts self-signed certificates
 #
 # DEPENDENCIES:
 #   - curl: HTTP client for API requests and data transmission
@@ -130,8 +130,8 @@ TRUST_SELF_SIGNED_CERTIFICATES="${TRUST_SELF_SIGNED_CERTIFICATES:-false}"
 
 # API Endpoint Configuration
 # Constructs the complete monitoring server URL from base URL and API path
-API_BASE_URL="${VPN_SENTINEL_SERVER_API_BASE_URL}"
-API_PATH="${VPN_SENTINEL_SERVER_API_PATH:-/api/v1}"
+API_BASE_URL="${VPN_SENTINEL_URL}"
+API_PATH="${VPN_SENTINEL_API_PATH:-/api/v1}"
 SERVER_URL="${API_BASE_URL}${API_PATH}"                         # Complete monitoring server endpoint
 
 # Client Identifier Generation and Validation
@@ -456,7 +456,7 @@ send_keepalive() {
       -H "Content-Type: application/json" \
       ${VPN_SENTINEL_API_KEY:+-H "Authorization: Bearer $VPN_SENTINEL_API_KEY"} \
       ${TLS_CERT_PATH:+--cacert "$TLS_CERT_PATH"} \
-      ${TRUST_SELF_SIGNED_CERTIFICATES:+--insecure} \
+      ${TLS_CERT_PATH:---insecure} \
       -d "{
         \"client_id\": \"$(json_escape "$CLIENT_ID")\",
         \"timestamp\": \"$(json_escape "$TIMESTAMP")\",

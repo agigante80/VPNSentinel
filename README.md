@@ -191,7 +191,7 @@ docker compose logs -f vpn-sentinel-client
 | `VPN_USER` | string | Yes | - | VPN account username |
 | `VPN_PASSWORD` | string | Yes | - | VPN account password |
 | `VPN_SENTINEL_API_KEY` | string | Yes | - | 64-char hex authentication key |
-| `VPN_SENTINEL_SERVER_API_BASE_URL` | URL | Yes | - | Server endpoint URL |
+| `VPN_SENTINEL_URL` | URL | Yes | - | Server endpoint URL |
 | `TELEGRAM_BOT_TOKEN` | string | Recommended | - | Telegram bot API token |
 | `TELEGRAM_CHAT_ID` | string | Recommended | - | Telegram chat identifier |
 | `TZ` | timezone | Optional | UTC | System timezone for timestamps |

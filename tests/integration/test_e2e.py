@@ -24,7 +24,7 @@ class TestServerClientIntegration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up test environment for integration tests"""
-        cls.server_url = os.getenv("VPN_SENTINEL_SERVER_API_BASE_URL", "http://localhost:5000")
+        cls.server_url = os.getenv("VPN_SENTINEL_URL", "http://localhost:5000")
         cls.api_path = "/test/v1"
         cls.dashboard_url = "http://localhost:5001"
         cls.api_key = os.getenv("VPN_SENTINEL_API_KEY", "test-api-key-abcdef123456789")
@@ -459,7 +459,7 @@ class TestConfigurationValidation(unittest.TestCase):
                     # Client-only deployments should have server connection info
                     if 'client-only' in env_file:
                         client_required_vars = [
-                            'VPN_SENTINEL_SERVER_API_BASE_URL',
+                            'VPN_SENTINEL_URL',
                             'VPN_SENTINEL_CLIENT_ID'
                         ]
                         for var in client_required_vars:

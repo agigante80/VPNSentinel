@@ -16,8 +16,8 @@ class TestClientScript(unittest.TestCase):
     def setUp(self):
         """Set up test environment"""
         self.test_env = {
-            'VPN_SENTINEL_SERVER_API_BASE_URL': 'http://localhost:5554',
-            'VPN_SENTINEL_SERVER_API_PATH': '/test/v1',
+            'VPN_SENTINEL_URL': 'http://localhost:5554',
+            'VPN_SENTINEL_API_PATH': '/test/v1',
             'VPN_SENTINEL_CLIENT_ID': 'test-client-001',
             'VPN_SENTINEL_API_KEY': 'test-api-key',
             'TZ': 'UTC'
@@ -47,8 +47,8 @@ class TestClientScript(unittest.TestCase):
     def test_environment_variable_validation(self):
         """Test environment variable validation logic"""
         required_vars = [
-            'VPN_SENTINEL_SERVER_API_BASE_URL',
-            'VPN_SENTINEL_SERVER_API_PATH', 
+            'VPN_SENTINEL_URL',
+            'VPN_SENTINEL_API_PATH', 
             'VPN_SENTINEL_CLIENT_ID',
             'VPN_SENTINEL_API_KEY'
         ]
@@ -69,8 +69,8 @@ class TestClientScript(unittest.TestCase):
         mock_subprocess.return_value = mock_result
         
         # Expected curl command components
-        base_url = self.test_env['VPN_SENTINEL_SERVER_API_BASE_URL']
-        api_path = self.test_env['VPN_SENTINEL_SERVER_API_PATH']
+        base_url = self.test_env['VPN_SENTINEL_URL']
+        api_path = self.test_env['VPN_SENTINEL_API_PATH']
         api_key = self.test_env['VPN_SENTINEL_API_KEY']
         
         expected_url = f"{base_url}{api_path}/keepalive"
@@ -127,54 +127,21 @@ class TestClientScript(unittest.TestCase):
         parsed_data = json.loads(json_str)
         self.assertEqual(parsed_data, mock_data)
 
-    def test_trust_self_signed_certificates_true(self):
-        """Test that --insecure flag is added when TRUST_SELF_SIGNED_CERTIFICATES=true"""
-        # Test environment with self-signed certificates enabled
-        test_env = self.test_env.copy()
-        test_env['TRUST_SELF_SIGNED_CERTIFICATES'] = 'true'
-        
-        # Read the script content to verify --insecure flag is present when variable is set
+    def test_tls_certificate_handling(self):
+        """Test automatic TLS certificate handling based on TLS_CERT_PATH presence"""
+        # Read the script content to verify TLS handling logic
         with open(self.script_path, 'r') as f:
             script_content = f.read()
         
-        # Verify the script contains the conditional insecure flag
-        self.assertIn('${TRUST_SELF_SIGNED_CERTIFICATES:+--insecure}', script_content)
+        # Verify the script contains the conditional cacert flag for custom certificates
+        self.assertIn('${TLS_CERT_PATH:+--cacert "$TLS_CERT_PATH"}', script_content)
         
-        # Test that the variable defaults to false
-        self.assertEqual(os.environ.get('TRUST_SELF_SIGNED_CERTIFICATES', 'false'), 'false')
-
-    def test_trust_self_signed_certificates_false(self):
-        """Test that --insecure flag is not added when TRUST_SELF_SIGNED_CERTIFICATES=false"""
-        # Test environment with self-signed certificates disabled (default)
-        test_env = self.test_env.copy()
-        test_env['TRUST_SELF_SIGNED_CERTIFICATES'] = 'false'
+        # Verify the script contains the automatic insecure flag when no custom certificate
+        self.assertIn('${TLS_CERT_PATH:---insecure}', script_content)
         
-        # Read the script content to verify the conditional logic exists
-        with open(self.script_path, 'r') as f:
-            script_content = f.read()
+        # Verify TLS_CERT_PATH is read from environment
+        self.assertIn('TLS_CERT_PATH="${VPN_SENTINEL_TLS_CERT_PATH:-}"', script_content)
         
-        # Verify the script contains the conditional insecure flag logic
-        self.assertIn('${TRUST_SELF_SIGNED_CERTIFICATES:+--insecure}', script_content)
-        
-        # Test that when variable is false or unset, no insecure flag should be added
-        # This is tested by the conditional expansion logic in bash
-
-    def test_trust_self_signed_certificates_unset(self):
-        """Test default behavior when TRUST_SELF_SIGNED_CERTIFICATES is not set"""
-        # Test environment without TRUST_SELF_SIGNED_CERTIFICATES
-        test_env = self.test_env.copy()
-        test_env.pop('TRUST_SELF_SIGNED_CERTIFICATES', None)
-        
-        # Read the script content to verify default value handling
-        with open(self.script_path, 'r') as f:
-            script_content = f.read()
-        
-        # Verify the script sets default value
-        self.assertIn('TRUST_SELF_SIGNED_CERTIFICATES="${TRUST_SELF_SIGNED_CERTIFICATES:-false}"', script_content)
-        
-        # Test that the default value is false
-        self.assertEqual(os.environ.get('TRUST_SELF_SIGNED_CERTIFICATES', 'false'), 'false')
-
 
 class TestAPIEndpoints(unittest.TestCase):
     """Test API endpoint responses and error handling"""

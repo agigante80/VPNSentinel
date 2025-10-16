@@ -32,7 +32,6 @@ services:
       - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-main}
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
       - TZ=${TZ:-UTC}
-      - TRUST_SELF_SIGNED_CERTIFICATES=${TRUST_SELF_SIGNED_CERTIFICATES:-false}
     volumes:
       - ../../vpn-sentinel-client/vpn-sentinel-client.sh:/tmp/vpn-sentinel-client.sh:ro
     network_mode: service:vpn-client

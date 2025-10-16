@@ -118,7 +118,7 @@ docker-compose -f tests/docker-compose.test.yaml up -d
 
 # Run tests against test environment
 cd tests
-export VPN_SENTINEL_SERVER_API_BASE_URL=http://localhost:15554
+export VPN_SENTINEL_URL=http://localhost:15554
 python -m pytest integration/ -v
 
 # Stop test environment

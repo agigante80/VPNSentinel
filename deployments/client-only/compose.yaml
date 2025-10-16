@@ -1,4 +1,7 @@
 services:
+  # =============================================================================
+  # VPN CLIENT SERVICE - Your VPN Connection Provider
+  # =============================================================================
   vpn-client:
     image: qmcgaw/gluetun
     container_name: vpn-sentinel-vpn-client
@@ -16,6 +19,10 @@ services:
       - OPENVPN_PASSWORD=${VPN_PASSWORD}
       - FIREWALL_OUTBOUND_SUBNETS=${FIREWALL_OUTBOUND_SUBNETS}
     restart: always
+
+  # =============================================================================
+  # VPN SENTINEL CLIENT - Monitors from inside VPN network
+  # =============================================================================
   vpn-sentinel-client:
     image: curlimages/curl:latest
     container_name: vpn-sentinel-client
@@ -25,10 +32,23 @@ services:
       - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-client}
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
       - TZ=${TZ:-UTC}
-      - TRUST_SELF_SIGNED_CERTIFICATES=${TRUST_SELF_SIGNED_CERTIFICATES:-false}
     volumes:
       - ../../vpn-sentinel-client/vpn-sentinel-client.sh:/tmp/vpn-sentinel-client.sh:ro
     network_mode: service:vpn-client
     restart: always
     depends_on:
       - vpn-client
+
+  # =============================================================================
+  # YOUR APPLICATIONS - Add containers that need VPN protection here
+  # =============================================================================
+  #
+  # To add your applications, copy this example and modify:
+  #
+  # your-app:
+  #   image: your-app:latest
+  #   container_name: your-app
+  #   network_mode: service:vpn-client
+  #   depends_on:
+  #     - vpn-client
+  #   restart: unless-stopped

@@ -39,7 +39,7 @@
 # - TELEGRAM_BOT_TOKEN: Bot token from @BotFather (required)
 # - TELEGRAM_CHAT_ID: Your Telegram chat ID (required)
 # - VPN_SENTINEL_API_KEY: API key for client authentication (optional)
-# - VPN_SENTINEL_SERVER_API_PATH: API path prefix (default: /api/v1)
+# - VPN_SENTINEL_API_PATH: API path prefix (default: /api/v1)
 # - VPN_SENTINEL_SERVER_ALLOWED_IPS: Comma-separated IP whitelist (optional)
 # - VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS: Rate limiting threshold (default: 30)
 # - TZ: Timezone for log timestamps (default: UTC)

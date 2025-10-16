@@ -121,7 +121,7 @@ jobs:
       - name: Run integration tests
         run: |
           cd tests
-          export VPN_SENTINEL_SERVER_API_BASE_URL=http://localhost:5000
+          export VPN_SENTINEL_URL=http://localhost:5000
           python -m pytest integration/ -v
       - name: Get server logs on failure
         if: failure()

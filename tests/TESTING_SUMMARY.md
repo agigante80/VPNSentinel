@@ -145,7 +145,7 @@ tests/
 docker-compose -f tests/docker-compose.test.yaml up -d
 
 # Custom test scenarios
-export VPN_SENTINEL_SERVER_API_BASE_URL=http://localhost:15554
+export VPN_SENTINEL_URL=http://localhost:15554
 python -m pytest tests/integration/test_e2e.py::TestSameIPWarning -v
 ```
 
