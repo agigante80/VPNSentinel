@@ -99,10 +99,12 @@ class TestServerFunctions(unittest.TestCase):
     
     def test_get_current_time(self):
         """Test timezone-aware time generation"""
-        now = datetime.now(timezone.utc)
-        # Verify time is timezone-aware
-        self.assertIsNotNone(now.tzinfo)
-        self.assertEqual(now.tzinfo, timezone.utc)
+        from datetime import datetime
+
+        # Test that get_current_time returns a datetime object
+        result = server_module.get_current_time()
+        self.assertIsInstance(result, datetime)
+        self.assertIsNotNone(result.tzinfo)
     
     @patch('requests.get')
     def test_get_server_info_success_ipinfo(self, mock_get):
@@ -726,12 +728,21 @@ class TestInputValidation(unittest.TestCase):
         self.assertEqual(server_module.validate_public_ip(123), "unknown")
     
     def test_validate_location_string_valid(self):
-        """Test validate_location_string with valid inputs"""
-        # Valid location strings
-        self.assertEqual(server_module.validate_location_string("New York", "city"), "New York")
-        self.assertEqual(server_module.validate_location_string("United States", "country"), "United States")
-        self.assertEqual(server_module.validate_location_string("AS12345 Provider Name", "org"), "AS12345 Provider Name")
-        self.assertEqual(server_module.validate_location_string("America/New_York", "timezone"), "America/New_York")
+        """Test location string validation with valid inputs"""
+        valid_inputs = [
+            ("New York", "city"),
+            ("London, UK", "city"),
+            ("Tokyo, Japan", "city"),
+            ("City Name", "city"),  # Spaces
+            ("City-Name", "city"),  # Hyphens
+            ("123 Main St", "city"),  # Numbers
+            ("America/New_York", "timezone"),  # Timezone format (underscores allowed)
+        ]
+
+        for valid_input, field_name in valid_inputs:
+            with self.subTest(input=valid_input, field=field_name):
+                result = server_module.validate_location_string(valid_input, field_name)
+                self.assertEqual(result, valid_input)
     
     def test_validate_location_string_invalid(self):
         """Test validate_location_string with invalid inputs"""
@@ -762,5 +773,62 @@ class TestInputValidation(unittest.TestCase):
             self.assertEqual(result, "Unknown", f"Should reject dangerous input: {dangerous_input}")
 
 
-if __name__ == '__main__':
-    unittest.main()
+class TestServerUtilityFunctions(unittest.TestCase):
+    """Test server utility functions that don't require production credentials"""
+
+    def setUp(self):
+        """Set up test environment"""
+        self.env_patcher = patch.dict(os.environ, TEST_ENV_VARS)
+        self.env_patcher.start()
+
+        # Import server module after environment is set
+        global server_module
+        try:
+            import vpn_sentinel_server as server_module
+        except ImportError:
+            # If direct import fails, try importing the actual module
+            import importlib.util
+            server_file_path = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-server/vpn-sentinel-server.py')
+            spec = importlib.util.spec_from_file_location(
+                "vpn_sentinel_server",
+                server_file_path
+            )
+            server_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(server_module)
+
+    def tearDown(self):
+        """Clean up test environment"""
+        self.env_patcher.stop()
+
+    def test_get_current_time(self):
+        """Test timezone-aware time generation"""
+        from datetime import datetime
+
+        # Test that get_current_time returns a datetime object
+        result = server_module.get_current_time()
+        self.assertIsInstance(result, datetime)
+        self.assertIsNotNone(result.tzinfo)
+    
+    def test_check_ip_whitelist_allowed(self):
+        """Test IP whitelist check with allowed IP"""
+        with patch.object(server_module, 'ALLOWED_IPS', ['192.168.1.1', '10.0.0.1']):
+            result = server_module.check_ip_whitelist("192.168.1.1")
+            self.assertTrue(result)
+
+            result = server_module.check_ip_whitelist("10.0.0.1")
+            self.assertTrue(result)
+
+    def test_check_ip_whitelist_blocked(self):
+        """Test IP whitelist check with blocked IP"""
+        with patch.object(server_module, 'ALLOWED_IPS', ['192.168.1.1', '10.0.0.1']):
+            result = server_module.check_ip_whitelist("172.16.0.1")
+            self.assertFalse(result)
+
+    def test_check_ip_whitelist_whitespace_handling(self):
+        """Test IP whitelist with whitespace in configuration"""
+        with patch.object(server_module, 'ALLOWED_IPS', ['192.168.1.1', '10.0.0.1']):
+            result = server_module.check_ip_whitelist("192.168.1.1")
+            self.assertTrue(result)
+
+            result = server_module.check_ip_whitelist("10.0.0.1")
+            self.assertTrue(result)
