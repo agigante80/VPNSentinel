@@ -1,45 +1,8 @@
 services:
-  # =============================================================================
-  # VPN SENTINEL SERVER - Central monitoring server and notification hub
-  # =============================================================================
   vpn-sentinel-server:
     build: ../../vpn-sentinel-server
     container_name: vpn-sentinel-server
     ports:
       - "5000:5000"  # API port
       - "8080:8080"  # Dashboard port
-    environment:
-      # Server settings
-      - VPN_SENTINEL_SERVER_API_PORT=5000
-      - VPN_SENTINEL_SERVER_DASHBOARD_PORT=8080
-      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
-      - TZ=${TZ:-UTC}
-
-      # Telegram notifications (recommended)
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-
-      # TLS/SSL certificates (optional)
-      - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH}
-      - VPN_SENTINEL_TLS_KEY_PATH=${VPN_SENTINEL_TLS_KEY_PATH}
-
-      # IP whitelisting (optional)
-      - VPN_SENTINEL_SERVER_ALLOWED_IPS=${VPN_SENTINEL_SERVER_ALLOWED_IPS}
-
-      # Rate limiting
-      - VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS=${VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS:-30}
-
-    volumes:
-      - ../../vpn-sentinel-server:/app:ro
-      # TLS certificates (optional) - commented out for basic testing
-      # - ${VPN_SENTINEL_TLS_CERT_PATH:-../../certs/server.crt}:/certs/server.crt:ro
-      # - ${VPN_SENTINEL_TLS_KEY_PATH:-../../certs/server.key}:/certs/server.key:ro
-
     restart: unless-stopped
-networks:
-  # Server network for external access
-  vpn-sentinel-server:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.29.0.0/16

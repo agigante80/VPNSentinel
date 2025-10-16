@@ -30,7 +30,7 @@ Architecture:
 Environment Variables:
 - TELEGRAM_BOT_TOKEN: Telegram bot token for notifications (optional)
 - TELEGRAM_CHAT_ID: Target chat ID for notifications (optional)
-- VPN_SENTINEL_API_KEY: API key for client authentication (required)
+- VPN_SENTINEL_API_KEY: API key for client authentication (optional)
 - VPN_SENTINEL_SERVER_ALLOWED_IPS: Comma-separated IP whitelist (optional)
 - API_PATH: API path prefix for endpoints (default: /api/v1)
 - TZ: Timezone for timestamps (default: UTC)
@@ -146,7 +146,7 @@ announced_clients = set()       # Set[str]: Clients that have been announced
 # Prevents repeated "no clients" notifications when no clients are connected
 no_clients_alert_sent = False   # Bool: Flag to prevent repeated alerts
 
-# Rate Limiting Storage
+# Rate Limiting
 # Maps IP addresses to deque of recent request timestamps for sliding window rate limiting
 rate_limit_storage = defaultdict(deque)  # Dict[str, deque]: IP -> request timestamps
 
@@ -1950,7 +1950,7 @@ def handle_status_command():
             message += f"   Last seen: <code>{minutes_ago} minutes ago</code>\n"
             message += f"   Time: <code>{info['last_seen'].strftime('%H:%M:%S %Z')}</code>\n\n"
     
-    if send_telegram_message(message):
+    if send_
         log_info("telegram", "✅ Status response sent")
 
 def handle_help_command():

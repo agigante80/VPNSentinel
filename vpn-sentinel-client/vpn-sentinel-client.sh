@@ -47,6 +47,7 @@
 #   REQUIRED:
 #   - VPN_SENTINEL_URL: Base URL of monitoring server
 #     Example: https://vpn-monitor.example.com
+#     Default: http://your-server-url:5000
 #
 #   OPTIONAL:
 #   - VPN_SENTINEL_API_PATH: API path prefix (default: /api/v1)
@@ -174,7 +175,7 @@ log_warn() {
 
 # API Endpoint Configuration
 # Constructs the complete monitoring server URL from base URL and API path
-API_BASE_URL="${VPN_SENTINEL_URL}"
+API_BASE_URL="${VPN_SENTINEL_URL:-http://your-server-url:5000}"
 API_PATH="${VPN_SENTINEL_API_PATH:-/api/v1}"
 SERVER_URL="${API_BASE_URL}${API_PATH}"                         # Complete monitoring server endpoint
 IS_HTTPS=$(echo "$API_BASE_URL" | grep -q '^https://' && echo "true")  # Check if URL uses HTTPS
