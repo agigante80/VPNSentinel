@@ -58,6 +58,11 @@
 #     Example: America/New_York, Europe/London, Asia/Tokyo
 #   - VPN_SENTINEL_TLS_CERT_PATH: Path to custom TLS certificate for HTTPS verification
 #     If set, uses the specified certificate; otherwise automatically trusts self-signed certificates
+#   - VPN_SENTINEL_DEBUG: Enable debug logging (default: false)
+#     Set to 'true' to log raw API responses for troubleshooting
+#   - VPN_SENTINEL_GEOLOCATION_SERVICE: Force specific geolocation service (default: auto)
+#     Options: 'auto', 'ipinfo.io', 'ip-api.com'
+#     'auto' tries ipinfo.io first, falls back to ip-api.com if needed
 #
 # DEPENDENCIES:
 #   - curl: HTTP client for API requests and data transmission
@@ -122,6 +127,45 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# Logging Functions
+# -----------------------------------------------------------------------------
+# Structured logging system with component-based categorization for better
+# debugging and monitoring. All log messages include UTC timestamps and
+# component tags for easy filtering and analysis.
+
+# log_message: Core logging function with standardized format
+# Parameters:
+#   $1: Log level (INFO, ERROR, WARN)
+#   $2: Component name (config, client, vpn-info, dns-test, api)
+#   $3: Message text
+# Output: [TIMESTAMP] LEVEL [COMPONENT] MESSAGE
+log_message() {
+    local level="$1"
+    local component="$2"
+    local message="$3"
+    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    echo "${timestamp} ${level} [${component}] ${message}"
+}
+
+# log_info: Log informational messages for normal operations
+# Parameters: $1=component, $2=message
+log_info() {
+    log_message "INFO" "$1" "$2"
+}
+
+# log_error: Log error conditions that may require attention
+# Parameters: $1=component, $2=message
+log_error() {
+    log_message "ERROR" "$1" "$2"
+}
+
+# log_warn: Log warning conditions that don't stop operation but need monitoring
+# Parameters: $1=component, $2=message
+log_warn() {
+    log_message "WARN" "$1" "$2"
+}
+
+# -----------------------------------------------------------------------------
 # Configuration and Environment Setup
 # -----------------------------------------------------------------------------
 # Initialize client configuration from environment variables with validation
@@ -133,6 +177,7 @@
 API_BASE_URL="${VPN_SENTINEL_URL}"
 API_PATH="${VPN_SENTINEL_API_PATH:-/api/v1}"
 SERVER_URL="${API_BASE_URL}${API_PATH}"                         # Complete monitoring server endpoint
+IS_HTTPS=$(echo "$API_BASE_URL" | grep -q '^https://' && echo "true")  # Check if URL uses HTTPS
 
 # Client Identifier Generation and Validation
 # Generates or validates a unique client identifier for tracking and reporting
@@ -194,44 +239,49 @@ else
     log_info "config" "⚠️ No TLS certificate provided; HTTPS verification disabled (using default curl behavior)"
 fi
 
-# -----------------------------------------------------------------------------
-# Logging Functions
-# -----------------------------------------------------------------------------
-# Structured logging system with component-based categorization for better
-# debugging and monitoring. All log messages include UTC timestamps and
-# component tags for easy filtering and analysis.
+# Debug Configuration
+DEBUG="${VPN_SENTINEL_DEBUG:-false}"
+if [ "$DEBUG" = "true" ]; then
+    log_info "config" "🐛 Debug mode enabled - will log raw API responses"
+else
+    log_info "config" "ℹ️ Debug mode disabled"
+fi
 
-# log_message: Core logging function with standardized format
-# Parameters:
-#   $1: Log level (INFO, ERROR, WARN)
-#   $2: Component name (config, client, vpn-info, dns-test, api)
-#   $3: Message text
-# Output: [TIMESTAMP] LEVEL [COMPONENT] MESSAGE
-log_message() {
-    local level="$1"
-    local component="$2"
-    local message="$3"
-    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    echo "${timestamp} ${level} [${component}] ${message}"
+# Geolocation Service Configuration
+GEOLOCATION_SERVICE="${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}"
+
+# Validate geolocation service value
+validate_geolocation_service() {
+    local service="$1"
+    case "$service" in
+        auto|ipinfo.io|ip-api.com)
+            return 0  # Valid
+            ;;
+        *)
+            return 1  # Invalid
+            ;;
+    esac
 }
 
-# log_info: Log informational messages for normal operations
-# Parameters: $1=component, $2=message
-log_info() {
-    log_message "INFO" "$1" "$2"
-}
+if ! validate_geolocation_service "$GEOLOCATION_SERVICE"; then
+    log_error "config" "❌ Invalid VPN_SENTINEL_GEOLOCATION_SERVICE '$GEOLOCATION_SERVICE'"
+    log_error "config" "📋 Valid options: 'auto', 'ipinfo.io', 'ip-api.com'"
+    log_error "config" "🔄 Defaulting to 'auto'"
+    GEOLOCATION_SERVICE="auto"
+fi
 
-# log_error: Log error conditions that may require attention
-# Parameters: $1=component, $2=message
-log_error() {
-    log_message "ERROR" "$1" "$2"
-}
-
-# log_warn: Log warning conditions that don't stop operation but need monitoring
-# Parameters: $1=component, $2=message
-log_warn() {
-    log_message "WARN" "$1" "$2"
-}
+# Log the configured service
+case "$GEOLOCATION_SERVICE" in
+    auto)
+        log_info "config" "🌐 Geolocation service: auto (will try ipinfo.io first, fallback to ip-api.com)"
+        ;;
+    ipinfo.io)
+        log_info "config" "🌐 Geolocation service: forced to ipinfo.io"
+        ;;
+    ip-api.com)
+        log_info "config" "🌐 Geolocation service: forced to ip-api.com"
+        ;;
+esac
 
 # -----------------------------------------------------------------------------
 # JSON Escaping Function
@@ -311,17 +361,38 @@ send_keepalive() {
     # Primary: ipinfo.io, Fallback: ip-api.com, Final: empty defaults
     log_info "vpn-info" "🔍 Gathering VPN information..."
     
-    # Try primary geolocation service (ipinfo.io)
-    VPN_INFO=$(curl -s --max-time 10 https://ipinfo.io/json 2>/dev/null || echo '')
-    
-    # If primary service failed or returned empty, try fallback service (ip-api.com)
-    if [ -z "$VPN_INFO" ] || [ "$VPN_INFO" = "{}" ]; then
-        log_warn "vpn-info" "⚠️ Primary geolocation service (ipinfo.io) failed, trying fallback..."
-        VPN_INFO=$(curl -s --max-time 10 http://ip-api.com/json 2>/dev/null || echo '{}')
-        # Note: ip-api.com uses different field names, we'll handle this in parsing
-        GEOLOCATION_SOURCE="ip-api.com"
-    else
+    # Determine which geolocation service to use
+    if [ "$GEOLOCATION_SERVICE" = "ipinfo.io" ]; then
+        # Forced to use ipinfo.io
+        VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '')
         GEOLOCATION_SOURCE="ipinfo.io"
+        if [ "$DEBUG" = "true" ]; then
+            log_info "vpn-info" "🔍 Raw VPN_INFO: $VPN_INFO"
+        fi
+    elif [ "$GEOLOCATION_SERVICE" = "ip-api.com" ]; then
+        # Forced to use ip-api.com
+        VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+        GEOLOCATION_SOURCE="ip-api.com"
+        if [ "$DEBUG" = "true" ]; then
+            log_info "vpn-info" "🔍 Raw VPN_INFO: $VPN_INFO"
+        fi
+    else
+        # Auto mode: Try primary geolocation service (ipinfo.io)
+        VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '')
+        
+        # If primary service failed or returned empty, try fallback service (ip-api.com)
+        if [ -z "$VPN_INFO" ] || [ "$VPN_INFO" = "{}" ]; then
+            log_warn "vpn-info" "⚠️ Primary geolocation service (ipinfo.io) failed, trying fallback..."
+            VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+            # Note: ip-api.com uses different field names, we'll handle this in parsing
+            GEOLOCATION_SOURCE="ip-api.com"
+        else
+            GEOLOCATION_SOURCE="ipinfo.io"
+        fi
+        
+        if [ "$DEBUG" = "true" ]; then
+            log_info "vpn-info" "🔍 Raw VPN_INFO: $VPN_INFO"
+        fi
     fi
     
     log_info "vpn-info" "📡 Using geolocation service: $GEOLOCATION_SOURCE"
@@ -330,22 +401,44 @@ send_keepalive() {
     # Handles both ipinfo.io and ip-api.com response formats
     # ipinfo.io format: "key": "value"
     # ip-api.com format: "key": "value" (same structure)
-    PUBLIC_IP=$(echo "$VPN_INFO" | sed -n 's/.*"ip"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+    
+    # Remove newlines and extra whitespace to make sed parsing work
+    VPN_INFO_CLEAN=$(echo "$VPN_INFO" | tr -d '\n' | sed 's/[[:space:]]\+/ /g')
+    
+    # Parse IP based on geolocation service (different field names)
+    if [ "$GEOLOCATION_SOURCE" = "ip-api.com" ]; then
+        PUBLIC_IP_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"query"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    else
+        PUBLIC_IP_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"ip"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    fi
+    PUBLIC_IP=$(sanitize_string "$PUBLIC_IP_RAW")
     
     # Handle different field names between services
     if [ "$GEOLOCATION_SOURCE" = "ip-api.com" ]; then
-        COUNTRY=$(echo "$VPN_INFO" | sed -n 's/.*"countryCode"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-        CITY=$(echo "$VPN_INFO" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-        REGION=$(echo "$VPN_INFO" | sed -n 's/.*"regionName"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-        ORG=$(echo "$VPN_INFO" | sed -n 's/.*"isp"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-        VPN_TIMEZONE=$(echo "$VPN_INFO" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+        COUNTRY_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"countryCode"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        CITY_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        REGION_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"regionName"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        ORG_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"isp"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        VPN_TIMEZONE_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        
+        COUNTRY=$(sanitize_string "$COUNTRY_RAW")
+        CITY=$(sanitize_string "$CITY_RAW")
+        REGION=$(sanitize_string "$REGION_RAW")
+        ORG=$(sanitize_string "$ORG_RAW")
+        VPN_TIMEZONE=$(sanitize_string "$VPN_TIMEZONE_RAW")
     else
         # ipinfo.io field names
-        COUNTRY=$(echo "$VPN_INFO" | sed -n 's/.*"country"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-        CITY=$(echo "$VPN_INFO" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-        REGION=$(echo "$VPN_INFO" | sed -n 's/.*"region"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-        ORG=$(echo "$VPN_INFO" | sed -n 's/.*"org"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
-        VPN_TIMEZONE=$(echo "$VPN_INFO" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sanitize_string)
+        COUNTRY_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"country"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        CITY_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        REGION_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"region"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        ORG_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"org"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        VPN_TIMEZONE_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        
+        COUNTRY=$(sanitize_string "$COUNTRY_RAW")
+        CITY=$(sanitize_string "$CITY_RAW")
+        REGION=$(sanitize_string "$REGION_RAW")
+        ORG=$(sanitize_string "$ORG_RAW")
+        VPN_TIMEZONE=$(sanitize_string "$VPN_TIMEZONE_RAW")
     fi
     
     # -----------------------------------------------------------------------------
@@ -366,9 +459,11 @@ send_keepalive() {
     # - Example: loc=US, colo=LAX (Los Angeles, United States)
     # - Fast, reliable, and doesn't require API keys
     #
-    DNS_INFO=$(curl -s --max-time 10 https://1.1.1.1/cdn-cgi/trace 2>/dev/null || echo '')
-    DNS_LOC=$(echo "$DNS_INFO" | grep '^loc=' | cut -d'=' -f2 | sanitize_string)      # Country code where DNS resolved
-    DNS_COLO=$(echo "$DNS_INFO" | grep '^colo=' | cut -d'=' -f2 | sanitize_string)    # Cloudflare data center identifier
+    DNS_INFO=$(curl -s https://1.1.1.1/cdn-cgi/trace 2>/dev/null || echo '')
+    DNS_LOC_RAW=$(echo "$DNS_INFO" | grep '^loc=' | cut -d'=' -f2)
+    DNS_COLO_RAW=$(echo "$DNS_INFO" | grep '^colo=' | cut -d'=' -f2)
+    DNS_LOC=$(sanitize_string "$DNS_LOC_RAW")      # Country code where DNS resolved
+    DNS_COLO=$(sanitize_string "$DNS_COLO_RAW")    # Cloudflare data center identifier
 
     # -----------------------------------------------------------------------------
     # DNS Leak Testing Mode (Development/Testing Only)
@@ -444,37 +539,37 @@ send_keepalive() {
     #   }
     # }
     #
+    # Build JSON payload
+    JSON_DATA="{
+      \"client_id\": \"$(json_escape "$CLIENT_ID")\",
+      \"timestamp\": \"$(json_escape "$TIMESTAMP")\",
+      \"public_ip\": \"$(json_escape "$PUBLIC_IP")\",
+      \"status\": \"alive\",
+      \"location\": {
+        \"country\": \"$(json_escape "$COUNTRY")\",
+        \"city\": \"$(json_escape "$CITY")\",
+        \"region\": \"$(json_escape "$REGION")\",
+        \"org\": \"$(json_escape "$ORG")\",
+        \"timezone\": \"$(json_escape "$VPN_TIMEZONE")\"
+      },
+      \"dns_test\": {
+        \"location\": \"$(json_escape "$DNS_LOC")\",
+        \"colo\": \"$(json_escape "$DNS_COLO")\"
+      }
+    }"
+
     # SUCCESS/FAILURE HANDLING:
     # - Success: Log detailed status information with all gathered data
     # - Failure: Log same information with error indicators for troubleshooting
     # - Return appropriate exit codes for monitoring and automation
     #
-    if curl -X POST \
-      --max-time $TIMEOUT \
-      --silent \
-      --fail \
-      -H "Content-Type: application/json" \
-      ${VPN_SENTINEL_API_KEY:+-H "Authorization: Bearer $VPN_SENTINEL_API_KEY"} \
-      ${TLS_CERT_PATH:+--cacert "$TLS_CERT_PATH"} \
-      ${TLS_CERT_PATH:---insecure} \
-      -d "{
-        \"client_id\": \"$(json_escape "$CLIENT_ID")\",
-        \"timestamp\": \"$(json_escape "$TIMESTAMP")\",
-        \"public_ip\": \"$(json_escape "$PUBLIC_IP")\",
-        \"status\": \"alive\",
-        \"location\": {
-          \"country\": \"$(json_escape "$COUNTRY")\",
-          \"city\": \"$(json_escape "$CITY")\",
-          \"region\": \"$(json_escape "$REGION")\",
-          \"org\": \"$(json_escape "$ORG")\",
-          \"timezone\": \"$(json_escape "$VPN_TIMEZONE")\"
-        },
-        \"dns_test\": {
-          \"location\": \"$(json_escape "$DNS_LOC")\",
-          \"colo\": \"$(json_escape "$DNS_COLO")\"
-        }
-      }" \
-      "$SERVER_URL/keepalive" >/dev/null 2>&1; then
+    if curl -X POST "${SERVER_URL}/keepalive" \
+        -H "Content-Type: application/json" \
+        ${VPN_SENTINEL_API_KEY:+-H "Authorization: Bearer $VPN_SENTINEL_API_KEY"} \
+        ${TLS_CERT_PATH:+--capath "$TLS_CERT_PATH"} \
+        --max-time $TIMEOUT \
+        -d "$JSON_DATA" \
+        >/dev/null 2>&1; then
         # SUCCESS PATH: Keepalive transmitted successfully
         # Display comprehensive status information for monitoring and debugging
         # All gathered data is logged to provide complete visibility into VPN status
@@ -536,6 +631,10 @@ send_keepalive() {
 # - Component-based categorization for log filtering
 #
 log_info "client" "🔄 Starting continuous VPN monitoring loop..."
+
+# -----------------------------------------------------------------------------
+# VPN Sentinel Client Starting
+# -----------------------------------------------------------------------------
 
 while true; do
     send_keepalive

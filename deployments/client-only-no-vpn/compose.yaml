@@ -1,0 +1,26 @@
+services:
+  # =============================================================================
+  # VPN SENTINEL CLIENT - Standalone monitoring client
+  # =============================================================================
+  vpn-sentinel-client:
+    build: ../../vpn-sentinel-client
+    container_name: vpn-sentinel-client
+    environment:
+      - VPN_SENTINEL_URL=${VPN_SENTINEL_URL}
+      - VPN_SENTINEL_API_PATH=${VPN_SENTINEL_API_PATH:-/api/v1}
+      - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID}
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
+      - TZ=${TZ:-UTC}
+      - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH}
+      - VPN_SENTINEL_DEBUG=${VPN_SENTINEL_DEBUG:-false}
+      - VPN_SENTINEL_GEOLOCATION_SERVICE=${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}
+    volumes:
+      - ../../vpn-sentinel-client/vpn-sentinel-client.sh:/app/vpn-sentinel-client.sh:ro
+    command: ["sh", "/app/vpn-sentinel-client.sh"]
+    networks:
+      - vpn-sentinel-network
+    restart: unless-stopped
+
+networks:
+  vpn-sentinel-network:
+    driver: bridge

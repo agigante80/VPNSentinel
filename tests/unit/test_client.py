@@ -133,11 +133,8 @@ class TestClientScript(unittest.TestCase):
         with open(self.script_path, 'r') as f:
             script_content = f.read()
         
-        # Verify the script contains the conditional cacert flag for custom certificates
-        self.assertIn('${TLS_CERT_PATH:+--cacert "$TLS_CERT_PATH"}', script_content)
-        
-        # Verify the script contains the automatic insecure flag when no custom certificate
-        self.assertIn('${TLS_CERT_PATH:---insecure}', script_content)
+        # Verify the script contains the conditional capath flag for custom certificates
+        self.assertIn('${TLS_CERT_PATH:+--capath "$TLS_CERT_PATH"}', script_content)
         
         # Verify TLS_CERT_PATH is read from environment
         self.assertIn('TLS_CERT_PATH="${VPN_SENTINEL_TLS_CERT_PATH:-}"', script_content)
@@ -631,7 +628,7 @@ class TestSecurityFeatures(unittest.TestCase):
         self.assertIn('sanitize_string()', content, "sanitize_string function should be present")
         
         # Check for sanitization usage
-        self.assertIn('| sanitize_string', content, "sanitize_string should be used in parsing")
+        self.assertIn('$(sanitize_string', content, "sanitize_string should be used in parsing")
         self.assertIn('$(json_escape', content, "json_escape should be used in JSON construction")
         
         # Check for CLIENT_ID sanitization
@@ -658,5 +655,125 @@ class TestSecurityFeatures(unittest.TestCase):
                     self.fail(f"Invalid JSON: {payload}")
 
 
-if __name__ == '__main__':
-    unittest.main()
+class TestGeolocationAndDebugFeatures(unittest.TestCase):
+    """Test geolocation service selection and debug features"""
+
+    def setUp(self):
+        """Set up test environment"""
+        self.test_env = {
+            'VPN_SENTINEL_URL': 'http://localhost:5554',
+            'VPN_SENTINEL_API_PATH': '/api/v1',
+            'VPN_SENTINEL_CLIENT_ID': 'test-client-001',
+            'VPN_SENTINEL_API_KEY': 'test-api-key',
+            'TZ': 'UTC'
+        }
+
+        # Path to client script
+        self.script_path = os.path.join(
+            os.path.dirname(__file__),
+            '../../vpn-sentinel-client/vpn-sentinel-client.sh'
+        )
+
+    def test_debug_mode_configuration(self):
+        """Test debug mode configuration parsing"""
+        # Read the script content to verify debug configuration
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify debug variable is set from environment
+        self.assertIn('DEBUG="${VPN_SENTINEL_DEBUG:-false}"', script_content)
+
+        # Verify debug logging messages are present
+        self.assertIn('🐛 Debug mode enabled', script_content)
+        self.assertIn('ℹ️ Debug mode disabled', script_content)
+
+    def test_geolocation_service_validation_function(self):
+        """Test the validate_geolocation_service function logic"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify the validation function exists and handles valid options
+        self.assertIn('validate_geolocation_service()', script_content)
+        self.assertIn('auto|ipinfo.io|ip-api.com)', script_content)
+
+        # Verify validation is called
+        self.assertIn('validate_geolocation_service "$GEOLOCATION_SERVICE"', script_content)
+
+    def test_geolocation_service_configuration(self):
+        """Test geolocation service configuration logic"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify GEOLOCATION_SERVICE is set from environment with auto default
+        self.assertIn('GEOLOCATION_SERVICE="${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}"', script_content)
+
+        # Verify forced service messages
+        self.assertIn('forced to ipinfo.io', script_content)
+        self.assertIn('forced to ip-api.com', script_content)
+
+        # Verify auto mode message
+        self.assertIn('will try ipinfo.io first, fallback to ip-api.com', script_content)
+
+    def test_debug_raw_info_logging(self):
+        """Test that debug mode includes raw VPN info logging"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify debug logging of raw VPN_INFO appears in all geolocation branches
+        debug_log_count = script_content.count('🔍 Raw VPN_INFO: $VPN_INFO')
+        self.assertEqual(debug_log_count, 3, "Raw VPN_INFO should be logged in debug mode for all 3 geolocation branches")
+
+        # Verify debug condition is checked before logging
+        self.assertIn('if [ "$DEBUG" = "true" ]; then', script_content)
+
+    def test_forced_ipinfo_io_logic(self):
+        """Test the logic for forcing ipinfo.io usage"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify forced ipinfo.io branch exists
+        self.assertIn('if [ "$GEOLOCATION_SERVICE" = "ipinfo.io" ]; then', script_content)
+        self.assertIn('VPN_INFO=$(curl -s https://ipinfo.io/json', script_content)
+        self.assertIn('GEOLOCATION_SOURCE="ipinfo.io"', script_content)
+
+    def test_forced_ip_api_com_logic(self):
+        """Test the logic for forcing ip-api.com usage"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify forced ip-api.com branch exists
+        self.assertIn('elif [ "$GEOLOCATION_SERVICE" = "ip-api.com" ]; then', script_content)
+        self.assertIn('VPN_INFO=$(curl -s http://ip-api.com/json', script_content)
+        self.assertIn('GEOLOCATION_SOURCE="ip-api.com"', script_content)
+
+    def test_auto_mode_default_behavior(self):
+        """Test that auto mode defaults to ipinfo.io first"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify auto mode tries ipinfo.io first
+        self.assertIn('else', script_content)  # The auto mode else branch
+        self.assertIn('VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo \'\')', script_content)
+
+        # Verify fallback to ip-api.com in auto mode
+        self.assertIn('ip-api.com/json 2>/dev/null || echo \'{}\'', script_content)
+
+    def test_invalid_service_error_handling(self):
+        """Test error handling for invalid geolocation service values"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify validation error messages
+        self.assertIn('❌ Invalid VPN_SENTINEL_GEOLOCATION_SERVICE', script_content)
+        self.assertIn('📋 Valid options:', script_content)
+        self.assertIn('🔄 Defaulting to \'auto\'', script_content)
+
+        # Verify fallback to auto when validation fails
+        self.assertIn('GEOLOCATION_SERVICE="auto"', script_content)
