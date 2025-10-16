@@ -36,12 +36,30 @@ class TestServerFunctions(unittest.TestCase):
         global server_module
         try:
             import vpn_sentinel_server as server_module
-        except ImportError:
+        except ImportError as e:
+            print(f"Direct import failed: {e}")
             # If direct import fails, try importing the actual module
             import importlib.util
+            # Try multiple possible paths to find the server file
+            possible_paths = [
+                os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-server/vpn-sentinel-server.py'),  # Relative to test file
+                '/home/runner/work/VPNSentinel/VPNSentinel/vpn-sentinel-server/vpn-sentinel-server.py',  # CI path
+                '/home/alien/dev/VPNSentinel/vpn-sentinel-server/vpn-sentinel-server.py',  # Local path
+            ]
+            
+            server_file_path = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    server_file_path = path
+                    break
+            
+            if server_file_path is None:
+                raise FileNotFoundError(f"Could not find server file in any of: {possible_paths}")
+                
+            print(f"Loading server module from: {server_file_path}")
             spec = importlib.util.spec_from_file_location(
                 "vpn_sentinel_server", 
-                "/home/alien/dev/VPNSentinel/vpn-sentinel-server/vpn-sentinel-server.py"
+                server_file_path
             )
             server_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(server_module)  # Execute the module to define functions
@@ -641,9 +659,11 @@ class TestInputValidation(unittest.TestCase):
         except ImportError:
             # If direct import fails, try importing the actual module
             import importlib.util
+            # Use relative path from test file to server file
+            server_file_path = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-server/vpn-sentinel-server.py')
             spec = importlib.util.spec_from_file_location(
                 "vpn_sentinel_server", 
-                "/home/alien/dev/VPNSentinel/vpn-sentinel-server/vpn-sentinel-server.py"
+                server_file_path
             )
             server_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(server_module)  # Execute the module to define functions
