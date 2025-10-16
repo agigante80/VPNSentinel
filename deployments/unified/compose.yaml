@@ -44,7 +44,7 @@ services:
   # VPN SENTINEL SERVER - Central monitoring server
   # =============================================================================
   vpn-sentinel-server:
-    image: python:3.9-slim
+    build: ../../vpn-sentinel-server
     container_name: vpn-sentinel-server
     ports:
       - "5000:5000"
