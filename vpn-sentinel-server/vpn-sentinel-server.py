@@ -1950,7 +1950,7 @@ def handle_status_command():
             message += f"   Last seen: <code>{minutes_ago} minutes ago</code>\n"
             message += f"   Time: <code>{info['last_seen'].strftime('%H:%M:%S %Z')}</code>\n\n"
     
-    if send_
+    if send_telegram_message(message):
         log_info("telegram", "✅ Status response sent")
 
 def handle_help_command():

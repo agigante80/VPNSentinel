@@ -777,3 +777,182 @@ class TestGeolocationAndDebugFeatures(unittest.TestCase):
 
         # Verify fallback to auto when validation fails
         self.assertIn('GEOLOCATION_SERVICE="auto"', script_content)
+
+
+class TestEnvironmentVariables(unittest.TestCase):
+    """Test environment variable defaults and custom values"""
+
+    def setUp(self):
+        """Set up test environment"""
+        # Path to client script
+        self.script_path = os.path.join(
+            os.path.dirname(__file__),
+            '../../vpn-sentinel-client/vpn-sentinel-client.sh'
+        )
+
+    def test_vpn_sentinel_url_default(self):
+        """Test VPN_SENTINEL_URL default value"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify default value is set
+        self.assertIn('API_BASE_URL="${VPN_SENTINEL_URL:-http://your-server-url:5000}"', script_content)
+
+    def test_vpn_sentinel_url_custom(self):
+        """Test VPN_SENTINEL_URL custom value configuration"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify the variable is used in API_BASE_URL assignment
+        self.assertIn('API_BASE_URL="${VPN_SENTINEL_URL:-http://your-server-url:5000}"', script_content)
+        # Verify SERVER_URL construction uses API_BASE_URL
+        self.assertIn('SERVER_URL="${API_BASE_URL}${API_PATH}"', script_content)
+
+    def test_vpn_sentinel_api_path_default(self):
+        """Test VPN_SENTINEL_API_PATH default value"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify default value is set
+        self.assertIn('API_PATH="${VPN_SENTINEL_API_PATH:-/api/v1}"', script_content)
+
+    def test_vpn_sentinel_api_path_custom(self):
+        """Test VPN_SENTINEL_API_PATH custom value configuration"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify the variable is used in API_PATH assignment
+        self.assertIn('API_PATH="${VPN_SENTINEL_API_PATH:-/api/v1}"', script_content)
+        # Verify SERVER_URL construction uses API_PATH
+        self.assertIn('SERVER_URL="${API_BASE_URL}${API_PATH}"', script_content)
+
+    def test_vpn_sentinel_client_id_auto_generated(self):
+        """Test VPN_SENTINEL_CLIENT_ID auto-generation logic"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify CLIENT_ID generation when VPN_SENTINEL_CLIENT_ID is empty
+        self.assertIn('if [ -z "${VPN_SENTINEL_CLIENT_ID}" ]; then', script_content)
+        self.assertIn('CLIENT_ID="vpn-client-${TIMESTAMP_PART}${RANDOM_PART}"', script_content)
+
+    def test_vpn_sentinel_client_id_custom(self):
+        """Test VPN_SENTINEL_CLIENT_ID custom value configuration"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify CLIENT_ID assignment when VPN_SENTINEL_CLIENT_ID is set
+        self.assertIn('CLIENT_ID="${VPN_SENTINEL_CLIENT_ID}"', script_content)
+
+    def test_vpn_sentinel_client_id_sanitization(self):
+        """Test VPN_SENTINEL_CLIENT_ID sanitization logic"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify sanitization logic exists
+        self.assertIn('echo "$VPN_SENTINEL_CLIENT_ID" | tr \'[:upper:]\' \'[:lower:]\'', script_content)
+        self.assertIn('sed \'s/[^a-z0-9-]/-/g\'', script_content)
+
+    def test_vpn_sentinel_api_key_not_set(self):
+        """Test VPN_SENTINEL_API_KEY when not set (no auth headers)"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify conditional auth header logic
+        self.assertIn('${VPN_SENTINEL_API_KEY:+-H "Authorization: Bearer $VPN_SENTINEL_API_KEY"}', script_content)
+
+    def test_vpn_sentinel_api_key_custom(self):
+        """Test VPN_SENTINEL_API_KEY custom value configuration"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify the API key is used in authorization header
+        self.assertIn('${VPN_SENTINEL_API_KEY:+-H "Authorization: Bearer $VPN_SENTINEL_API_KEY"}', script_content)
+
+    def test_tz_default(self):
+        """Test TZ default behavior"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify TZ export logic
+        self.assertIn('if [ -n "$TZ" ]; then', script_content)
+        self.assertIn('export TZ="$TZ"', script_content)
+
+    def test_tz_custom(self):
+        """Test TZ custom value configuration"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify TZ is exported when set
+        self.assertIn('export TZ="$TZ"', script_content)
+
+    def test_vpn_sentinel_tls_cert_path_not_set(self):
+        """Test VPN_SENTINEL_TLS_CERT_PATH when not set"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify TLS_CERT_PATH is set with empty default
+        self.assertIn('TLS_CERT_PATH="${VPN_SENTINEL_TLS_CERT_PATH:-}"', script_content)
+
+        # Verify self-signed certificate message
+        self.assertIn('⚠️ No TLS certificate provided', script_content)
+
+    def test_vpn_sentinel_debug_default(self):
+        """Test VPN_SENTINEL_DEBUG default value"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify DEBUG is set to false by default
+        self.assertIn('DEBUG="${VPN_SENTINEL_DEBUG:-false}"', script_content)
+
+        # Verify debug disabled message
+        self.assertIn('ℹ️ Debug mode disabled', script_content)
+
+    def test_vpn_sentinel_debug_enabled(self):
+        """Test VPN_SENTINEL_DEBUG when set to true"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify DEBUG is set from environment
+        self.assertIn('DEBUG="${VPN_SENTINEL_DEBUG:-false}"', script_content)
+
+        # Verify debug enabled message exists
+        self.assertIn('🐛 Debug mode enabled', script_content)
+
+    def test_vpn_sentinel_geolocation_service_default(self):
+        """Test VPN_SENTINEL_GEOLOCATION_SERVICE default value"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify GEOLOCATION_SERVICE defaults to auto
+        self.assertIn('GEOLOCATION_SERVICE="${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}"', script_content)
+
+        # Verify auto mode message
+        self.assertIn('🌐 Geolocation service: auto', script_content)
+
+    def test_vpn_sentinel_geolocation_service_custom(self):
+        """Test VPN_SENTINEL_GEOLOCATION_SERVICE custom value configuration"""
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify GEOLOCATION_SERVICE is set from environment
+        self.assertIn('GEOLOCATION_SERVICE="${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}"', script_content)
+
+        # Verify forced service messages exist
+        self.assertIn('🌐 Geolocation service: forced to ipinfo.io', script_content)
+        self.assertIn('🌐 Geolocation service: forced to ip-api.com', script_content)
