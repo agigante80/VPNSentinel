@@ -2,6 +2,8 @@ services:
   vpn-sentinel-client:
     build: ../../vpn-sentinel-client
     container_name: vpn-sentinel-client
+    volumes:
+      - ./certs:/certs:ro
     environment:
       - VPN_SENTINEL_URL=${VPN_SENTINEL_URL}
       - VPN_SENTINEL_API_PATH=${VPN_SENTINEL_API_PATH}

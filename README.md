@@ -167,19 +167,29 @@ Body: {
 
 ### Quick Start Configuration
 
+VPN Sentinel offers **4 flexible deployment options** to fit different use cases:
+
+- **All-in-One**: Complete stack (VPN + client + server) - `deployments/all-in-one/`
+- **Client with VPN**: VPN client + monitoring client - `deployments/client-with-vpn/`
+- **Client Standalone**: Monitoring client only - `deployments/client-standalone/`
+- **Server Central**: Monitoring server only - `deployments/server-central/`
+
 ```bash
 # 1. Clone repository
 git clone https://github.com/agigante80/VPNSentinel.git
 cd VPNSentinel
 
-# 2. Configure environment
-cp .env.example .env
-# Edit .env with your VPN provider credentials
+# 2. Choose your deployment (see deployments/ directory)
+cd deployments/all-in-one/        # OR client-with-vpn/, client-standalone/, server-central/
 
-# 3. Deploy stack
+# 3. Configure environment
+cp .env.example .env
+# Edit .env with your configuration
+
+# 4. Deploy stack
 docker compose up -d
 
-# 4. Verify operation
+# 5. Verify operation
 docker compose logs -f vpn-sentinel-client
 ```
 
@@ -209,36 +219,36 @@ services:
       - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}
       - OPENVPN_USER=${VPN_USER}
       - OPENVPN_PASSWORD=${VPN_PASSWORD}
-    networks:
-      - vpn-network
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./vpn-client:/gluetun
+    restart: always
 
   vpn-sentinel-client:  # Monitoring client in VPN namespace
-    image: curlimages/curl:latest
+    build: ./vpn-sentinel-client/
     network_mode: service:vpn-client  # Shares VPN network stack
+    volumes:
+      - ./certs:/certs:ro
     environment:
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
-    volumes:
-      - ./keepalive-client/keepalive.sh:/app/monitor.sh:ro
-    command: ["sh", "/app/monitor.sh"]
+      - VPN_SENTINEL_URL=${VPN_SENTINEL_URL}
+    restart: always
 
   vpn-sentinel-server:  # External monitoring server
-    build: ./keepalive-server/
+    build: ./vpn-sentinel-server/
     ports:
       - "5000:5000"  # API port
-      - "8080:8080"  # Dashboard port (future)
+      - "8080:8080"  # Dashboard port
+    volumes:
+      - ./certs:/certs:ro
     environment:
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-    networks:
-      - server-network
-
-networks:
-  vpn-network:
-    driver: bridge
-    internal: true  # Isolated VPN traffic
-  server-network:
-    driver: bridge  # External communication
+    restart: always
 ```
 
 ## 🔧 Advanced Configuration
@@ -344,7 +354,7 @@ curl -H "Authorization: Bearer your-api-key-here" \
 **Unit Tests:**
 ```bash
 # Core component testing
-pytest tests/unit/ -v --cov=keepalive-server/
+pytest tests/unit/ -v --cov=vpn-sentinel-server/
 ```
 
 **Integration Tests:**
@@ -372,7 +382,7 @@ docker compose config --quiet
 **Client-Server Communication Issues:**
 ```bash
 # Verify server accessibility
-curl -v http://your-server:5000/health
+curl -v http://your-server:5000/api/v1/health
 
 # Check client network routing
 docker exec vpn-sentinel-client traceroute your-server-ip
@@ -389,11 +399,11 @@ docker logs vpn-sentinel-server | grep "API key"
 **Telegram Notification Failures:**
 ```bash
 # Test bot connectivity
-curl -X POST "https://api.telegram.org/bot${BOT_TOKEN}/getMe"
+curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe"
 
 # Verify chat permissions
-curl -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-  -d "chat_id=${CHAT_ID}" -d "text=Test"
+curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+  -d "chat_id=${TELEGRAM_CHAT_ID}" -d "text=Test"
 ```
 
 ### Diagnostic Commands
@@ -409,8 +419,8 @@ docker exec vpn-sentinel-client curl -s https://ipinfo.io/json
 docker exec vpn-sentinel-client curl -s https://1.1.1.1/cdn-cgi/trace
 
 # API endpoint validation
-curl -H "Authorization: Bearer ${API_KEY}" http://localhost:5000/health
-curl -H "Authorization: Bearer ${API_KEY}" http://localhost:5000/status
+curl -H "Authorization: Bearer ${VPN_SENTINEL_API_KEY}" http://localhost:5000/api/v1/health
+curl -H "Authorization: Bearer ${VPN_SENTINEL_API_KEY}" http://localhost:5000/api/v1/status
 ```
 
 ## 🚀 Production Deployment Guide
@@ -436,16 +446,12 @@ VPN_SENTINEL_SERVER_ALLOWED_IPS="192.168.1.0/24,10.0.0.0/8"
 
 **TLS Configuration:**
 ```bash
-# Generate self-signed certificates
-openssl req -x509 -newkey rsa:4096 \
-  -keyout vpn-sentinel-key.pem \
-  -out vpn-sentinel-cert.pem \
-  -days 365 -nodes \
-  -subj "/CN=vpn-sentinel.local"
+# Place certificates in the certs/ directory
+# See certs/README.md for certificate generation instructions
 
-# Configure server for HTTPS
-VPN_SENTINEL_TLS_CERT_PATH=/path/to/cert.pem
-VPN_SENTINEL_TLS_KEY_PATH=/path/to/key.pem
+# Configure server for HTTPS (certificates auto-mounted)
+VPN_SENTINEL_TLS_CERT_PATH=/certs/vpn-sentinel-cert.pem
+VPN_SENTINEL_TLS_KEY_PATH=/certs/vpn-sentinel-key.pem
 ```
 
 ### Monitoring Integration
@@ -496,11 +502,11 @@ docker compose logs vpn-sentinel-server --json | jq .
 **Code Style:**
 ```bash
 # Python formatting
-black keepalive-server/
-flake8 keepalive-server/
+black vpn-sentinel-server/
+flake8 vpn-sentinel-server/
 
 # Shell script linting
-shellcheck keepalive-client/*.sh
+shellcheck vpn-sentinel-client/*.sh
 ```
 
 ### Development Environment
@@ -509,13 +515,13 @@ shellcheck keepalive-client/*.sh
 # Setup development environment
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements-dev.txt
+pip install -r tests/requirements.txt
 
 # Run test suite
-pytest --cov-report=html --cov=keepalive-server/
+pytest --cov-report=html --cov=vpn-sentinel-server/
 
 # Start development server
-python keepalive-server/vpn-sentinel-server.py
+python vpn-sentinel-server/vpn-sentinel-server.py
 ```
 
 ## 📚 Technical Documentation

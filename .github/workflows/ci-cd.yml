@@ -14,7 +14,6 @@ on:
       - main
 env:
   PYTHON_VERSION: '3.11'
-  NODE_VERSION: '18'
 jobs:
   syntax-check:
     name: Syntax & Style Checks
@@ -42,11 +41,6 @@ jobs:
         run: |
           flake8 vpn-sentinel-server/ --count --select=E9,F63,F7,F82 --show-source --statistics
           flake8 vpn-sentinel-server/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      - name: Install Docker Compose
-        run: |
-          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          docker-compose version
       - name: Check Docker Compose files
         run: |
           docker-compose -f compose.yaml config > /dev/null
@@ -102,11 +96,6 @@ jobs:
       - name: Create test environment file
         run: |
           cp tests/.env.test .env
-      - name: Install Docker Compose
-        run: |
-          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          docker-compose version
       - name: Remove old Docker containers
         run: docker-compose -f tests/docker-compose.test.yaml down -v
       - name: Remove dangling volumes
@@ -170,7 +159,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.20.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -202,33 +191,38 @@ jobs:
           tags: vpn-sentinel-${{ matrix.component }}:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Build VPN Sentinel server image
+      - name: Test server container startup
         if: matrix.component == 'vpn-sentinel-server'
         run: |
-          docker build -t vpn-sentinel-vpn-sentinel-server:test .
-        working-directory: vpn-sentinel-server
-      - name: Test Docker image
-        run: |
-          if [ "${{ matrix.component }}" = "vpn-sentinel-server" ]; then
-            docker run --rm -d --name test-container \
-              -e VPN_SENTINEL_API_KEY=test-key \
-              -e VPN_SENTINEL_SERVER_API_PORT=5000 \
-              -e VPN_SENTINEL_SERVER_DASHBOARD_PORT=5553 \
-              -e VPN_SENTINEL_SERVER_DASHBOARD_ENABLED=false \
-              -e TELEGRAM_BOT_TOKEN=test:token \
-              -e TELEGRAM_CHAT_ID=123456789 \
-              vpn-sentinel-vpn-sentinel-server:test
-            sleep 10
-            if docker ps | grep test-container; then
-              echo "✅ Server container is running"
-              docker stop test-container
-            else
-              echo "❌ Server container crashed"
-              exit 1
-            fi
+          echo "🧪 Testing server container startup..."
+          docker run -d --name test-server \
+            -e VPN_SENTINEL_API_KEY=test-key \
+            -e VPN_SENTINEL_SERVER_API_PORT=5000 \
+            -e VPN_SENTINEL_SERVER_DASHBOARD_PORT=8080 \
+            -e VPN_SENTINEL_SERVER_DASHBOARD_ENABLED=false \
+            -e TELEGRAM_BOT_TOKEN=test:token \
+            -e TELEGRAM_CHAT_ID=123456789 \
+            vpn-sentinel-vpn-sentinel-server:test
+          
+          # Wait for container to start
+          sleep 10
+          
+          # Check if container is running
+          if docker ps --filter "name=test-server" --filter "status=running" | grep test-server; then
+            echo "✅ Server container started successfully"
+            docker stop test-server
+            docker rm test-server
           else
-            echo "✅ Client Docker image built successfully"
+            echo "❌ Server container failed to start"
+            docker logs test-server
+            docker rm test-server
+            exit 1
           fi
+      - name: Verify client image
+        if: matrix.component == 'vpn-sentinel-client'
+        run: |
+          echo "✅ Client Docker image built successfully"
+          docker images vpn-sentinel-${{ matrix.component }}:test
   deployment-test:
     name: Deployment Test
     runs-on: ubuntu-latest
@@ -237,15 +231,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Install Docker Compose
-        run: |
-          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          docker-compose version
       - name: Test deployment configurations
         run: |
           echo "🚀 Testing deployment configurations..."
-          deployments=("server-only" "unified" "client-only")
+          deployments=("server-central" "all-in-one" "client-with-vpn" "client-standalone")
           for deployment in "${deployments[@]}"; do
             echo "Testing $deployment deployment..."
             cd deployments/$deployment

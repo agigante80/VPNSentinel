@@ -26,6 +26,8 @@ services:
   vpn-sentinel-client:
     build: ../../vpn-sentinel-client
     container_name: vpn-sentinel-client
+    volumes:
+      - ./certs:/certs:ro
     environment:
       - VPN_SENTINEL_URL=http://vpn-sentinel-server:5000
       - VPN_SENTINEL_API_PATH=/api/v1
@@ -47,6 +49,8 @@ services:
   vpn-sentinel-server:
     build: ../../vpn-sentinel-server
     container_name: vpn-sentinel-server
+    volumes:
+      - ./certs:/certs:ro
     ports:
       - "5000:5000"
       - "8080:8080"
