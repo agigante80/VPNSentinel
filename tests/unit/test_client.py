@@ -16,7 +16,7 @@ class TestClientScript(unittest.TestCase):
     def setUp(self):
         """Set up test environment"""
         self.test_env = {
-            'VPN_SENTINEL_URL': 'http://localhost:5554',
+            'VPN_SENTINEL_URL': 'http://localhost:5000',
             'VPN_SENTINEL_API_PATH': '/test/v1',
             'VPN_SENTINEL_CLIENT_ID': 'test-client-001',
             'VPN_SENTINEL_API_KEY': 'test-api-key',
@@ -80,7 +80,7 @@ class TestClientScript(unittest.TestCase):
         ]
         
         # Test URL construction
-        self.assertEqual(expected_url, "http://localhost:5554/test/v1/keepalive")
+        self.assertEqual(expected_url, "http://localhost:5000/test/v1/keepalive")
         
         # Test header construction
         auth_header = f'Authorization: Bearer {api_key}'
@@ -145,7 +145,7 @@ class TestAPIEndpoints(unittest.TestCase):
     
     def setUp(self):
         """Set up test environment"""
-        self.base_url = 'http://localhost:5554'
+        self.base_url = 'http://localhost:5000'
         self.api_path = '/test/v1'
         self.api_key = 'test-api-key'
     
@@ -661,7 +661,7 @@ class TestGeolocationAndDebugFeatures(unittest.TestCase):
     def setUp(self):
         """Set up test environment"""
         self.test_env = {
-            'VPN_SENTINEL_URL': 'http://localhost:5554',
+            'VPN_SENTINEL_URL': 'http://localhost:5000',
             'VPN_SENTINEL_API_PATH': '/api/v1',
             'VPN_SENTINEL_CLIENT_ID': 'test-client-001',
             'VPN_SENTINEL_API_KEY': 'test-api-key',

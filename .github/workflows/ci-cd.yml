@@ -212,7 +212,7 @@ jobs:
           if [ "${{ matrix.component }}" = "vpn-sentinel-server" ]; then
             docker run --rm -d --name test-container \
               -e VPN_SENTINEL_API_KEY=test-key \
-              -e VPN_SENTINEL_SERVER_API_PORT=5554 \
+              -e VPN_SENTINEL_SERVER_API_PORT=5000 \
               -e VPN_SENTINEL_SERVER_DASHBOARD_PORT=5553 \
               -e VPN_SENTINEL_SERVER_DASHBOARD_ENABLED=false \
               -e TELEGRAM_BOT_TOKEN=test:token \

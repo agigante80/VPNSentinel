@@ -128,7 +128,7 @@ docker-compose -f tests/docker-compose.test.yaml down -v
 #### Test Configuration
 
 The test environment uses different ports and configuration:
-- **API Port**: 15554 (instead of 5554)
+- **API Port**: 15554 (instead of 5000)
 - **Dashboard Port**: 15553 (instead of 5553)
 - **API Path**: `/test/v1` (instead of `/api/v1`)
 - **Test API Key**: `test-api-key-abcdef123456789`
@@ -260,7 +260,7 @@ class TestNewIntegration(unittest.TestCase):
         """Test complete API workflow"""
         try:
             # Test API call
-            response = requests.get("http://localhost:5554/api/v1/endpoint")
+            response = requests.get("http://localhost:5000/api/v1/endpoint")
             self.assertEqual(response.status_code, 200)
             
         except requests.ConnectionError:

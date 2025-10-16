@@ -51,7 +51,7 @@ tests/
 - **Deployment Testing**: Validates all deployment scenarios
 
 ### 5. **Isolated Test Environment**
-- **Separate Ports**: Test environment uses ports 15554/15553 (vs 5554/5553)
+- **Separate Ports**: Test environment uses ports 15554/15553 (vs 5000/8080)
 - **Test Configuration**: Different API paths and credentials for isolation
 - **Docker Compose**: Complete test stack with server and client
 - **Safe Testing**: No interference with production/development environments

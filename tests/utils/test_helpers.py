@@ -33,7 +33,7 @@ def create_test_env():
     """Create test environment variables"""
     return {
         'VPN_SENTINEL_API_KEY': 'test-api-key-12345',
-        'VPN_SENTINEL_SERVER_API_PORT': '5554',
+        'VPN_SENTINEL_SERVER_API_PORT': '5000',
         'VPN_SENTINEL_SERVER_DASHBOARD_PORT': '5553',
         'VPN_SENTINEL_SERVER_DASHBOARD_ENABLED': 'true',
         'VPN_SENTINEL_ALERT_THRESHOLD_MINUTES': '15',
