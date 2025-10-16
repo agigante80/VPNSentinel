@@ -43,8 +43,6 @@ class TestServerFunctions(unittest.TestCase):
             # Try multiple possible paths to find the server file
             possible_paths = [
                 os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-server/vpn-sentinel-server.py'),  # Relative to test file
-                '/home/runner/work/VPNSentinel/VPNSentinel/vpn-sentinel-server/vpn-sentinel-server.py',  # CI path
-                '/home/alien/dev/VPNSentinel/vpn-sentinel-server/vpn-sentinel-server.py',  # Local path
             ]
             
             server_file_path = None
@@ -54,7 +52,7 @@ class TestServerFunctions(unittest.TestCase):
                     break
             
             if server_file_path is None:
-                raise FileNotFoundError(f"Could not find server file in any of: {possible_paths}")
+                raise FileNotFoundError(f"Could not find server file at: {possible_paths[0]}")
                 
             print(f"Loading server module from: {server_file_path}")
             spec = importlib.util.spec_from_file_location(

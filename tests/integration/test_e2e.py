@@ -245,7 +245,7 @@ class TestServerClientIntegration(unittest.TestCase):
                     import importlib.util
                     spec = importlib.util.spec_from_file_location(
                         "vpn_sentinel_server", 
-                        "/home/alien/dev/VPNSentinel/vpn-sentinel-server/vpn-sentinel-server.py"
+                        "vpn-sentinel-server/vpn-sentinel-server.py"
                     )
                     server_module = importlib.util.module_from_spec(spec)
                     spec.loader.exec_module(server_module)
