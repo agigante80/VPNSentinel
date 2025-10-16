@@ -81,9 +81,9 @@ run_syntax_checks() {
     if command -v docker-compose &> /dev/null; then
         compose_files=(
             "$PROJECT_ROOT/compose.yaml"
-            "$PROJECT_ROOT/deployments/server-only/compose.yaml"
-            "$PROJECT_ROOT/deployments/unified/compose.yaml"
-            "$PROJECT_ROOT/deployments/client-only/compose.yaml"
+            "$PROJECT_ROOT/deployments/server-central/compose.yaml"
+            "$PROJECT_ROOT/deployments/all-in-one/compose.yaml"
+            "$PROJECT_ROOT/deployments/client-with-vpn/compose.yaml"
             "$TEST_DIR/docker-compose.test.yaml"
         )
         

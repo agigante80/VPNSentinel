@@ -264,9 +264,10 @@ class TestDockerIntegration(unittest.TestCase):
         """Test Docker Compose file syntax"""
         compose_files = [
             '../../compose.yaml',
-            '../../deployments/server-only/compose.yaml',
-            '../../deployments/unified/compose.yaml', 
-            '../../deployments/client-only/compose.yaml'
+            '../../deployments/server-central/compose.yaml',
+            '../../deployments/all-in-one/compose.yaml', 
+            '../../deployments/client-with-vpn/compose.yaml',
+            '../../deployments/client-standalone/compose.yaml'
         ]
         
         for compose_file in compose_files:
@@ -423,9 +424,10 @@ class TestConfigurationValidation(unittest.TestCase):
         """Test that .env.example files are valid"""
         env_example_files = [
             '../../.env.example',
-            '../../deployments/server-only/.env.example',
-            '../../deployments/unified/.env.example',
-            '../../deployments/client-only/.env.example'
+            '../../deployments/server-central/.env.example',
+            '../../deployments/all-in-one/.env.example',
+            '../../deployments/client-with-vpn/.env.example',
+            '../../deployments/client-standalone/.env.example'
         ]
         
         for env_file in env_example_files:

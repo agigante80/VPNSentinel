@@ -152,7 +152,7 @@ VPN_SENTINEL_SERVER_API_BASE_URL=https://your-server.example.com:5000
 VPN_SENTINEL_API_KEY=your_secure_api_key_here
 ```
 
-See [client-only deployment](../client-only/) for client setup instructions.
+See [client deployments](../client-with-vpn/) and [../client-standalone/] for client setup instructions.
 
 ## 🛠️ Troubleshooting
 
@@ -239,7 +239,7 @@ The server exposes metrics suitable for:
 ## 📁 File Structure
 
 ```
-server-only/
+server-central/
 ├── compose.yaml          # Docker Compose configuration (server only)
 ├── .env.example          # Environment template (server-focused)  
 ├── .env                  # Your configuration (create from example)
@@ -248,10 +248,11 @@ server-only/
 
 ## 🔗 Related Deployments
 
-- **Client-Only**: [../client-only/](../client-only/) - Deploy clients to connect to this server
-- **Unified**: [../unified/](../unified/) - Deploy both client and server together  
+- **Client with VPN**: [../client-with-vpn/](../client-with-vpn/) - Deploy VPN clients to connect to this server
+- **Client Standalone**: [../client-standalone/](../client-standalone/) - Deploy standalone clients to connect to this server
+- **All-in-One**: [../all-in-one/](../all-in-one/) - Deploy both client and server together  
 - **Main Project**: [../../](../../) - Main VPN Sentinel repository
 
 ---
 
-**Need clients?** Check out the [client-only deployment](../client-only/) to connect remote clients to this server.
+**Need clients?** Check out the [client deployments](../client-with-vpn/) and [../client-standalone/] to connect remote clients to this server.

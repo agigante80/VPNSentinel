@@ -24,16 +24,17 @@ services:
   # VPN SENTINEL CLIENT - Monitors from inside VPN network
   # =============================================================================
   vpn-sentinel-client:
-    image: curlimages/curl:latest
+    build: ../../vpn-sentinel-client
     container_name: vpn-sentinel-client
     environment:
-      - VPN_SENTINEL_SERVER_API_BASE_URL=${VPN_SENTINEL_SERVER_API_BASE_URL}
-      - VPN_SENTINEL_SERVER_API_PATH=${VPN_SENTINEL_SERVER_API_PATH:-/api/v1}
+      - VPN_SENTINEL_URL=${VPN_SENTINEL_URL}
+      - VPN_SENTINEL_API_PATH=${VPN_SENTINEL_API_PATH:-/api/v1}
       - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-client}
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
       - TZ=${TZ:-UTC}
-    volumes:
-      - ../../vpn-sentinel-client/vpn-sentinel-client.sh:/tmp/vpn-sentinel-client.sh:ro
+      - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH}
+      - VPN_SENTINEL_DEBUG=${VPN_SENTINEL_DEBUG}
+      - VPN_SENTINEL_GEOLOCATION_SERVICE=${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}
     network_mode: service:vpn-client
     restart: always
     depends_on:

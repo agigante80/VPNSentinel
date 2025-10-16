@@ -1,10 +1,10 @@
 # VPN Sentinel - Deployment Options
 
-VPN Sentinel offers **three flexible deployment scenarios** to fit different use cases, from simple single-server setups to distributed monitoring across multiple locations.
+VPN Sentinel offers **four flexible deployment scenarios** to fit different use cases, from simple single-server setups to distributed monitoring across multiple locations.
 
 ## 🎯 Deployment Scenarios
 
-### 📦 [Unified Deployment](./unified/) - **Recommended for Most Users**
+### 📦 [All-in-One Deployment](./all-in-one/) - **Recommended for Most Users**
 
 **What**: Both client and server in a single Docker Compose stack  
 **Best for**: Single-location monitoring, testing, simple setups
@@ -34,10 +34,10 @@ VPN Sentinel offers **three flexible deployment scenarios** to fit different use
 
 ---
 
-### 🌐 [Client-Only Deployment](./client-only/) - **For Remote Monitoring**
+### 🌐 [Client with VPN Deployment](./client-with-vpn/) - **For Remote VPN Monitoring**
 
-**What**: Only the monitoring client that reports to a remote server  
-**Best for**: Distributed monitoring, multiple locations, edge devices
+**What**: VPN client + monitoring client that reports to a remote server  
+**Best for**: Distributed monitoring of VPN-protected services, multiple locations, edge devices
 
 ```
 ┌─────────────────┐    Internet    ┌──────────────────┐
@@ -52,7 +52,7 @@ VPN Sentinel offers **three flexible deployment scenarios** to fit different use
 ```
 
 ✅ **Advantages:**
-- Monitor multiple locations from one server
+- Monitor VPN connections at multiple locations from one server
 - Lightweight deployment on each site
 - Centralized monitoring and alerts
 - Scales to hundreds of clients
@@ -64,7 +64,37 @@ VPN Sentinel offers **three flexible deployment scenarios** to fit different use
 
 ---
 
-### 🏢 [Server-Only Deployment](./server-only/) - **For Centralized Control**
+### 📡 [Client Standalone Deployment](./client-standalone/) - **For Remote Service Monitoring**
+
+**What**: Only the monitoring client that reports to a remote server (no VPN)  
+**Best for**: Monitoring non-VPN services, distributed monitoring without VPN requirements
+
+```
+┌─────────────────┐    Internet    ┌──────────────────┐
+│   Location A    │                │   Remote Server  │
+│ ┌─────────────┐ │    ────────    │ ┌─────────────┐  │
+│ │   Service   │ │       API      │ │ VPN Server  │  │
+│ │   +         │ │    Reports     │ │    +        │  │
+│ │ Sentinel    │─┼─────────────────┼─│ Telegram    │  │
+│ │ Client      │ │                │ │ Bot         │  │
+│ └─────────────┘ │                │ └─────────────┘  │
+└─────────────────┘                └──────────────────┘
+```
+
+✅ **Advantages:**
+- Monitor any service connectivity at remote sites
+- No VPN configuration required
+- Lightweight and simple deployment
+- Centralized monitoring and alerts
+
+❌ **Requirements:**
+- Needs a remote VPN Sentinel Server
+- Service must be accessible for monitoring
+- Requires network connectivity to server
+
+---
+
+### 🏢 [Server Central Deployment](./server-central/) - **For Centralized Control**
 
 **What**: Only the monitoring server that receives reports from remote clients  
 **Best for**: Central monitoring hubs, team environments, cloud hosting
@@ -103,9 +133,10 @@ VPN Sentinel offers **three flexible deployment scenarios** to fit different use
 
 | Scenario | Use When | Complexity |
 |----------|----------|------------|
-| **[Unified](./unified/)** | Testing, home use, single location | 🟢 Simple |
-| **[Client-Only](./client-only/)** | You have a remote server, multiple sites | 🟡 Medium |
-| **[Server-Only](./server-only/)** | Creating central monitoring hub | 🟡 Medium |
+| **[All-in-One](./all-in-one/)** | Testing, home use, single location | 🟢 Simple |
+| **[Client with VPN](./client-with-vpn/)** | You have a remote server, monitoring VPN sites | 🟡 Medium |
+| **[Client Standalone](./client-standalone/)** | You have a remote server, monitoring any services | 🟡 Medium |
+| **[Server Central](./server-central/)** | Creating central monitoring hub | 🟡 Medium |
 
 ### 2. Follow Deployment Instructions
 
@@ -118,7 +149,7 @@ Each deployment has its own folder with:
 
 ```bash
 # Navigate to your chosen deployment
-cd deployments/unified/        # OR client-only/ OR server-only/
+cd deployments/all-in-one/        # OR client-with-vpn/ OR client-standalone/ OR server-central/
 
 # Copy and configure environment
 cp .env.example .env
@@ -204,17 +235,22 @@ Cross-region: Clients can failover between servers
 deployments/
 ├── README.md                 # This overview (you are here)
 │
-├── unified/                  # Complete solution (server + client)
+├── all-in-one/                  # Complete solution (server + client)
 │   ├── compose.yaml
 │   ├── .env.example
 │   └── README.md
 │
-├── client-only/              # Remote monitoring client
+├── client-with-vpn/              # Remote monitoring client with VPN
 │   ├── compose.yaml
 │   ├── .env.example  
 │   └── README.md
 │
-└── server-only/              # Central monitoring server
+├── client-standalone/              # Remote monitoring client (no VPN)
+│   ├── compose.yaml
+│   ├── .env.example  
+│   └── README.md
+│
+└── server-central/              # Central monitoring server
     ├── compose.yaml
     ├── .env.example
     └── README.md

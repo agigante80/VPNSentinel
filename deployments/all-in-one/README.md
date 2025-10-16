@@ -143,7 +143,7 @@ Containers are configured with reasonable resource limits:
 ## 📁 File Structure
 
 ```
-unified/
+all-in-one/
 ├── compose.yaml          # Docker Compose configuration
 ├── .env.example          # Environment template
 ├── .env                  # Your configuration (create from example)
@@ -153,8 +153,9 @@ unified/
 ## 🔗 External Resources
 
 - **Main Project**: [VPN Sentinel Repository](../)
-- **Client-Only Deployment**: [../client-only/](../client-only/)
-- **Server-Only Deployment**: [../server-only/](../server-only/)
+- **Client with VPN Deployment**: [../client-with-vpn/](../client-with-vpn/)
+- **Client Standalone Deployment**: [../client-standalone/](../client-standalone/)
+- **Server Central Deployment**: [../server-central/](../server-central/)
 - **Documentation**: [../../wiki-content/](../../wiki-content/)
 
 ---

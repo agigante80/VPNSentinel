@@ -1,8 +1,0 @@
-services:
-  vpn-sentinel-server:
-    build: ../../vpn-sentinel-server
-    container_name: vpn-sentinel-server
-    ports:
-      - "5000:5000"  # API port
-      - "8080:8080"  # Dashboard port
-    restart: unless-stopped
