@@ -530,7 +530,6 @@ def check_rate_limit(ip):
     
     # Periodic cleanup: remove IPs that haven't been active in the last window
     # This prevents memory leaks from accumulating old IP entries
-    global last_cleanup_time
     if now - getattr(check_rate_limit, 'last_cleanup_time', 0) > RATE_LIMIT_WINDOW:
         check_rate_limit.last_cleanup_time = now
         # Remove IPs that have no timestamps or all timestamps are expired
@@ -825,6 +824,20 @@ def keepalive():
             
             message += f"Client: <code>{client_id}</code>\n"
             message += f"VPN IP: <code>{public_ip}</code>\n"
+            
+            # Extract location data from client registry
+            location_data = clients[client_id].get('location', {})
+            city = location_data.get('city', 'Unknown')
+            region = location_data.get('region', 'Unknown') 
+            country = location_data.get('country', 'Unknown')
+            org = location_data.get('org', 'Unknown')
+            vpn_timezone = location_data.get('timezone', 'Unknown')
+            
+            # Extract DNS test data
+            dns_data = clients[client_id].get('dns_test', {})
+            dns_location = dns_data.get('location', 'Unknown')
+            dns_colo = dns_data.get('colo', 'Unknown')
+            
             message += f"📍 Location: <b>{city}, {region}, {country}</b>\n"
             message += f"🏢 Provider: <code>{org}</code>\n"
             message += f"🕒 VPN Timezone: <code>{vpn_timezone}</code>\n"
@@ -1027,6 +1040,20 @@ def fake_heartbeat():
             
             message += f"Client: <code>{client_id}</code>\n"
             message += f"VPN IP: <code>{public_ip}</code>\n"
+            
+            # Extract location data from client registry
+            location_data = clients[client_id].get('location', {})
+            city = location_data.get('city', 'Unknown')
+            region = location_data.get('region', 'Unknown') 
+            country = location_data.get('country', 'Unknown')
+            org = location_data.get('org', 'Unknown')
+            vpn_timezone = location_data.get('timezone', 'Unknown')
+            
+            # Extract DNS test data
+            dns_data = clients[client_id].get('dns_test', {})
+            dns_location = dns_data.get('location', 'Unknown')
+            dns_colo = dns_data.get('colo', 'Unknown')
+            
             message += f"📍 Location: <b>{city}, {region}, {country}</b>\n"
             message += f"🏢 Provider: <code>{org}</code>\n"
             message += f"🕒 VPN Timezone: <code>{vpn_timezone}</code>\n"
@@ -1696,7 +1723,7 @@ def check_clients():
         - Resets alert flags when clients reconnect
         
     Alert Types:
-        - No clients connected (sent once until clients return)
+        - No clients connected (sent once)
         - Individual client disconnections with full details
         - Includes location, DNS status, and connection history
         
@@ -1765,7 +1792,6 @@ def check_clients():
                         dns_colo = client_dns.get('colo', 'Unknown')
                         
                         # Use client_id for display name
-                        
                         message = f"❌ <b>VPN Connection Lost!</b>\n\n"
                         message += f"Client: <code>{client_id}</code>\n"
                         message += f"Last IP: <code>{info['public_ip']}</code>\n"
@@ -1923,8 +1949,6 @@ def handle_status_command():
             message += f"   IP: <code>{info['public_ip']}</code>\n"
             message += f"   Last seen: <code>{minutes_ago} minutes ago</code>\n"
             message += f"   Time: <code>{info['last_seen'].strftime('%H:%M:%S %Z')}</code>\n\n"
-        
-        message += f"Server time: <code>{now.strftime('%Y-%m-%d %H:%M:%S %Z')}</code>"
     
     if send_telegram_message(message):
         log_info("telegram", "✅ Status response sent")
