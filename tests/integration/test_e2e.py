@@ -243,9 +243,11 @@ class TestServerClientIntegration(unittest.TestCase):
                 try:
                     # Try importing the actual module using the same method as unit tests
                     import importlib.util
+                    # Use relative path from test file to server file
+                    server_file_path = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-server/vpn-sentinel-server.py')
                     spec = importlib.util.spec_from_file_location(
                         "vpn_sentinel_server", 
-                        "vpn-sentinel-server/vpn-sentinel-server.py"
+                        server_file_path
                     )
                     server_module = importlib.util.module_from_spec(spec)
                     spec.loader.exec_module(server_module)
