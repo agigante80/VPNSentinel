@@ -245,7 +245,7 @@ jobs:
       - name: Test deployment configurations
         run: |
           echo "🚀 Testing deployment configurations..."
-          deployments=("server-only" "unified" "client-only-with-vpn" "client-only-without-vpn")
+          deployments=("server-only" "unified" "client-only")
           for deployment in "${deployments[@]}"; do
             echo "Testing $deployment deployment..."
             cd deployments/$deployment
