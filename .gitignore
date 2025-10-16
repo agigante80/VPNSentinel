@@ -2,6 +2,8 @@
 .env
 .env.local
 .env.production
+replacements.txt
+patterns.txt
 
 # Docker volumes and data
 qbittorrent/
