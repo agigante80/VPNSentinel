@@ -3,7 +3,7 @@ services:
   # VPN SENTINEL SERVER - Central monitoring server and notification hub
   # =============================================================================
   vpn-sentinel-server:
-    image: python:3.9-slim
+    build: ../../vpn-sentinel-server
     container_name: vpn-sentinel-server
     ports:
       - "5000:5000"  # API port
