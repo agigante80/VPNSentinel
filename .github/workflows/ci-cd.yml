@@ -43,11 +43,11 @@ jobs:
           flake8 vpn-sentinel-server/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Check Docker Compose files
         run: |
-          docker-compose -f compose.yaml config > /dev/null
+          docker compose -f compose.yaml config > /dev/null
           echo "✅ Main compose.yaml syntax OK"
           for file in deployments/*/compose.yaml; do
             if [ -f "$file" ]; then
-              docker-compose -f "$file" config > /dev/null
+              docker compose -f "$file" config > /dev/null
               echo "✅ $(basename $(dirname $file))/compose.yaml syntax OK"
             fi
           done
@@ -97,14 +97,14 @@ jobs:
         run: |
           cp tests/.env.test .env
       - name: Remove old Docker containers
-        run: docker-compose -f tests/docker-compose.test.yaml down -v
+        run: docker compose -f tests/docker-compose.test.yaml down -v
       - name: Remove dangling volumes
         run: docker volume prune -f
       - name: Build fresh containers
-        run: docker-compose -f tests/docker-compose.test.yaml build --no-cache
+        run: docker compose -f tests/docker-compose.test.yaml build --no-cache
       - name: Build and start test environment
         run: |
-          docker-compose -f tests/docker-compose.test.yaml up -d --build
+          docker compose -f tests/docker-compose.test.yaml up -d --build
           timeout 60s bash -c 'while ! curl -s http://localhost:5000/test/v1/health > /dev/null; do sleep 2; done'
           echo "✅ Test server is ready"
       - name: Run integration tests
@@ -116,13 +116,13 @@ jobs:
         if: failure()
         run: |
           echo "=== Server Logs ==="
-          docker-compose -f tests/docker-compose.test.yaml logs vpn-sentinel-server-test
+          docker compose -f tests/docker-compose.test.yaml logs vpn-sentinel-server-test
           echo "=== Client Logs ==="
-          docker-compose -f tests/docker-compose.test.yaml logs vpn-sentinel-client-test
+          docker compose -f tests/docker-compose.test.yaml logs vpn-sentinel-client-test
       - name: Stop test environment
         if: always()
         run: |
-          docker-compose -f tests/docker-compose.test.yaml down -v
+          docker compose -f tests/docker-compose.test.yaml down -v
   coverage:
     name: Code Coverage
     runs-on: ubuntu-latest
@@ -239,7 +239,7 @@ jobs:
             echo "Testing $deployment deployment..."
             cd deployments/$deployment
             if [ -f "compose.yaml" ]; then
-              docker-compose -f compose.yaml config > /dev/null
+              docker compose -f compose.yaml config > /dev/null
               echo "✅ $deployment deployment configuration is valid"
             else
               echo "❌ $deployment deployment missing compose.yaml"
