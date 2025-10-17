@@ -180,17 +180,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
       - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ matrix.component }}/
-          file: ${{ matrix.component }}/Dockerfile
-          push: false
-          tags: vpn-sentinel-${{ matrix.component }}:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        run: |
+          docker build -t vpn-sentinel-${{ matrix.component }}:test ${{ matrix.component }}/
       - name: Test server container startup
         if: matrix.component == 'vpn-sentinel-server'
         run: |
@@ -202,7 +194,7 @@ jobs:
             -e VPN_SENTINEL_SERVER_DASHBOARD_ENABLED=false \
             -e TELEGRAM_BOT_TOKEN=test:token \
             -e TELEGRAM_CHAT_ID=123456789 \
-            vpn-sentinel-vpn-sentinel-server:test
+            vpn-sentinel-${{ matrix.component }}:test
           
           # Wait for container to start
           sleep 10
