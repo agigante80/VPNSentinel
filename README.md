@@ -512,11 +512,69 @@ VPN_SENTINEL_SERVER_ALLOWED_IPS="192.168.1.0/24,10.0.0.0/8"
 **TLS Configuration:**
 ```bash
 # Place certificates in the certs/ directory
-# See certs/README.md for certificate generation instructions
-
 # Configure server for HTTPS (certificates auto-mounted)
 VPN_SENTINEL_TLS_CERT_PATH=/certs/vpn-sentinel-cert.pem
 VPN_SENTINEL_TLS_KEY_PATH=/certs/vpn-sentinel-key.pem
+```
+
+### Certificate Generation
+
+**Generate Self-Signed Certificates (Testing/Development):**
+```bash
+# Navigate to certs directory
+cd certs/
+
+# Generate private key (2048-bit RSA)
+openssl genrsa -out vpn-sentinel-key.pem 2048
+
+# Generate certificate signing request
+openssl req -new -key vpn-sentinel-key.pem -out vpn-sentinel-cert.csr \
+  -subj "/C=US/ST=State/L=City/O=Organization/CN=vpn-sentinel.local"
+
+# Generate self-signed certificate (valid for 365 days)
+openssl x509 -req -days 365 -in vpn-sentinel-cert.csr \
+  -signkey vpn-sentinel-key.pem -out vpn-sentinel-cert.pem
+
+# Set proper permissions
+chmod 644 vpn-sentinel-cert.pem
+chmod 600 vpn-sentinel-key.pem
+
+# Clean up CSR file
+rm vpn-sentinel-cert.csr
+```
+
+**Using Let's Encrypt Certificates (Production):**
+```bash
+# Install certbot
+sudo apt update && sudo apt install certbot
+
+# Generate certificate (replace your-domain.com)
+sudo certbot certonly --standalone -d your-domain.com
+
+# Copy certificates to certs directory
+sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem ./certs/vpn-sentinel-cert.pem
+sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem ./certs/vpn-sentinel-key.pem
+
+# Set proper ownership and permissions
+sudo chown $(whoami):$(whoami) certs/vpn-sentinel-*.pem
+chmod 644 certs/vpn-sentinel-cert.pem
+chmod 600 certs/vpn-sentinel-key.pem
+```
+
+**Certificate File Requirements:**
+- `vpn-sentinel-cert.pem` - Public certificate (X.509 format)
+- `vpn-sentinel-key.pem` - Private key (PKCS#8 or PKCS#1 format)
+- Files must be readable by the container user
+- Private key should have restricted permissions (600)
+
+**Certificate Validation:**
+```bash
+# Check certificate validity
+openssl x509 -in certs/vpn-sentinel-cert.pem -text -noout | grep -E "(Subject:|Issuer:|Not Before:|Not After)"
+
+# Verify certificate and key match
+openssl x509 -noout -modulus -in certs/vpn-sentinel-cert.pem | openssl md5
+openssl rsa -noout -modulus -in certs/vpn-sentinel-key.pem | openssl md5
 ```
 
 ### Monitoring Integration
