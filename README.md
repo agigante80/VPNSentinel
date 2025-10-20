@@ -4,8 +4,28 @@
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue)](https://docs.docker.com/compose/)
 [![Python](https://img.shields.io/badge/Python-3.11+-green)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-REST_API-orange)](https://flask.palletsprojects.com/)
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-agigante80-blue)](https://hub.docker.com/u/agigante80)
 
 **Advanced Docker-based VPN monitoring system with real-time health checks, DNS leak detection, and instant Telegram notifications. Engineered for production reliability with comprehensive REST API, rate limiting, and multi-client architecture support.**
+
+## 📦 Downloadable Docker Images
+
+VPN Sentinel is now available as pre-built, downloadable Docker images on Docker Hub! No need to build locally - just pull and run.
+
+```bash
+# Pull the latest images
+docker pull agigante80/vpn-sentinel-server:latest
+docker pull agigante80/vpn-sentinel-client:latest
+
+# Or use in docker-compose (automatic download)
+docker compose up -d
+```
+
+**Available Images:**
+- **`agigante80/vpn-sentinel-server:latest`** - Monitoring server with REST API and Telegram notifications
+- **`agigante80/vpn-sentinel-client:latest`** - VPN network monitoring client
+
+**Automated Publishing:** Images are automatically built and published via GitHub Actions on every push to the main branch.
 
 ## 🔬 Technical Overview
 
@@ -186,12 +206,14 @@ cd deployments/all-in-one/        # OR client-with-vpn/, client-standalone/, ser
 cp .env.example .env
 # Edit .env with your configuration
 
-# 4. Deploy stack
+# 4. Deploy stack (images download automatically)
 docker compose up -d
 
 # 5. Verify operation
 docker compose logs -f vpn-sentinel-client
 ```
+
+**🚀 Pro Tip:** All VPN Sentinel images are pre-built and available on Docker Hub. No local building required!
 
 ### Environment Configuration Matrix
 
@@ -228,7 +250,7 @@ services:
     restart: always
 
   vpn-sentinel-client:  # Monitoring client in VPN namespace
-    build: ./vpn-sentinel-client/
+    image: agigante80/vpn-sentinel-client:latest  # 🆕 Pre-built image
     network_mode: service:vpn-client  # Shares VPN network stack
     volumes:
       - ./certs:/certs:ro
@@ -238,7 +260,7 @@ services:
     restart: always
 
   vpn-sentinel-server:  # External monitoring server
-    build: ./vpn-sentinel-server/
+    image: agigante80/vpn-sentinel-server:latest  # 🆕 Pre-built image
     ports:
       - "5000:5000"  # API port
       - "8080:8080"  # Dashboard port
@@ -250,6 +272,8 @@ services:
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     restart: always
 ```
+
+**🆕 What's New:** The `build:` directives have been replaced with `image:` references to pre-built, downloadable Docker images. Images are automatically published to Docker Hub via GitHub Actions CI/CD pipeline.
 
 ## 🔧 Advanced Configuration
 
@@ -374,6 +398,47 @@ docker compose config --quiet
 - **Target Coverage:** 80%+ code coverage
 - **Critical Paths:** API authentication, DNS leak detection, notification logic
 - **Performance Tests:** API response times, memory usage, concurrent connections
+
+## 🔄 CI/CD & Automated Publishing
+
+### GitHub Actions Pipeline
+
+VPN Sentinel uses comprehensive CI/CD automation for quality assurance and deployment:
+
+**Automated Workflows:**
+- **Syntax & Style Checks:** Python linting, shell script validation, Docker Compose syntax
+- **Unit Testing:** Core component testing with pytest and coverage reporting
+- **Integration Testing:** End-to-end workflow validation with Docker Compose
+- **Security Scanning:** Trivy vulnerability scanning with SARIF upload to GitHub Security tab
+- **Docker Publishing:** Automated image building and publishing to Docker Hub
+
+**Workflow Triggers:**
+- **Automatic:** Push to `main` or `develop` branches
+- **Manual:** Can be triggered manually from GitHub Actions UI
+- **Pull Requests:** Full validation on PR creation
+
+### Docker Image Publishing
+
+**Automated Publishing Process:**
+```yaml
+# GitHub Actions automatically:
+# 1. Build vpn-sentinel-server and vpn-sentinel-client images
+# 2. Run comprehensive tests and security scans
+# 3. Login to Docker Hub using encrypted secrets
+# 4. Push images with proper tags (latest, branch, commit SHA)
+# 5. Make images publicly available for download
+```
+
+**Published Images:**
+- **`agigante80/vpn-sentinel-server:latest`** - Production-ready server image
+- **`agigante80/vpn-sentinel-client:latest`** - Production-ready client image
+- **Tagged Releases:** Version-specific tags for stable releases
+
+**Image Security:**
+- Built from verified base images (Python Alpine, official Docker images)
+- Automated security scanning with Trivy
+- No hardcoded secrets or credentials
+- Regular base image updates via automated builds
 
 ## 🔧 Troubleshooting & Diagnostics
 
@@ -524,6 +589,11 @@ pytest --cov-report=html --cov=vpn-sentinel-server/
 python vpn-sentinel-server/vpn-sentinel-server.py
 ```
 
+**🆕 Development vs Production:**
+- **Development:** Build locally using `build:` directives for active development
+- **Production:** Use pre-built `image:` references for stability and speed
+- **CI/CD:** Automated publishing ensures production images are always up-to-date
+
 ## 📚 Technical Documentation
 
 ### API Documentation
@@ -553,4 +623,6 @@ python vpn-sentinel-server/vpn-sentinel-server.py
 
 ---
 
-**VPN Sentinel** - Engineered for production VPN monitoring with enterprise-grade reliability and comprehensive API integration.# Docker Image Publishing Setup Complete
+**VPN Sentinel** - Engineered for production VPN monitoring with enterprise-grade reliability and comprehensive API integration.
+
+**🎉 Docker Images Available:** Pre-built, downloadable images on Docker Hub for instant deployment!
