@@ -1,6 +1,6 @@
 services:
   vpn-sentinel-client:
-    build: ../../vpn-sentinel-client
+    image: agigante80/vpn-sentinel-client:latest
     container_name: vpn-sentinel-client
     volumes:
       - ./certs:/certs:ro

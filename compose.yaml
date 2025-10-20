@@ -18,7 +18,7 @@ services:
       - FIREWALL_OUTBOUND_SUBNETS=172.28.0.0/16  
     restart: always  
   vpn-sentinel-client:
-    build: ./vpn-sentinel-client
+    image: agigante80/vpn-sentinel-client:latest
     container_name: vpn-sentinel-client
     volumes:
       - ./certs:/certs:ro
@@ -33,7 +33,7 @@ services:
       - VPN_SENTINEL_GEOLOCATION_SERVICE=${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}
     restart: always  
   vpn-sentinel-server:
-    build: ./vpn-sentinel-server
+    image: agigante80/vpn-sentinel-server:latest
     container_name: vpn-sentinel-server
     volumes:
       - ./certs:/certs:ro
