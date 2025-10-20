@@ -14,20 +14,25 @@ Place the following files in this directory:
 For testing purposes, you can generate self-signed certificates:
 
 ```bash
+# Fix OpenSSL RNG issues on some systems (like Synology)
+export RANDFILE=/tmp/.rnd
+touch /tmp/.rnd
+
 # Generate private key
 openssl genrsa -out vpn-sentinel-key.pem 2048
 
 # Generate certificate signing request
-# Note: If you get RNG errors on some systems (like Synology), use:
-# RANDFILE=/tmp/.rnd openssl req -new -key vpn-sentinel-key.pem -out vpn-sentinel-cert.csr
-# Or use /dev/urandom as random source:
-openssl req -new -key vpn-sentinel-key.pem -out vpn-sentinel-cert.csr -rand /dev/urandom
+RANDFILE=/tmp/.rnd openssl req -new -key vpn-sentinel-key.pem -out vpn-sentinel-cert.csr
+
+# Alternative: If the above fails, try:
+# openssl req -new -key vpn-sentinel-key.pem -out vpn-sentinel-cert.csr -rand /dev/urandom
 
 # Generate self-signed certificate (valid for 365 days)
 openssl x509 -req -days 365 -in vpn-sentinel-cert.csr -signkey vpn-sentinel-key.pem -out vpn-sentinel-cert.pem
 
 # Clean up CSR file
 rm vpn-sentinel-cert.csr
+rm -f /tmp/.rnd
 ```
 
 ## Using Let's Encrypt Certificates
