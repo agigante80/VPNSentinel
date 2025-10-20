@@ -528,7 +528,12 @@ cd certs/
 openssl genrsa -out vpn-sentinel-key.pem 2048
 
 # Generate certificate signing request
+# Note: If you get RNG errors on some systems (like Synology), use:
+# RANDFILE=/tmp/.rnd openssl req -new -key vpn-sentinel-key.pem -out vpn-sentinel-cert.csr \
+#   -subj "/C=US/ST=State/L=City/O=Organization/CN=vpn-sentinel.local"
+# Or use /dev/urandom as random source:
 openssl req -new -key vpn-sentinel-key.pem -out vpn-sentinel-cert.csr \
+  -rand /dev/urandom \
   -subj "/C=US/ST=State/L=City/O=Organization/CN=vpn-sentinel.local"
 
 # Generate self-signed certificate (valid for 365 days)
