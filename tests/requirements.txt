@@ -21,6 +21,9 @@ freezegun>=1.2.2
 factory-boy>=3.3.0
 faker>=19.0.0
 
+# System monitoring (for health checks)
+psutil>=6.0.0
+
 # Coverage reporting
 coverage>=7.3.0
 
