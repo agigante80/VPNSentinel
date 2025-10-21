@@ -194,6 +194,16 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 # 1. Development: CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
 # 2. Production: CMD ["gunicorn", "--bind", "0.0.0.0:5000", "vpn-sentinel-server:app"]
 # 3. Current: Direct Python execution (simple and effective for this use case)
+
+# -----------------------------------------------------------------------------
+# Docker Hub Metadata
+# -----------------------------------------------------------------------------
+LABEL org.opencontainers.image.title="VPN Sentinel Server" \
+      org.opencontainers.image.description="VPN monitoring server with REST API, DNS leak detection, and Telegram notifications. Monitors VPN connections and alerts on failures." \
+      org.opencontainers.image.vendor="VPN Sentinel Project" \
+      org.opencontainers.image.source="https://github.com/agigante80/VPNSentinel" \
+      org.opencontainers.image.licenses="MIT"
+
 CMD ["python", "vpn-sentinel-server.py"]
 
 # -----------------------------------------------------------------------------
