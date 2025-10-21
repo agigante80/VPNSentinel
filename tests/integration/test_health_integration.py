@@ -39,12 +39,12 @@ class TestHealthCheckIntegration(unittest.TestCase):
             env.update({
                 'VPN_SENTINEL_API_PATH': self.api_path,
                 'FLASK_ENV': 'testing',
-                'PYTHONPATH': '/home/alien/dev/VPNSentinel/vpn-sentinel-server'
+                'PYTHONPATH': os.path.join(os.getcwd(), 'vpn-sentinel-server')
             })
 
             # Start server in background
             self.server_process = subprocess.Popen(
-                [sys.executable, '/home/alien/dev/VPNSentinel/vpn-sentinel-server/vpn-sentinel-server.py'],
+                [sys.executable, os.path.join(os.getcwd(), 'vpn-sentinel-server', 'vpn-sentinel-server.py')],
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -109,7 +109,7 @@ class TestHealthCheckIntegration(unittest.TestCase):
 
     def test_health_check_script_exists(self):
         """Test that health check script exists and is executable"""
-        script_path = "/home/alien/dev/VPNSentinel/vpn-sentinel-client/healthcheck.sh"
+        script_path = os.path.join(os.getcwd(), "vpn-sentinel-client", "healthcheck.sh")
 
         self.assertTrue(os.path.exists(script_path))
         self.assertTrue(os.access(script_path, os.X_OK))
@@ -122,7 +122,7 @@ class TestHealthCheckIntegration(unittest.TestCase):
 
     def test_server_dockerfile_healthcheck_configuration(self):
         """Test that server Dockerfile has proper HEALTHCHECK configuration"""
-        dockerfile_path = "/home/alien/dev/VPNSentinel/vpn-sentinel-server/Dockerfile"
+        dockerfile_path = os.path.join(os.getcwd(), "vpn-sentinel-server", "Dockerfile")
 
         with open(dockerfile_path, 'r') as f:
             content = f.read()
@@ -138,7 +138,7 @@ class TestHealthCheckIntegration(unittest.TestCase):
 
     def test_client_dockerfile_healthcheck_configuration(self):
         """Test that client Dockerfile has proper HEALTHCHECK configuration"""
-        dockerfile_path = "/home/alien/dev/VPNSentinel/vpn-sentinel-client/Dockerfile"
+        dockerfile_path = os.path.join(os.getcwd(), "vpn-sentinel-client", "Dockerfile")
 
         with open(dockerfile_path, 'r') as f:
             content = f.read()
@@ -153,8 +153,8 @@ class TestHealthCheckIntegration(unittest.TestCase):
 
     def test_health_check_script_in_dockerfile(self):
         """Test that health check script is properly included in client Dockerfile"""
-        dockerfile_path = "/home/alien/dev/VPNSentinel/vpn-sentinel-client/Dockerfile"
-        script_path = "/home/alien/dev/VPNSentinel/vpn-sentinel-client/healthcheck.sh"
+        dockerfile_path = os.path.join(os.getcwd(), "vpn-sentinel-client", "Dockerfile")
+        script_path = os.path.join(os.getcwd(), "vpn-sentinel-client", "healthcheck.sh")
 
         with open(dockerfile_path, 'r') as f:
             content = f.read()
@@ -168,7 +168,7 @@ class TestHealthCheckIntegration(unittest.TestCase):
 
     def test_server_health_endpoints_documentation(self):
         """Test that health endpoints are documented in the server code"""
-        server_file = "/home/alien/dev/VPNSentinel/vpn-sentinel-server/vpn-sentinel-server.py"
+        server_file = os.path.join(os.getcwd(), "vpn-sentinel-server", "vpn-sentinel-server.py")
 
         with open(server_file, 'r') as f:
             content = f.read()
