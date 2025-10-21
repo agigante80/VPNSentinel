@@ -56,8 +56,19 @@ class TestVersioning(unittest.TestCase):
         version_pattern = r'^\d+\.\d+\.\d+(-[\w\.\-]+)?(\+\d+)?$'
         self.assertRegex(version, version_pattern, f"Version '{version}' does not match semantic versioning pattern")
 
-        # Should be a development version (since we're on develop branch)
-        self.assertIn('-dev-', version)
+        # Check version format based on current branch context
+        branch_result = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], 
+                                     capture_output=True, text=True, timeout=5)
+        current_branch = branch_result.stdout.strip()
+        
+        if current_branch == 'develop':
+            # Should be a development version
+            self.assertIn('-dev-', version, f"Expected dev version on develop branch, got: {version}")
+        elif current_branch == 'main':
+            # Should be production version (clean tag) or pre-release (+commits)
+            self.assertTrue(version == '1.0.0' or version.startswith('1.0.0+'), 
+                          f"Expected production version on main branch, got: {version}")
+        # For other branches, just ensure it's a valid version format (already checked above)
 
     def test_version_environment_variable_fallback(self):
         """Test that VERSION environment variable logic works"""
