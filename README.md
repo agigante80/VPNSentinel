@@ -27,6 +27,47 @@ docker compose up -d
 
 **Automated Publishing:** Images are automatically built and published via GitHub Actions on every push to the main branch.
 
+## 📋 Versioning & Releases
+
+VPN Sentinel uses **automatic semantic versioning** based on Git tags and branches:
+
+### Version Format
+- **Production** (`main` branch, clean tag): `1.0.0`, `1.1.0`, `2.0.0`
+- **Pre-release** (`main` branch, commits ahead): `1.0.0+3` (3 commits ahead of v1.0.0)
+- **Development** (`develop` branch): `1.0.0-dev-{commit-hash}`
+- **Feature branches**: `1.0.0-{branch-name}-{commit-hash}`
+
+### Current Versions
+```bash
+# Check current version
+./get_version.sh
+
+# Example outputs:
+# On develop: 1.0.0-dev-6a53748
+# On main (clean): 1.0.0
+# On main (+3 commits): 1.0.0+3
+```
+
+### Creating New Releases
+To release a new version:
+
+```bash
+# 1. Merge changes to main branch
+git checkout main
+git merge develop
+
+# 2. Create and push a new version tag
+git tag v1.0.1
+git push origin v1.0.1
+
+# 3. CI/CD automatically builds and publishes version 1.0.1
+```
+
+**Available Tags:**
+- `latest` - Latest stable release from main branch
+- `development` - Latest development build from develop branch
+- `v{major}.{minor}.{patch}` - Specific version tags
+
 ## 🔬 Technical Overview
 
 VPN Sentinel implements a sophisticated dual-network monitoring architecture that ensures VPN tunnel integrity through continuous health assessment and automated alerting. The system operates across isolated network segments, providing guaranteed communication channels even during VPN failures.
