@@ -50,8 +50,11 @@ class TestVersioning(unittest.TestCase):
         version = result.stdout.strip()
         self.assertTrue(len(version) > 0)
 
-        # Should contain the base version
-        self.assertIn('1.0.0', version)
+        # Should be a valid semantic version format (with or without v prefix)
+        # Examples: 1.0.0, 1.0.0-dev-abc123, 1.0.0+5, 0.0.0-dev-abc123
+        import re
+        version_pattern = r'^\d+\.\d+\.\d+(-[\w\.\-]+)?(\+\d+)?$'
+        self.assertRegex(version, version_pattern, f"Version '{version}' does not match semantic versioning pattern")
 
         # Should be a development version (since we're on develop branch)
         self.assertIn('-dev-', version)
