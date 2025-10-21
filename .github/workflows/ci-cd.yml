@@ -270,6 +270,9 @@ jobs:
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=development,enable=${{ github.ref == 'refs/heads/develop' }}
+      - name: Get commit hash
+        id: commit-hash
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - name: Extract metadata for client
         id: meta-client
         uses: docker/metadata-action@v5
@@ -289,6 +292,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-server.outputs.tags }}
           labels: ${{ steps.meta-server.outputs.labels }}
+          build-args: |
+            COMMIT_HASH=${{ steps.commit-hash.outputs.short_sha }}
       - name: Build and push client image
         uses: docker/build-push-action@v5
         with:
@@ -297,3 +302,5 @@ jobs:
           push: true
           tags: ${{ steps.meta-client.outputs.tags }}
           labels: ${{ steps.meta-client.outputs.labels }}
+          build-args: |
+            COMMIT_HASH=${{ steps.commit-hash.outputs.short_sha }}

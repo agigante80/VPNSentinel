@@ -90,7 +90,12 @@ import zoneinfo          # Timezone handling for accurate timestamps
 # =============================================================================
 
 # Version information
-VERSION = "1.0.0-dev"
+import os
+COMMIT_HASH = os.environ.get('COMMIT_HASH')
+if COMMIT_HASH:
+    VERSION = f"1.0.0-dev-{COMMIT_HASH}"
+else:
+    VERSION = "1.0.0-dev"
 
 # Initialize Flask applications
 api_app = Flask(__name__)               # API server application

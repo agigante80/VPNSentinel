@@ -57,6 +57,13 @@
 FROM alpine:latest
 
 # -----------------------------------------------------------------------------
+# Build Arguments
+# -----------------------------------------------------------------------------
+# Accept commit hash for version information
+ARG COMMIT_HASH
+ENV COMMIT_HASH=${COMMIT_HASH}
+
+# -----------------------------------------------------------------------------
 # Package Installation
 # -----------------------------------------------------------------------------
 # Install curl for HTTP requests to monitoring APIs and server endpoints

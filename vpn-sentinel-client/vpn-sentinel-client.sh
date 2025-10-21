@@ -178,7 +178,11 @@ log_warn() {
 # =============================================================================
 
 # Version information
-VERSION="1.0.0-dev"
+if [ -n "$COMMIT_HASH" ]; then
+    VERSION="1.0.0-dev-$COMMIT_HASH"
+else
+    VERSION="1.0.0-dev"
+fi
 
 # API Endpoint Configuration
 # Constructs the complete monitoring server URL from base URL and API path
