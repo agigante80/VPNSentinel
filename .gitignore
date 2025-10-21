@@ -86,3 +86,6 @@ dmypy.json
 
 # Certificates and keys
 certs/
+certs/*.pem
+certs/*.key
+certs/*.csr

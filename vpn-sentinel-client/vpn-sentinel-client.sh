@@ -173,6 +173,13 @@ log_warn() {
 # and fallback mechanisms. This section handles all startup configuration
 # including server endpoints, client identification, and optional features.
 
+# =============================================================================
+# Configuration and Constants
+# =============================================================================
+
+# Version information
+VERSION="1.0.0-dev"
+
 # API Endpoint Configuration
 # Constructs the complete monitoring server URL from base URL and API path
 API_BASE_URL="${VPN_SENTINEL_URL:-http://your-server-url:5000}"
@@ -220,6 +227,7 @@ INTERVAL=300                                            # Keepalive interval: 5 
 
 # Startup Information Display
 log_info "client" "🚀 Starting VPN Keepalive Client"
+log_info "client" "📦 Version: $VERSION"
 log_info "config" "📡 Server: $SERVER_URL"
 log_info "config" "🏷️ Client ID: $CLIENT_ID"
 log_info "config" "⏱️ Interval: ${INTERVAL}s (5 minutes)"

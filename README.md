@@ -521,45 +521,15 @@ VPN_SENTINEL_TLS_KEY_PATH=/certs/vpn-sentinel-key.pem
 
 **Generate Self-Signed Certificates (Testing/Development):**
 ```bash
-# Navigate to certs directory
-cd certs/
+# interactive
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -sha256 -days 365
 
-# Fix OpenSSL RNG issues on some systems (like Synology)
-export RANDFILE=/tmp/.rnd
-touch /tmp/.rnd
-
-# Alternative: Create .rnd file in current directory
-# touch ~/.rnd
-
-# Generate private key (2048-bit RSA)
-openssl genrsa -out vpn-sentinel-key.pem 2048
-
-# Generate certificate signing request
-# Method 1: Using RANDFILE environment variable
-RANDFILE=/tmp/.rnd openssl req -new -key vpn-sentinel-key.pem -out vpn-sentinel-cert.csr \
-  -subj "/C=US/ST=State/L=City/O=Organization/CN=vpn-sentinel.local"
-
-# Method 2: Alternative approach (if Method 1 fails)
-# openssl req -new -key vpn-sentinel-key.pem -out vpn-sentinel-cert.csr \
-#   -rand /dev/urandom -writerand /tmp/.rnd \
-#   -subj "/C=US/ST=State/L=City/O=Organization/CN=vpn-sentinel.local"
-
-# Method 3: Force no rand file usage
-# openssl req -new -key vpn-sentinel-key.pem -out vpn-sentinel-cert.csr \
-#   -rand /dev/urandom -writerand /dev/null \
-#   -subj "/C=US/ST=State/L=City/O=Organization/CN=vpn-sentinel.local"
-
-# Generate self-signed certificate (valid for 365 days)
-openssl x509 -req -days 365 -in vpn-sentinel-cert.csr \
-  -signkey vpn-sentinel-key.pem -out vpn-sentinel-cert.pem
+# non-interactive and 10 years expiration
+openssl req -x509 -newkey rsa:4096 -keyout ./certs/vpn-sentinel-key.pem -out ./certs/vpn-sentinel-cert.pem -sha256 -days 3650 -nodes -subj "/C=XX/ST=StateName/L=CityName/O=CompanyName/OU=CompanySectionName/"
 
 # Set proper permissions
-chmod 644 vpn-sentinel-cert.pem
-chmod 600 vpn-sentinel-key.pem
-
-# Clean up CSR file and temp rand file
-rm vpn-sentinel-cert.csr
-rm -f /tmp/.rnd
+chmod 644 certs/vpn-sentinel-cert.pem
+chmod 600 certs/vpn-sentinel-key.pem
 ```
 
 **Using Let's Encrypt Certificates (Production):**

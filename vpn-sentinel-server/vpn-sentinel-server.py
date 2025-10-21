@@ -32,7 +32,7 @@ Environment Variables:
 - TELEGRAM_CHAT_ID: Target chat ID for notifications (optional)
 - VPN_SENTINEL_API_KEY: API key for client authentication (optional)
 - VPN_SENTINEL_SERVER_ALLOWED_IPS: Comma-separated IP whitelist (optional)
-- API_PATH: API path prefix for endpoints (default: /api/v1)
+- API_PATH: API path prefix for endpoints (default: /api/v1, automatically normalized with leading slash)
 - TZ: Timezone for timestamps (default: UTC)
 - VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS: Rate limit per IP (default: 30)
 
@@ -66,7 +66,7 @@ Docker Usage:
 
 Author: VPN Sentinel Project
 License: MIT
-Version: 1.0.0
+Version: 1.0.0-dev
 Repository: https://github.com/your-username/vpn-sentinel
 =============================================================================
 """
@@ -89,6 +89,9 @@ import zoneinfo          # Timezone handling for accurate timestamps
 # Application Configuration and Constants
 # =============================================================================
 
+# Version information
+VERSION = "1.0.0-dev"
+
 # Initialize Flask applications
 api_app = Flask(__name__)               # API server application
 dashboard_app = Flask(__name__)         # Dashboard web application
@@ -100,6 +103,11 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # API Configuration
 API_PATH = os.getenv("VPN_SENTINEL_API_PATH", "/api/v1")          # API path prefix for endpoints
+if not API_PATH or not API_PATH.startswith('/'):
+    if not API_PATH:
+        API_PATH = "/api/v1"
+    else:
+        API_PATH = '/' + API_PATH
 
 # Security Configuration
 API_KEY = os.getenv("VPN_SENTINEL_API_KEY", "")                          # Optional API key for authentication
@@ -1947,7 +1955,7 @@ def handle_status_command():
             
             message += f"{status_icon} <b>{client_id}</b> - {status_text}\n"
             message += f"   IP: <code>{info['public_ip']}</code>\n"
-            message += f"   Last seen: <code>{minutes_ago} minutes ago</code>\n"
+                       message += f"   Last seen: <code>{minutes_ago} minutes ago</code>\n"
             message += f"   Time: <code>{info['last_seen'].strftime('%H:%M:%S %Z')}</code>\n\n"
     
     if send_telegram_message(message):
@@ -2017,6 +2025,7 @@ if __name__ == "__main__":
     
     # Validate configuration and prepare startup
     log_info("server", "🚀 Starting VPN Sentinel Server...")
+    log_info("server", f"📦 Version: {VERSION}")
     log_info("config", f"API path: {API_PATH}")
     log_info("config", f"Alert threshold: {ALERT_THRESHOLD_MINUTES} minutes")
     log_info("config", f"Check interval: {CHECK_INTERVAL_MINUTES} minutes")

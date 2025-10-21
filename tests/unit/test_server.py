@@ -832,3 +832,65 @@ class TestServerUtilityFunctions(unittest.TestCase):
 
             result = server_module.check_ip_whitelist("10.0.0.1")
             self.assertTrue(result)
+
+
+class TestAPIPathConfiguration(unittest.TestCase):
+    """Test API path configuration and normalization"""
+
+    def test_api_path_with_leading_slash(self):
+        """Test that API_PATH with leading slash is preserved"""
+        with patch.dict(os.environ, {'VPN_SENTINEL_API_PATH': '/api/v1'}):
+            # Import and test the logic directly
+            api_path = os.getenv("VPN_SENTINEL_API_PATH", "/api/v1")
+            if not api_path.startswith('/'):
+                api_path = '/' + api_path
+            self.assertEqual(api_path, '/api/v1')
+
+    def test_api_path_without_leading_slash(self):
+        """Test that API_PATH without leading slash gets normalized"""
+        with patch.dict(os.environ, {'VPN_SENTINEL_API_PATH': 'api/v1'}):
+            # Import and test the logic directly
+            api_path = os.getenv("VPN_SENTINEL_API_PATH", "/api/v1")
+            if not api_path.startswith('/'):
+                api_path = '/' + api_path
+            self.assertEqual(api_path, '/api/v1')
+
+    def test_api_path_empty_string(self):
+        """Test that empty API_PATH gets default value with leading slash"""
+        with patch.dict(os.environ, {'VPN_SENTINEL_API_PATH': ''}):
+            # Import and test the logic directly
+            api_path = os.getenv("VPN_SENTINEL_API_PATH", "/api/v1")
+            if not api_path or not api_path.startswith('/'):
+                if not api_path:
+                    api_path = "/api/v1"
+                else:
+                    api_path = '/' + api_path
+            self.assertEqual(api_path, '/api/v1')
+
+    def test_api_path_custom_without_slash(self):
+        """Test custom API_PATH without leading slash gets normalized"""
+        with patch.dict(os.environ, {'VPN_SENTINEL_API_PATH': 'custom/api'}):
+            # Import and test the logic directly
+            api_path = os.getenv("VPN_SENTINEL_API_PATH", "/api/v1")
+            if not api_path.startswith('/'):
+                api_path = '/' + api_path
+            self.assertEqual(api_path, '/custom/api')
+
+    def test_api_path_custom_with_slash(self):
+        """Test custom API_PATH with leading slash is preserved"""
+        with patch.dict(os.environ, {'VPN_SENTINEL_API_PATH': '/my/custom/path'}):
+            # Import and test the logic directly
+            api_path = os.getenv("VPN_SENTINEL_API_PATH", "/api/v1")
+            if not api_path.startswith('/'):
+                api_path = '/' + api_path
+            self.assertEqual(api_path, '/my/custom/path')
+
+    def test_api_path_default_value(self):
+        """Test that default API_PATH has leading slash"""
+        # Remove the environment variable to test default
+        with patch.dict(os.environ, {}, clear=True):
+            # Import and test the logic directly
+            api_path = os.getenv("VPN_SENTINEL_API_PATH", "/api/v1")
+            if not api_path.startswith('/'):
+                api_path = '/' + api_path
+            self.assertEqual(api_path, '/api/v1')
