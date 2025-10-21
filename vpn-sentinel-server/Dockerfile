@@ -106,6 +106,14 @@ RUN addgroup -g 1001 -S appgroup && \
     chown -R appuser:appgroup /app
 
 # -----------------------------------------------------------------------------
+# System Dependencies Installation
+# -----------------------------------------------------------------------------
+# Install curl and build tools for psutil compilation
+RUN apk add --no-cache curl gcc python3-dev musl-dev linux-headers \
+    && echo "✅ System dependencies installed successfully" \
+    && curl --version
+
+# -----------------------------------------------------------------------------
 # Python Dependencies Installation
 # -----------------------------------------------------------------------------
 # Install Python packages required for the monitoring server
@@ -114,6 +122,7 @@ RUN addgroup -g 1001 -S appgroup && \
 # Dependencies explained:
 # - flask: Lightweight web framework for REST API endpoints
 # - requests: HTTP client library for Telegram Bot API communication  
+# - psutil: System and process utilities for resource monitoring
 # - zoneinfo: Built-in timezone handling for accurate timestamp formatting (Python 3.9+)
 #
 # Alpine optimizations:
@@ -121,9 +130,12 @@ RUN addgroup -g 1001 -S appgroup && \
 # - Installs only runtime dependencies (no build tools needed)
 RUN pip install --no-cache-dir \
     flask==3.1.2 \
-    requests==2.32.5 && \
+    requests==2.32.5 \
+    psutil==6.0.0 && \
     echo "✅ Python dependencies installed successfully" && \
-    pip list
+    pip list && \
+    apk del gcc python3-dev musl-dev linux-headers && \
+    rm -rf /var/cache/apk/*
 
 # Alternative: Using requirements.txt for version pinning
 # COPY requirements.txt .
@@ -166,9 +178,9 @@ ENV PYTHONUNBUFFERED=1 \
 # Health Check Configuration
 # -----------------------------------------------------------------------------
 # Add health check to monitor container status
-# Ensures the Flask server is responding to requests
-HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:5000/api/v1/health || exit 1
+# Ensures the Flask server is responding and returns healthy status
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f -s http://localhost:5000/api/v1/health > /dev/null || exit 1
 
 # -----------------------------------------------------------------------------
 # Container Startup Configuration

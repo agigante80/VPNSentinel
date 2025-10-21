@@ -894,3 +894,191 @@ class TestAPIPathConfiguration(unittest.TestCase):
             if not api_path.startswith('/'):
                 api_path = '/' + api_path
             self.assertEqual(api_path, '/api/v1')
+
+
+class TestHealthCheckEndpoints(unittest.TestCase):
+    """Test health check endpoints for VPN Sentinel Server"""
+
+    def setUp(self):
+        """Set up test environment for health check tests"""
+        self.app = None
+        self.client = None
+
+        # Mock environment variables
+        self.env_patcher = patch.dict(os.environ, {
+            'VPN_SENTINEL_API_PATH': '/api/v1',
+            'TELEGRAM_BOT_TOKEN': 'test-bot-token',
+            'TELEGRAM_CHAT_ID': 'test-chat-id'
+        })
+        self.env_patcher.start()
+
+        # Import and set up Flask test client
+        try:
+            from vpn_sentinel_server import api_app
+            self.app = api_app
+            self.app.config['TESTING'] = True
+            self.client = self.app.test_client()
+        except ImportError:
+            self.skipTest("Cannot import server module for testing")
+
+    def tearDown(self):
+        """Clean up test environment"""
+        if self.env_patcher:
+            self.env_patcher.stop()
+
+    def test_liveness_health_endpoint(self):
+        """Test the main health check endpoint (/api/v1/health)"""
+        if not self.client:
+            self.skipTest("Flask test client not available")
+
+        response = self.client.get('/api/v1/health')
+        self.assertEqual(response.status_code, 200)
+
+        data = json.loads(response.data)
+        self.assertEqual(data['status'], 'healthy')
+        self.assertIn('server_time', data)
+        self.assertIn('active_clients', data)
+        self.assertIn('uptime_info', data)
+        self.assertIn('system', data)
+        self.assertIn('dependencies', data)
+
+        # Check system information structure
+        system_info = data['system']
+        self.assertIn('memory_usage_percent', system_info)
+        self.assertIn('memory_used_gb', system_info)
+        self.assertIn('memory_total_gb', system_info)
+        self.assertIn('disk_usage_percent', system_info)
+        self.assertIn('disk_free_gb', system_info)
+
+        # Check dependency information
+        deps = data['dependencies']
+        self.assertIn('telegram_bot', deps)
+
+    def test_readiness_health_endpoint(self):
+        """Test the readiness probe endpoint (/api/v1/health/ready)"""
+        if not self.client:
+            self.skipTest("Flask test client not available")
+
+        response = self.client.get('/api/v1/health/ready')
+        self.assertEqual(response.status_code, 200)
+
+        data = json.loads(response.data)
+        self.assertEqual(data['status'], 'ready')
+        self.assertIn('checks', data)
+
+        checks = data['checks']
+        self.assertIn('flask_app', checks)
+        self.assertIn('telegram_bot', checks)
+        self.assertEqual(checks['flask_app'], 'healthy')
+
+    def test_readiness_endpoint_without_telegram(self):
+        """Test readiness endpoint when Telegram is not configured"""
+        if not self.client:
+            self.skipTest("Flask test client not available")
+
+        # Test without Telegram credentials
+        with patch.dict(os.environ, {}, clear=True):
+            response = self.client.get('/api/v1/health/ready')
+            self.assertEqual(response.status_code, 200)
+
+            data = json.loads(response.data)
+            self.assertEqual(data['status'], 'ready')
+            self.assertEqual(data['checks']['telegram_bot'], 'not_configured')
+
+    def test_startup_health_endpoint(self):
+        """Test the startup probe endpoint (/api/v1/health/startup)"""
+        if not self.client:
+            self.skipTest("Flask test client not available")
+
+        response = self.client.get('/api/v1/health/startup')
+        self.assertEqual(response.status_code, 200)
+
+        data = json.loads(response.data)
+        self.assertEqual(data['status'], 'started')
+        self.assertIn('server_time', data)
+        self.assertIn('uptime_info', data)
+
+    def test_health_endpoint_with_high_memory_usage(self):
+        """Test health endpoint response when memory usage is critical"""
+        if not self.client:
+            self.skipTest("Flask test client not available")
+
+        # Mock high memory usage
+        with patch('psutil.virtual_memory') as mock_memory:
+            mock_memory.return_value = Mock(percent=96.0)
+            response = self.client.get('/api/v1/health')
+
+            # Should still return 200 but with unhealthy status
+            self.assertEqual(response.status_code, 200)
+            data = json.loads(response.data)
+            self.assertEqual(data['status'], 'unhealthy')
+            self.assertIn('issues', data)
+            self.assertIn('Critical memory usage', data['issues'])
+
+    def test_health_endpoint_with_high_disk_usage(self):
+        """Test health endpoint response when disk usage is critical"""
+        if not self.client:
+            self.skipTest("Flask test client not available")
+
+        # Mock high disk usage
+        with patch('psutil.disk_usage') as mock_disk:
+            mock_disk.return_value = Mock(percent=96.0, free=1000000000)  # 1GB free
+            response = self.client.get('/api/v1/health')
+
+            # Should still return 200 but with unhealthy status
+            self.assertEqual(response.status_code, 200)
+            data = json.loads(response.data)
+            self.assertEqual(data['status'], 'unhealthy')
+            self.assertIn('issues', data)
+            self.assertIn('Critical disk usage', data['issues'])
+
+    def test_health_endpoint_telegram_dependency_status(self):
+        """Test health endpoint shows correct Telegram dependency status"""
+        if not self.client:
+            self.skipTest("Flask test client not available")
+
+        # Test with Telegram configured
+        response = self.client.get('/api/v1/health')
+        data = json.loads(response.data)
+        self.assertEqual(data['dependencies']['telegram_bot'], 'configured')
+
+        # Test without Telegram
+        with patch.dict(os.environ, {}, clear=True):
+            response = self.client.get('/api/v1/health')
+            data = json.loads(response.data)
+            self.assertEqual(data['dependencies']['telegram_bot'], 'not_configured')
+
+    def test_health_endpoints_logging(self):
+        """Test that health endpoints properly log access"""
+        if not self.client:
+            self.skipTest("Flask test client not available")
+
+        # Test that health endpoints log access (we can't easily verify logs in unit tests,
+        # but we can ensure the endpoints don't crash and return proper responses)
+        endpoints = ['/api/v1/health', '/api/v1/health/ready', '/api/v1/health/startup']
+
+        for endpoint in endpoints:
+            with self.subTest(endpoint=endpoint):
+                response = self.client.get(endpoint)
+                self.assertEqual(response.status_code, 200)
+
+    def test_health_endpoints_with_custom_api_path(self):
+        """Test health endpoints work with custom API path"""
+        if not self.client:
+            self.skipTest("Flask test client not available")
+
+        # Test with custom API path
+        with patch.dict(os.environ, {'VPN_SENTINEL_API_PATH': '/custom/api'}):
+            # Re-import to get new API path
+            try:
+                from vpn_sentinel_server import api_app as custom_app
+                custom_app.config['TESTING'] = True
+                custom_client = custom_app.test_client()
+
+                response = custom_client.get('/custom/api/health')
+                self.assertEqual(response.status_code, 200)
+
+                data = json.loads(response.data)
+                self.assertEqual(data['status'], 'healthy')
+            except ImportError:
+                self.skipTest("Cannot re-import with custom API path")

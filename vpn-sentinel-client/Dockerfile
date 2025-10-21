@@ -99,6 +99,15 @@ WORKDIR /app
 # USER keepalive
 
 # -----------------------------------------------------------------------------
+# Health Check Script
+# -----------------------------------------------------------------------------
+# Copy the health check script
+COPY healthcheck.sh /app/healthcheck.sh
+
+# Make the health check script executable
+RUN chmod +x /app/healthcheck.sh
+
+# -----------------------------------------------------------------------------
 # Container Startup Configuration  
 # -----------------------------------------------------------------------------
 # Define the default command to execute when container starts
@@ -125,11 +134,12 @@ LABEL maintainer="VPN Sentinel Project" \
       usage="docker run --network=container:your-vpn-container vpn-sentinel/client"
 
 # -----------------------------------------------------------------------------
-# Health Check (Optional)
+# Health Check Configuration
 # -----------------------------------------------------------------------------
-# Uncomment to add health check that verifies the keepalive process is running
-# HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-#   CMD pgrep -f vpn-sentinel-client.sh || exit 1
+# Add comprehensive health check for the VPN Sentinel client
+# Verifies process status, server connectivity, and external service reachability
+HEALTHCHECK --interval=60s --timeout=15s --start-period=30s --retries=3 \
+    CMD /app/healthcheck.sh
 
 # =============================================================================
 # End of VPN Sentinel Client Dockerfile
