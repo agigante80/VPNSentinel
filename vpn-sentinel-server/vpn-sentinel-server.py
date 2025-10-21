@@ -1846,7 +1846,7 @@ def handle_telegram_commands():
     
     Supported Commands:
         - /ping: Test bot responsiveness
-        - /status: Get server and client status summary
+        - /status: Get server and client status
         - /help: Display available commands
         
     Polling Mechanism:
@@ -1955,7 +1955,7 @@ def handle_status_command():
             
             message += f"{status_icon} <b>{client_id}</b> - {status_text}\n"
             message += f"   IP: <code>{info['public_ip']}</code>\n"
-                       message += f"   Last seen: <code>{minutes_ago} minutes ago</code>\n"
+            message += f"   Last seen: <code>{minutes_ago} minutes ago</code>\n"
             message += f"   Time: <code>{info['last_seen'].strftime('%H:%M:%S %Z')}</code>\n\n"
     
     if send_telegram_message(message):
