@@ -76,9 +76,9 @@ FROM python:3.12-alpine
 # -----------------------------------------------------------------------------
 # Build Arguments
 # -----------------------------------------------------------------------------
-# Accept commit hash for version information
-ARG COMMIT_HASH
-ENV COMMIT_HASH=${COMMIT_HASH}
+# Accept version information
+ARG VERSION
+ENV VERSION=${VERSION}
 
 # -----------------------------------------------------------------------------
 # Container Metadata and Documentation
