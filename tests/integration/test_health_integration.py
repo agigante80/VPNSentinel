@@ -34,17 +34,22 @@ class TestHealthCheckIntegration(unittest.TestCase):
     def start_test_server(self):
         """Start a test instance of the VPN Sentinel server"""
         try:
+            # Get the project root (parent of tests directory)
+            test_dir = os.path.dirname(os.path.abspath(__file__))
+            tests_dir = os.path.dirname(test_dir)
+            project_root = os.path.dirname(tests_dir)
+            
             # Set minimal environment for testing
             env = os.environ.copy()
             env.update({
                 'VPN_SENTINEL_API_PATH': self.api_path,
                 'FLASK_ENV': 'testing',
-                'PYTHONPATH': os.path.join(os.getcwd(), 'vpn-sentinel-server')
+                'PYTHONPATH': os.path.join(project_root, 'vpn-sentinel-server')
             })
 
             # Start server in background
             self.server_process = subprocess.Popen(
-                [sys.executable, os.path.join(os.getcwd(), 'vpn-sentinel-server', 'vpn-sentinel-server.py')],
+                [sys.executable, os.path.join(project_root, 'vpn-sentinel-server', 'vpn-sentinel-server.py')],
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -109,7 +114,11 @@ class TestHealthCheckIntegration(unittest.TestCase):
 
     def test_health_check_script_exists(self):
         """Test that health check script exists and is executable"""
-        script_path = os.path.join(os.getcwd(), "vpn-sentinel-client", "healthcheck.sh")
+        # Get the project root (parent of tests directory)
+        test_dir = os.path.dirname(os.path.abspath(__file__))
+        tests_dir = os.path.dirname(test_dir)
+        project_root = os.path.dirname(tests_dir)
+        script_path = os.path.join(project_root, "vpn-sentinel-client", "healthcheck.sh")
 
         self.assertTrue(os.path.exists(script_path))
         self.assertTrue(os.access(script_path, os.X_OK))
@@ -122,7 +131,11 @@ class TestHealthCheckIntegration(unittest.TestCase):
 
     def test_server_dockerfile_healthcheck_configuration(self):
         """Test that server Dockerfile has proper HEALTHCHECK configuration"""
-        dockerfile_path = os.path.join(os.getcwd(), "vpn-sentinel-server", "Dockerfile")
+        # Get the project root (parent of tests directory)
+        test_dir = os.path.dirname(os.path.abspath(__file__))
+        tests_dir = os.path.dirname(test_dir)
+        project_root = os.path.dirname(tests_dir)
+        dockerfile_path = os.path.join(project_root, "vpn-sentinel-server", "Dockerfile")
 
         with open(dockerfile_path, 'r') as f:
             content = f.read()
@@ -138,7 +151,11 @@ class TestHealthCheckIntegration(unittest.TestCase):
 
     def test_client_dockerfile_healthcheck_configuration(self):
         """Test that client Dockerfile has proper HEALTHCHECK configuration"""
-        dockerfile_path = os.path.join(os.getcwd(), "vpn-sentinel-client", "Dockerfile")
+        # Get the project root (parent of tests directory)
+        test_dir = os.path.dirname(os.path.abspath(__file__))
+        tests_dir = os.path.dirname(test_dir)
+        project_root = os.path.dirname(tests_dir)
+        dockerfile_path = os.path.join(project_root, "vpn-sentinel-client", "Dockerfile")
 
         with open(dockerfile_path, 'r') as f:
             content = f.read()
@@ -153,8 +170,12 @@ class TestHealthCheckIntegration(unittest.TestCase):
 
     def test_health_check_script_in_dockerfile(self):
         """Test that health check script is properly included in client Dockerfile"""
-        dockerfile_path = os.path.join(os.getcwd(), "vpn-sentinel-client", "Dockerfile")
-        script_path = os.path.join(os.getcwd(), "vpn-sentinel-client", "healthcheck.sh")
+        # Get the project root (parent of tests directory)
+        test_dir = os.path.dirname(os.path.abspath(__file__))
+        tests_dir = os.path.dirname(test_dir)
+        project_root = os.path.dirname(tests_dir)
+        dockerfile_path = os.path.join(project_root, "vpn-sentinel-client", "Dockerfile")
+        script_path = os.path.join(project_root, "vpn-sentinel-client", "healthcheck.sh")
 
         with open(dockerfile_path, 'r') as f:
             content = f.read()
@@ -168,7 +189,11 @@ class TestHealthCheckIntegration(unittest.TestCase):
 
     def test_server_health_endpoints_documentation(self):
         """Test that health endpoints are documented in the server code"""
-        server_file = os.path.join(os.getcwd(), "vpn-sentinel-server", "vpn-sentinel-server.py")
+        # Get the project root (parent of tests directory)
+        test_dir = os.path.dirname(os.path.abspath(__file__))
+        tests_dir = os.path.dirname(test_dir)
+        project_root = os.path.dirname(tests_dir)
+        server_file = os.path.join(project_root, "vpn-sentinel-server", "vpn-sentinel-server.py")
 
         with open(server_file, 'r') as f:
             content = f.read()
