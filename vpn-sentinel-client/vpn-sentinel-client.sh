@@ -178,10 +178,16 @@ log_warn() {
 # =============================================================================
 
 # Version information
-if [ -n "$COMMIT_HASH" ]; then
-    VERSION="1.0.0-dev-$COMMIT_HASH"
+if [ -n "$VERSION" ]; then
+    # Use version from build arg if available
+    VERSION="$VERSION"
 else
-    VERSION="1.0.0-dev"
+    # Fallback for local development
+    if [ -n "$COMMIT_HASH" ]; then
+        VERSION="1.0.0-dev-$COMMIT_HASH"
+    else
+        VERSION="1.0.0-dev"
+    fi
 fi
 
 # API Endpoint Configuration

@@ -59,9 +59,9 @@ FROM alpine:latest
 # -----------------------------------------------------------------------------
 # Build Arguments
 # -----------------------------------------------------------------------------
-# Accept commit hash for version information
-ARG COMMIT_HASH
-ENV COMMIT_HASH=${COMMIT_HASH}
+# Accept version information
+ARG VERSION
+ENV VERSION=${VERSION}
 
 # -----------------------------------------------------------------------------
 # Package Installation
