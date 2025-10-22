@@ -33,16 +33,19 @@ Environment Variables:
 - VPN_SENTINEL_API_KEY: API key for client authentication (optional)
 - VPN_SENTINEL_SERVER_ALLOWED_IPS: Comma-separated IP whitelist (optional)
 - API_PATH: API path prefix for endpoints (default: /api/v1, automatically normalized with leading slash)
+- HEALTH_PATH: Health check path prefix for health endpoints (default: /health, automatically normalized with leading slash)
 - TZ: Timezone for timestamps (default: UTC)
 - VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS: Rate limit per IP (default: 30)
 
-API Endpoints:
+API Endpoints (Port: VPN_SENTINEL_SERVER_API_PORT, default 5000):
 - POST {API_PATH}/keepalive: Receive client status updates
 - GET {API_PATH}/status: Get server and client status
 - POST {API_PATH}/fake-heartbeat: Simulate keepalive for testing
-- GET {API_PATH}/health: Health check endpoint
-- GET {API_PATH}/health/ready: Readiness probe endpoint
-- GET {API_PATH}/health/startup: Startup probe endpoint
+
+Health Endpoints (Port: VPN_SENTINEL_SERVER_HEALTH_PORT, default 8081):
+- GET {HEALTH_PATH}: Health check endpoint
+- GET {HEALTH_PATH}/ready: Readiness probe endpoint
+- GET {HEALTH_PATH}/startup: Startup probe endpoint
 
 Security Features:
 - API key authentication for keepalive endpoints
@@ -80,6 +83,7 @@ Repository: https://github.com/your-username/vpn-sentinel
 import json              # JSON parsing and generation
 import time              # Time handling and sleep functions
 import threading         # Background thread management for monitoring
+import signal            # Signal handling for graceful shutdown
 import os                # Environment variable access
 from datetime import datetime, timedelta  # Date/time operations
 from flask import Flask, request, jsonify, render_template_string # Web framework and HTTP utilities
@@ -106,6 +110,7 @@ if not VERSION:
 # Initialize Flask applications
 api_app = Flask(__name__)               # API server application
 dashboard_app = Flask(__name__)         # Dashboard web application
+health_app = Flask(__name__)            # Health check server application
 
 # Telegram Bot Configuration
 # These credentials enable the server to send notifications via Telegram Bot API
@@ -119,6 +124,11 @@ if not API_PATH or not API_PATH.startswith('/'):
         API_PATH = "/api/v1"
     else:
         API_PATH = '/' + API_PATH
+
+# Health Path Configuration
+HEALTH_PATH = os.getenv("VPN_SENTINEL_SERVER_HEALTH_PATH", "/health")                            # Health check path prefix
+if not HEALTH_PATH.startswith('/'):
+    HEALTH_PATH = '/' + HEALTH_PATH
 
 # Security Configuration
 API_KEY = os.getenv("VPN_SENTINEL_API_KEY", "")                          # Optional API key for authentication
@@ -136,6 +146,7 @@ CHECK_INTERVAL_MINUTES = int(os.getenv("VPN_SENTINEL_SERVER_CHECK_INTERVAL_MINUT
 # Server Port Configuration  
 API_PORT = int(os.getenv("VPN_SENTINEL_SERVER_API_PORT", "5000"))                               # API server port for client connections
 DASHBOARD_PORT = int(os.getenv("VPN_SENTINEL_SERVER_DASHBOARD_PORT", "8080"))                   # Web dashboard port
+HEALTH_PORT = int(os.getenv("VPN_SENTINEL_SERVER_HEALTH_PORT", "8081"))                         # Health check server port
 
 # Web Dashboard Configuration
 WEB_DASHBOARD_ENABLED = os.getenv("VPN_SENTINEL_SERVER_DASHBOARD_ENABLED", "true").lower() == "true"  # Enable/disable web dashboard
@@ -692,7 +703,6 @@ def before_request():
     - Comprehensive access logging
     
     Exemptions:
-        - /health endpoint bypasses security for monitoring systems
         - /dashboard endpoint bypasses security when web dashboard is enabled
         - Additional paths can be added to exemption list as needed
         
@@ -707,9 +717,6 @@ def before_request():
         4. Block or allow request based on security results
     """
     # Exempt public endpoints from authentication
-    if request.path == f'{API_PATH}/health':
-        return None  # Health check endpoint for monitoring systems
-    
     if request.path == '/dashboard' and WEB_DASHBOARD_ENABLED:
         return None  # Web dashboard endpoint (public access when enabled)
         
@@ -1121,7 +1128,7 @@ def fake_heartbeat():
         log_error("api", f"Error processing fake heartbeat: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
-@api_app.route(f'{API_PATH}/health', methods=['GET'])
+@health_app.route(f'{HEALTH_PATH}', methods=['GET'])
 def health():
     """Comprehensive health check - liveness probe with detailed status"""
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
@@ -1168,7 +1175,7 @@ def health():
     status_code = 200 if health_status['status'] == 'healthy' else 503
     return jsonify(health_status), status_code
 
-@api_app.route(f'{API_PATH}/health/ready', methods=['GET'])
+@health_app.route(f'{HEALTH_PATH}/ready', methods=['GET'])
 def readiness():
     """Readiness probe - checks if service is ready to serve traffic"""
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
@@ -1205,7 +1212,7 @@ def readiness():
     status_code = 200 if readiness_status['status'] == 'ready' else 503
     return jsonify(readiness_status), status_code
 
-@api_app.route(f'{API_PATH}/health/startup', methods=['GET'])
+@health_app.route(f'{HEALTH_PATH}/startup', methods=['GET'])
 def startup():
     """Startup probe - quick check that application has started"""
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
@@ -1244,9 +1251,6 @@ DASHBOARD_HTML_TEMPLATE = '''
             min-height: 100vh;
             padding: 20px;
         }
-        
-        .container {
-            max-width: 1400px;
             margin: 0 auto;
             background: rgba(255, 255, 255, 0.95);
             border-radius: 15px;
@@ -1946,17 +1950,12 @@ def handle_telegram_commands():
     Polling Mechanism:
         - Uses long polling with update IDs to avoid duplicates
         - Processes only messages (ignores other update types)
-        - Handles commands from any chat (not restricted to TELEGRAM_CHAT_ID)
         
     Error Handling:
         - Graceful handling of network errors and API failures
         - Continues polling even if individual commands fail
-        - Logs errors for debugging while maintaining operation
-        
-    Threading:
-        - Runs as daemon thread (terminates on shutdown)
-        - Independent of main server operation
-        - Can be disabled by not setting Telegram credentials
+              
+
     """
     if not TELEGRAM_BOT_TOKEN:
         return
@@ -2140,6 +2139,7 @@ if __name__ == "__main__":
     startup_message += f"📊 <b>Configuration:</b>\n"
     startup_message += f"• API Port: <code>{API_PORT}</code>\n"
     startup_message += f"• Dashboard Port: <code>{DASHBOARD_PORT}</code>\n"
+    startup_message += f"• Health Port: <code>{HEALTH_PORT}</code>\n"
     startup_message += f"• Alert Threshold: <code>{ALERT_THRESHOLD_MINUTES} minutes</code>\n"
     startup_message += f"• Check Interval: <code>{CHECK_INTERVAL_MINUTES} minutes</code>\n"
     startup_message += f"• Rate Limit: <code>{RATE_LIMIT_REQUESTS} req/min</code>\n"
@@ -2147,7 +2147,7 @@ if __name__ == "__main__":
     startup_message += f"🌐 <b>Access URLs:</b>\n"
     startup_message += f"• API: <code>http://your-server:{API_PORT}{API_PATH}</code>\n"
     startup_message += f"• Dashboard: <code>http://your-server:{DASHBOARD_PORT}/dashboard</code>\n"
-    startup_message += f"• Health: <code>http://your-server:{API_PORT}{API_PATH}/health</code>\n\n"
+    startup_message += f"• Health: <code>http://your-server:{HEALTH_PORT}{HEALTH_PATH}</code>\n\n"
     startup_message += f"✅ <b>Server is ready to receive VPN client connections!</b>"
     
     if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
@@ -2173,9 +2173,19 @@ if __name__ == "__main__":
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.ERROR)  # Only show errors, suppress access logs
     
+    # Signal handling for graceful shutdown
+    shutdown_event = threading.Event()
+    
+    def signal_handler(signum, frame):
+        log_info("server", f"Received signal {signum}, initiating graceful shutdown...")
+        shutdown_event.set()
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     # Start web servers based on configuration
     if WEB_DASHBOARD_ENABLED and API_PORT != DASHBOARD_PORT:
-        # Dual port mode: API and Dashboard on separate ports
+        # Triple port mode: API, Dashboard, and Health on separate ports
         def run_api_server():
             ssl_ctx = None
             if TLS_CERT_PATH and TLS_KEY_PATH:
@@ -2188,22 +2198,60 @@ if __name__ == "__main__":
                 ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
             dashboard_app.run(host='0.0.0.0', port=DASHBOARD_PORT, debug=False, use_reloader=False, ssl_context=ssl_ctx)
         
+        def run_health_server():
+            ssl_ctx = None
+            if TLS_CERT_PATH and TLS_KEY_PATH:
+                ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
+            health_app.run(host='0.0.0.0', port=HEALTH_PORT, debug=False, use_reloader=False, ssl_context=ssl_ctx)
+        
         # Start API server in background thread
-        api_thread = threading.Thread(target=run_api_server, daemon=True)
+        api_thread = threading.Thread(target=run_api_server)
         api_thread.start()
         log_info("server", f"🚀 API Server started on port {API_PORT}")
         
+        # Start health server in background thread
+        health_thread = threading.Thread(target=run_health_server)
+        health_thread.start()
+        log_info("server", f"💚 Health Server started on port {HEALTH_PORT}")
+        
         # Start dashboard server in main thread
         log_info("server", f"🌐 Dashboard Server starting on port {DASHBOARD_PORT}")
-        run_dashboard_server()
+        try:
+            run_dashboard_server()
+        except KeyboardInterrupt:
+            log_info("server", "Dashboard server interrupted")
+        
+        # Wait for background threads to finish
+        log_info("server", "Waiting for background servers to shut down...")
+        shutdown_event.wait(timeout=5)  # Give threads time to shut down
+        log_info("server", "Shutdown complete")
     else:
-        # Single port mode: API and Dashboard on same port
+        # Dual port mode: API + Dashboard on API port, Health on separate port
         @api_app.route('/dashboard', methods=['GET'])
         def dashboard_single_port():
             return web_dashboard()
+        
+        def run_health_server():
+            ssl_ctx = None
+            if TLS_CERT_PATH and TLS_KEY_PATH:
+                ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
+            health_app.run(host='0.0.0.0', port=HEALTH_PORT, debug=False, use_reloader=False, ssl_context=ssl_ctx)
+        
+        # Start health server in background thread
+        health_thread = threading.Thread(target=run_health_server)
+        health_thread.start()
+        log_info("server", f"💚 Health Server started on port {HEALTH_PORT}")
         
         log_info("server", f"🚀 Server starting on port {API_PORT} (API + Dashboard)")
         ssl_ctx = None
         if TLS_CERT_PATH and TLS_KEY_PATH:
             ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
-        api_app.run(host='0.0.0.0', port=API_PORT, debug=False, ssl_context=ssl_ctx)
+        try:
+            api_app.run(host='0.0.0.0', port=API_PORT, debug=False, ssl_context=ssl_ctx)
+        except KeyboardInterrupt:
+            log_info("server", "API/Dashboard server interrupted")
+        
+        # Wait for background threads to finish
+        log_info("server", "Waiting for background servers to shut down...")
+        shutdown_event.wait(timeout=5)  # Give threads time to shut down
+        log_info("server", "Shutdown complete")

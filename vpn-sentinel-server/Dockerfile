@@ -180,7 +180,7 @@ ENV PYTHONUNBUFFERED=1 \
 # Add health check to monitor container status
 # Ensures the Flask server is responding and returns healthy status
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f -s http://localhost:5000/api/v1/health > /dev/null || exit 1
+    CMD curl -f -s http://localhost:8081/health > /dev/null || exit 1
 
 # -----------------------------------------------------------------------------
 # Container Startup Configuration
