@@ -49,12 +49,22 @@ VPN Sentinel uses a **distributed architecture** that separates monitoring conce
 
 #### **VPN Sentinel Client**
 - **Location**: Runs inside your VPN container's network namespace
+- **Architecture**: Multi-process design with optional dedicated health monitoring
 - **Purpose**: Monitors VPN connection health from within the protected network
 - **Capabilities**:
-  - Checks public IP address and geolocation
-  - Tests DNS resolver locations for leaks
-  - Sends heartbeat signals to the server
-  - Performs local health checks
+  - **Main Process**: Checks public IP address, geolocation, and DNS leak detection
+  - **Health Monitor** (optional): Dedicated health status server on port 8082
+  - Sends heartbeat signals to the server with comprehensive connection data
+  - Performs local health checks and system monitoring
+  - Supports both single-process and multi-process operation modes
+
+**Multi-Process Architecture:**
+```
+VPN Container
+├── vpn-sentinel-client.sh (Main monitoring process)
+├── health-monitor.sh (Optional dedicated health server)
+└── healthcheck.sh (Container health checks)
+```
 
 #### **VPN Sentinel Server**
 - **Location**: Runs on your host network (outside VPN)

@@ -198,7 +198,7 @@ class TestHealthCheckIntegration(unittest.TestCase):
         self.assertTrue(os.path.exists(script_path))
 
     def test_server_health_endpoints_documentation(self):
-        """Test that health endpoints are documented in the server code"""
+        """Test that server code properly documents health endpoints"""
         # Get the project root (parent of tests directory)
         test_dir = os.path.dirname(os.path.abspath(__file__))
         tests_dir = os.path.dirname(test_dir)
@@ -208,10 +208,10 @@ class TestHealthCheckIntegration(unittest.TestCase):
         with open(server_file, 'r') as f:
             content = f.read()
 
-        # Should document all health endpoints on health_app
-        self.assertIn("@health_app.route(f'{HEALTH_PATH}', methods=['GET'])", content)
-        self.assertIn("@health_app.route(f'{HEALTH_PATH}/ready', methods=['GET'])", content)
-        self.assertIn("@health_app.route(f'{HEALTH_PATH}/startup', methods=['GET'])", content)
+        # Should document all health endpoints on api_app using API_PATH
+        self.assertIn("@api_app.route(f'{API_PATH}/health', methods=['GET'])", content)
+        self.assertIn("@api_app.route(f'{API_PATH}/health/ready', methods=['GET'])", content)
+        self.assertIn("@api_app.route(f'{API_PATH}/health/startup', methods=['GET'])", content)
 
         # Should have docstrings
         self.assertIn('def health(', content)

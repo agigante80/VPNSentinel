@@ -145,3 +145,32 @@ class TestClientHealthCheck(unittest.TestCase):
         self.assertIn('--timeout=', content)
         self.assertIn('--start-period=', content)
         self.assertIn('--retries=', content)
+
+    def test_enhanced_health_script_comprehensive_checks(self):
+        """Test that the enhanced health check script performs all expected checks"""
+        with open(self.health_script, 'r') as f:
+            content = f.read()
+
+        # Should contain enhanced health check logic
+        self.assertIn('HEALTH_MONITOR_RUNNING', content)
+        self.assertIn('VPN_SENTINEL_HEALTH_PORT', content)
+        self.assertIn('memory_usage', content)
+        self.assertIn('disk_usage', content)
+        self.assertIn('--json', content)
+        self.assertIn('high_memory_usage', content)
+        self.assertIn('high_disk_usage', content)
+
+    def test_enhanced_health_script_json_output(self):
+        """Test that the enhanced health check script supports JSON output"""
+        # Test with --json flag (would need mock environment)
+        # This is a basic content check for now
+        with open(self.health_script, 'r') as f:
+            content = f.read()
+
+        self.assertIn('"status":', content)
+        self.assertIn('"checks":', content)
+        self.assertIn('"warnings":', content)
+        self.assertIn('client_process', content)
+        self.assertIn('network_connectivity', content)
+        self.assertIn('server_connectivity', content)
+        self.assertIn('health_monitor', content)

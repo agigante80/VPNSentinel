@@ -12,9 +12,6 @@ VPN Sentinel uses a **distributed client-server architecture** with network isol
 ### Path Usage
 **NEVER use absolute paths referring to `/home/$USER`** - Use relative paths or environment variables for portability across different development environments.
 
-### Security & Privacy
-**NEVER include values from `.env` files or private configuration** - All examples should use placeholder values or environment variable references. Private information must never be committed.
-
 ### Requirement Conflicts
 **If a new requirement contradicts these copilot-instructions, ASK FOR CONFIRMATION before implementing** - These instructions establish the project's architectural patterns, security standards, and development workflows. Changes to these patterns should be intentional and approved.
 
