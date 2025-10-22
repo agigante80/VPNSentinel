@@ -123,6 +123,13 @@ RUN chmod +x /app/healthcheck.sh
 CMD ["/app/vpn-sentinel-client.sh"]
 
 # -----------------------------------------------------------------------------
+# Build-time Configuration
+# -----------------------------------------------------------------------------
+# Set version from build arguments (passed by CI/CD pipeline)
+ARG VERSION
+ENV VERSION=${VERSION}
+
+# -----------------------------------------------------------------------------
 # Container Metadata
 # -----------------------------------------------------------------------------
 # Add labels for better container management and documentation

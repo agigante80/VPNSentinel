@@ -195,6 +195,15 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 # 2. Production: CMD ["gunicorn", "--bind", "0.0.0.0:5000", "vpn-sentinel-server:app"]
 # 3. Current: Direct Python execution (simple and effective for this use case)
 
+CMD ["python", "vpn-sentinel-server.py"]
+
+# -----------------------------------------------------------------------------
+# Build-time Configuration
+# -----------------------------------------------------------------------------
+# Set version from build arguments (passed by CI/CD pipeline)
+ARG VERSION
+ENV VERSION=${VERSION}
+
 # -----------------------------------------------------------------------------
 # Docker Hub Metadata
 # -----------------------------------------------------------------------------
@@ -203,8 +212,6 @@ LABEL org.opencontainers.image.title="VPN Sentinel Server" \
       org.opencontainers.image.vendor="VPN Sentinel Project" \
       org.opencontainers.image.source="https://github.com/agigante80/VPNSentinel" \
       org.opencontainers.image.licenses="MIT"
-
-CMD ["python", "vpn-sentinel-server.py"]
 
 # -----------------------------------------------------------------------------
 # Development and Debugging Notes
