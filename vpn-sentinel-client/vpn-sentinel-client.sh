@@ -18,6 +18,7 @@
 #   - Uses external APIs (ipinfo.io, ip-api.com, Cloudflare) for location detection
 #   - Sends structured JSON data to monitoring server via HTTP POST
 #   - Implements robust error handling and fallback mechanisms
+#   - Supports optional dedicated health monitoring process (multi-process mode)
 #
 # KEY FEATURES:
 #   - Real-time VPN connection monitoring with 5-minute intervals
@@ -64,6 +65,10 @@
 #   - VPN_SENTINEL_GEOLOCATION_SERVICE: Force specific geolocation service (default: auto)
 #     Options: 'auto', 'ipinfo.io', 'ip-api.com'
 #     'auto' tries ipinfo.io first, falls back to ip-api.com if needed
+#   - VPN_SENTINEL_HEALTH_MONITOR: Enable dedicated health monitoring process (default: false)
+#     Set to 'true' to run health-monitor.sh as background process
+#   - VPN_SENTINEL_HEALTH_PORT: Port for dedicated health monitor (default: 8082)
+#     Only used when VPN_SENTINEL_HEALTH_MONITOR=true
 #
 # DEPENDENCIES:
 #   - curl: HTTP client for API requests and data transmission
@@ -249,58 +254,82 @@ if [ -n "$TZ" ]; then
     log_info "config" "🌍 Timezone set to: $TZ"
 fi
 
-# TLS/SSL Certificate Configuration
-# Optional custom certificate for HTTPS verification
+# Health Monitor Configuration
+# Enable/disable dedicated health monitoring process
+VPN_SENTINEL_HEALTH_MONITOR="${VPN_SENTINEL_HEALTH_MONITOR:-false}"
+VPN_SENTINEL_HEALTH_PORT="${VPN_SENTINEL_HEALTH_PORT:-8082}"
+
+if [ "$VPN_SENTINEL_HEALTH_MONITOR" = "true" ]; then
+    log_info "config" "🏥 Health monitor enabled on port: $VPN_SENTINEL_HEALTH_PORT"
+fi
+
+# TLS Certificate Configuration
+# Configure custom TLS certificate path for HTTPS verification
+# If set, uses the specified certificate; otherwise trusts self-signed certificates
 TLS_CERT_PATH="${VPN_SENTINEL_TLS_CERT_PATH:-}"
-if [ -n "$TLS_CERT_PATH" ]; then
-    log_info "config" "🔒 TLS certificate enabled for HTTPS: $TLS_CERT_PATH"
+if [ -n "${VPN_SENTINEL_TLS_CERT_PATH}" ]; then
+    if [ -f "${VPN_SENTINEL_TLS_CERT_PATH}" ]; then
+        log_info "config" "🔒 Using custom TLS certificate: $VPN_SENTINEL_TLS_CERT_PATH"
+        export CURL_CA_BUNDLE="${VPN_SENTINEL_TLS_CERT_PATH}"
+    else
+        log_error "config" "❌ TLS certificate file not found: $VPN_SENTINEL_TLS_CERT_PATH"
+        exit 1
+    fi
 else
-    log_info "config" "⚠️ No TLS certificate provided; HTTPS verification disabled (using default curl behavior)"
+    # Trust self-signed certificates for HTTPS connections
+    export CURL_OPTS="${CURL_OPTS:-} -k"
+    log_warn "config" "⚠️ No TLS certificate provided, trusting self-signed certificates"
 fi
 
 # Debug Configuration
+# Enable verbose logging for troubleshooting API responses
 DEBUG="${VPN_SENTINEL_DEBUG:-false}"
-if [ "$DEBUG" = "true" ]; then
-    log_info "config" "🐛 Debug mode enabled - will log raw API responses"
+if [ "${DEBUG}" = "true" ]; then
+    log_info "config" "🐛 Debug mode enabled - API responses will be logged"
+    DEBUG_ENABLED=true
 else
     log_info "config" "ℹ️ Debug mode disabled"
+    DEBUG_ENABLED=false
 fi
 
 # Geolocation Service Configuration
+# Configure which external service to use for IP geolocation
+# Options: 'auto' (default), 'ipinfo.io', 'ip-api.com'
 GEOLOCATION_SERVICE="${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}"
 
-# Validate geolocation service value
+# validate_geolocation_service(): Validate geolocation service selection
+# Ensures only supported services are used, defaults to 'auto' for invalid values
+#
+# Parameters:
+#   $1: Service name to validate
+# Returns:
+#   None (sets GEOLOCATION_SERVICE variable)
 validate_geolocation_service() {
     local service="$1"
     case "$service" in
         auto|ipinfo.io|ip-api.com)
-            return 0  # Valid
+            # Valid service
             ;;
         *)
-            return 1  # Invalid
+            log_error "config" "❌ Invalid VPN_SENTINEL_GEOLOCATION_SERVICE: $service"
+            log_info "config" "📋 Valid options: auto, ipinfo.io, ip-api.com"
+            log_info "config" "🔄 Defaulting to 'auto'"
+            GEOLOCATION_SERVICE="auto"
             ;;
     esac
 }
 
-if ! validate_geolocation_service "$GEOLOCATION_SERVICE"; then
-    log_error "config" "❌ Invalid VPN_SENTINEL_GEOLOCATION_SERVICE '$GEOLOCATION_SERVICE'"
-    log_error "config" "📋 Valid options: 'auto', 'ipinfo.io', 'ip-api.com'"
-    log_error "config" "🔄 Defaulting to 'auto'"
-    GEOLOCATION_SERVICE="auto"
-fi
+# Validate the geolocation service
+validate_geolocation_service "$GEOLOCATION_SERVICE"
 
 # Log the configured service
-case "$GEOLOCATION_SERVICE" in
-    auto)
-        log_info "config" "🌐 Geolocation service: auto (will try ipinfo.io first, fallback to ip-api.com)"
-        ;;
-    ipinfo.io)
-        log_info "config" "🌐 Geolocation service: forced to ipinfo.io"
-        ;;
-    ip-api.com)
-        log_info "config" "🌐 Geolocation service: forced to ip-api.com"
-        ;;
-esac
+if [ "$GEOLOCATION_SERVICE" = "ipinfo.io" ]; then
+    log_info "config" "🌐 Geolocation service: forced to ipinfo.io"
+elif [ "$GEOLOCATION_SERVICE" = "ip-api.com" ]; then
+    log_info "config" "🌐 Geolocation service: forced to ip-api.com"
+else
+    log_info "config" "🌐 Geolocation service: auto (will try ipinfo.io first, fallback to ip-api.com)"
+fi
 
 # -----------------------------------------------------------------------------
 # JSON Escaping Function
@@ -641,7 +670,7 @@ send_keepalive() {
 # INTERRUPT HANDLING:
 # - Ctrl+C terminates the loop cleanly
 # - Container stop signals terminate gracefully
-# - No cleanup required (stateless design)
+# - No cleanup required (completely stateless operation)
 #
 # LOGGING DURING LOOP:
 # - Success/failure of each keepalive attempt
@@ -649,7 +678,37 @@ send_keepalive() {
 # - Countdown messages for operational visibility
 # - Component-based categorization for log filtering
 #
+log_info "client" "🚀 Starting VPN Sentinel Client"
+
 log_info "client" "🔄 Starting continuous VPN monitoring loop..."
+
+# -----------------------------------------------------------------------------
+# Health Monitor Startup (Optional)
+# -----------------------------------------------------------------------------
+# Start dedicated health monitoring process if enabled
+# Runs independently from main monitoring loop for enhanced health reporting
+if [ "$VPN_SENTINEL_HEALTH_MONITOR" = "true" ]; then
+    log_info "client" "🏥 Starting health monitor process..."
+
+    # Check if health monitor script exists
+    if [ -f "./health-monitor.sh" ]; then
+        # Start health monitor in background
+        ./health-monitor.sh &
+        HEALTH_MONITOR_PID=$!
+
+        # Give it a moment to start up
+        sleep 2
+
+        # Verify it's running
+        if kill -0 $HEALTH_MONITOR_PID 2>/dev/null; then
+            log_info "client" "✅ Health monitor started (PID: $HEALTH_MONITOR_PID)"
+        else
+            log_warn "client" "⚠️ Health monitor failed to start"
+        fi
+    else
+        log_warn "client" "⚠️ Health monitor script not found: ./health-monitor.sh"
+    fi
+fi
 
 # -----------------------------------------------------------------------------
 # VPN Sentinel Client Starting

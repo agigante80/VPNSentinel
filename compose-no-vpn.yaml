@@ -1,37 +1,42 @@
 services:
-  vpn-client:
-    image: qmcgaw/gluetun
-    container_name: vpn-client
-    cap_add:
-      - NET_ADMIN        
-    devices:
-      - /dev/net/tun:/dev/net/tun  
-    ports: []
-    volumes:
-      - ./vpn-client:/gluetun  
-    environment:
-      - UPDATER_PERIOD=${UPDATER_PERIOD:-24h}              
-      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}       
-      - SERVER_COUNTRIES=${SERVER_COUNTRIES}               
-      - OPENVPN_USER=${VPN_USER}                           
-      - OPENVPN_PASSWORD=${VPN_PASSWORD}                   
-      - FIREWALL_OUTBOUND_SUBNETS=172.28.0.0/16  
-    restart: always  
+  # vpn-client:
+  #   image: qmcgaw/gluetun
+  #   container_name: vpn-client
+  #   cap_add:
+  #     - NET_ADMIN        
+  #   devices:
+  #     - /dev/net/tun:/dev/net/tun  
+  #   ports: []
+  #   volumes:
+  #     - ./vpn-client:/gluetun  
+  #   environment:
+  #     - UPDATER_PERIOD=${UPDATER_PERIOD:-24h}              
+  #     - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}       
+  #     - SERVER_COUNTRIES=${SERVER_COUNTRIES}               
+  #     - OPENVPN_USER=${VPN_USER}                           
+  #     - OPENVPN_PASSWORD=${VPN_PASSWORD}                   
+  #     - FIREWALL_OUTBOUND_SUBNETS=172.28.0.0/16  
+  #   restart: always  
   vpn-sentinel-client:
     image: vpn-sentinel-client:latest
     container_name: vpn-sentinel-client
     volumes:
       - ./certs:/certs:ro
     environment:
-      - VPN_SENTINEL_URL=${VPN_SENTINEL_URL:-http://vpn-sentinel-server:5000}
-      - VPN_SENTINEL_API_PATH=${VPN_SENTINEL_API_PATH:-/api/v1}
+      - VPN_SENTINEL_URL=http://vpn-sentinel-server:5000
+      - VPN_SENTINEL_API_PATH=/api/v1
       - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-main}
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
       - TZ=${TZ:-UTC}
       - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH}
       - VPN_SENTINEL_DEBUG=${VPN_SENTINEL_DEBUG:-false}
       - VPN_SENTINEL_GEOLOCATION_SERVICE=${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}
-    restart: always  
+    # network_mode: service:vpn-client  # Removed for no-VPN mode
+    restart: always
+    # depends_on:
+    #   - vpn-client  # Removed for no-VPN mode
+    depends_on:
+      - vpn-sentinel-server
   vpn-sentinel-server:
     image: vpn-sentinel-server:latest
     container_name: vpn-sentinel-server
