@@ -6,7 +6,7 @@ echo "🔖 VPN Sentinel Automatic Versioning Demo"
 echo "=========================================="
 echo
 
-cd /home/alien/dev/VPNSentinel
+# Script should be run from project root directory
 
 echo "📍 Current Git Status:"
 echo "   Branch: $(git rev-parse --abbrev-ref HEAD)"

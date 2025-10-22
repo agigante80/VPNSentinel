@@ -19,7 +19,9 @@ class TestHealthCheckIntegration(unittest.TestCase):
         """Set up integration test environment"""
         self.server_process = None
         self.server_url = "http://localhost:5000"
+        self.health_url = "http://localhost:8081"
         self.api_path = "/api/v1"
+        self.health_path = "/health"
 
     def tearDown(self):
         """Clean up after tests"""
@@ -43,8 +45,13 @@ class TestHealthCheckIntegration(unittest.TestCase):
             env = os.environ.copy()
             env.update({
                 'VPN_SENTINEL_API_PATH': self.api_path,
+                'VPN_SENTINEL_HEALTH_PATH': self.health_path,
+                'VPN_SENTINEL_SERVER_API_PORT': '5000',
+                'VPN_SENTINEL_SERVER_HEALTH_PORT': '8081',
+                'VPN_SENTINEL_SERVER_DASHBOARD_PORT': '8080',
                 'FLASK_ENV': 'testing',
-                'PYTHONPATH': os.path.join(project_root, 'vpn-sentinel-server')
+                'PYTHONPATH': os.path.join(project_root, 'vpn-sentinel-server'),
+                'WEB_DASHBOARD_ENABLED': 'true'
             })
 
             # Start server in background
@@ -61,8 +68,10 @@ class TestHealthCheckIntegration(unittest.TestCase):
 
             # Check if server is responding
             try:
-                response = requests.get(f"{self.server_url}{self.api_path}/health", timeout=5)
-                return response.status_code == 200
+                # Check both API and health servers
+                api_response = requests.get(f"{self.server_url}{self.api_path}/status", timeout=5)
+                health_response = requests.get(f"{self.health_url}{self.health_path}", timeout=5)
+                return api_response.status_code == 200 and health_response.status_code == 200
             except requests.RequestException:
                 return False
 
@@ -76,23 +85,23 @@ class TestHealthCheckIntegration(unittest.TestCase):
         if not self.start_test_server():
             self.skipTest("Cannot start test server")
 
-        # Test liveness endpoint
-        response = requests.get(f"{self.server_url}{self.api_path}/health")
+        # Test liveness endpoint on dedicated health port
+        response = requests.get(f"{self.health_url}{self.health_path}")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['status'], 'healthy')
         self.assertIn('system', data)
         self.assertIn('dependencies', data)
 
-        # Test readiness endpoint
-        response = requests.get(f"{self.server_url}{self.api_path}/health/ready")
+        # Test readiness endpoint on dedicated health port
+        response = requests.get(f"{self.health_url}{self.health_path}/ready")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['status'], 'ready')
         self.assertIn('checks', data)
 
-        # Test startup endpoint
-        response = requests.get(f"{self.server_url}{self.api_path}/health/startup")
+        # Test startup endpoint on dedicated health port
+        response = requests.get(f"{self.health_url}{self.health_path}/startup")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['status'], 'started')
@@ -103,7 +112,7 @@ class TestHealthCheckIntegration(unittest.TestCase):
         # This test requires a running client container
         # Run: docker run -d --name test-client vpn-sentinel/client:latest
 
-        script_path = "/home/alien/dev/VPNSentinel/vpn-sentinel-client/healthcheck.sh"
+        script_path = "../../vpn-sentinel-client/healthcheck.sh"
 
         # Test health check script directly
         result = subprocess.run([script_path], capture_output=True, text=True)
@@ -143,7 +152,8 @@ class TestHealthCheckIntegration(unittest.TestCase):
         # Should contain HEALTHCHECK instruction
         self.assertIn('HEALTHCHECK', content)
         self.assertIn('curl', content)
-        self.assertIn('/api/v1/health', content)
+        self.assertIn('8081', content)  # Health port instead of API port
+        self.assertIn('/health', content)  # Health path
 
         # Should have proper timing parameters
         self.assertIn('--interval=', content)
@@ -198,10 +208,10 @@ class TestHealthCheckIntegration(unittest.TestCase):
         with open(server_file, 'r') as f:
             content = f.read()
 
-        # Should document all health endpoints
-        self.assertIn('@api_app.route(f\'{API_PATH}/health\'', content)
-        self.assertIn('@api_app.route(f\'{API_PATH}/health/ready\'', content)
-        self.assertIn('@api_app.route(f\'{API_PATH}/health/startup\'', content)
+        # Should document all health endpoints on health_app
+        self.assertIn("@health_app.route(f'{HEALTH_PATH}', methods=['GET'])", content)
+        self.assertIn("@health_app.route(f'{HEALTH_PATH}/ready', methods=['GET'])", content)
+        self.assertIn("@health_app.route(f'{HEALTH_PATH}/startup', methods=['GET'])", content)
 
         # Should have docstrings
         self.assertIn('def health(', content)
