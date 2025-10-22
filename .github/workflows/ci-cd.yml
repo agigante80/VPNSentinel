@@ -123,6 +123,8 @@ jobs:
         run: |
           cd tests
           export VPN_SENTINEL_URL=http://localhost:5000
+          export VPN_SENTINEL_API_PATH=/test/v1
+          export VPN_SENTINEL_API_KEY=test-api-key-abcdef123456789
           python -m pytest integration/ -v
       - name: Get server logs on failure
         if: failure()

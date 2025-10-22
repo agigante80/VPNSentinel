@@ -26,7 +26,7 @@ class TestServerClientIntegration(unittest.TestCase):
         """Set up test environment for integration tests"""
         cls.server_url = os.getenv("VPN_SENTINEL_URL", "http://localhost:5000")
         cls.health_url = os.getenv("VPN_SENTINEL_HEALTH_URL", "http://localhost:8081")
-        cls.api_path = "/api/v1"  # Use default API path instead of test path
+        cls.api_path = os.getenv("VPN_SENTINEL_API_PATH", "/api/v1")  # Use environment variable
         cls.health_path = "/health"
         cls.dashboard_url = "http://localhost:5001"
         cls.api_key = os.getenv("VPN_SENTINEL_API_KEY", "test-api-key-abcdef123456789")
@@ -97,7 +97,7 @@ class TestServerClientIntegration(unittest.TestCase):
                 self.assertEqual(response.status_code, 401)
             else:
                 # Authentication is optional - should succeed
-                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.status_code, 401)
             
         except requests.ConnectionError:
             self.skipTest("Server not running for integration tests")
@@ -119,13 +119,8 @@ class TestServerClientIntegration(unittest.TestCase):
                 timeout=10
             )
             
-            # If API key is configured, should return 401 Unauthorized for wrong key
-            # If no API key is configured, should return 200 OK (authentication optional)
-            if self.api_key and self.api_key != "test-api-key-abcdef123456789":
-                self.assertEqual(response.status_code, 401)
-            else:
-                # Authentication is optional - should succeed
-                self.assertEqual(response.status_code, 200)
+            # Since API key is configured in test environment, no auth should return 401
+            self.assertEqual(response.status_code, 401)
             
         except requests.ConnectionError:
             self.skipTest("Server not running for integration tests")
@@ -312,7 +307,7 @@ class TestEndToEndWorkflow(unittest.TestCase):
         """Set up for E2E tests"""
         self.server_url = "http://localhost:5000"
         self.health_url = "http://localhost:8081"
-        self.api_path = "/api/v1"  # Use default API path instead of test path
+        self.api_path = os.getenv("VPN_SENTINEL_API_PATH", "/api/v1")  # Use environment variable
         self.health_path = "/health"
         self.api_key = "test-api-key-abcdef123456789"  # Match test environment API key
         
