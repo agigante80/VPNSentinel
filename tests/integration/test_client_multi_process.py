@@ -389,8 +389,8 @@ class TestClientMultiProcessIntegration(unittest.TestCase):
             # Client should still be running
             self.assertIsNone(self.client_process.poll())
 
-            # Check that no health monitor process is running
-            result = subprocess.run(['pgrep', '-f', 'health-monitor.sh'],
+            # Check that no health monitor process is running for this user
+            result = subprocess.run(['pgrep', '-u', str(os.getuid()), '-f', 'health-monitor.sh'],
                                   capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)  # Should not find health monitor
 

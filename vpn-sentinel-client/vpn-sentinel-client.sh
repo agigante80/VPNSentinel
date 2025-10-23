@@ -65,8 +65,8 @@
 #   - VPN_SENTINEL_GEOLOCATION_SERVICE: Force specific geolocation service (default: auto)
 #     Options: 'auto', 'ipinfo.io', 'ip-api.com'
 #     'auto' tries ipinfo.io first, falls back to ip-api.com if needed
-#   - VPN_SENTINEL_HEALTH_MONITOR: Enable dedicated health monitoring process (default: false)
-#     Set to 'true' to run health-monitor.sh as background process
+#   - VPN_SENTINEL_HEALTH_MONITOR: Enable dedicated health monitoring process (default: true)
+#     Set to 'false' to disable health-monitor.sh background process
 #   - VPN_SENTINEL_HEALTH_PORT: Port for dedicated health monitor (default: 8082)
 #     Only used when VPN_SENTINEL_HEALTH_MONITOR=true
 #
@@ -256,10 +256,10 @@ fi
 
 # Health Monitor Configuration
 # Enable/disable dedicated health monitoring process
-VPN_SENTINEL_HEALTH_MONITOR="${VPN_SENTINEL_HEALTH_MONITOR:-false}"
+VPN_SENTINEL_HEALTH_MONITOR="${VPN_SENTINEL_HEALTH_MONITOR:-true}"
 VPN_SENTINEL_HEALTH_PORT="${VPN_SENTINEL_HEALTH_PORT:-8082}"
 
-if [ "$VPN_SENTINEL_HEALTH_MONITOR" = "true" ]; then
+if [ "$VPN_SENTINEL_HEALTH_MONITOR" != "false" ]; then
     log_info "config" "🏥 Health monitor enabled on port: $VPN_SENTINEL_HEALTH_PORT"
 fi
 
@@ -687,7 +687,7 @@ log_info "client" "🔄 Starting continuous VPN monitoring loop..."
 # -----------------------------------------------------------------------------
 # Start dedicated health monitoring process if enabled
 # Runs independently from main monitoring loop for enhanced health reporting
-if [ "$VPN_SENTINEL_HEALTH_MONITOR" = "true" ]; then
+if [ "$VPN_SENTINEL_HEALTH_MONITOR" != "false" ]; then
     log_info "client" "🏥 Starting health monitor process..."
 
     # Check if health monitor script exists
