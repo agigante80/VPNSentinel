@@ -135,7 +135,7 @@ check_server_connectivity() {
 
     # Check server connectivity by testing if the server URL is reachable
     # Use a simple HEAD request to the base server URL
-    if curl -f -s --max-time 10 -I "$server_url" > /dev/null 2>&1; then
+    if curl -s --max-time 10 -I "$server_url" > /dev/null 2>&1; then
         echo "healthy"
         return 0
     else
@@ -316,7 +316,7 @@ def get_health_data():
             server_status = "not_configured"
             if server_url:
                 result = subprocess.run(
-                    ["curl", "-f", "-s", "--max-time", "10", "-I", server_url.rstrip("/")],
+                    ["curl", "-s", "--max-time", "10", "-I", server_url.rstrip("/")],
                     capture_output=True
                 )
                 server_status = "healthy" if result.returncode == 0 else "unreachable"

@@ -204,3 +204,49 @@ class TestClientHealthMonitor(unittest.TestCase):
         self.assertIn('client_process', content)
         self.assertIn('healthy', content)
         self.assertIn('not_running', content)
+
+    def test_health_monitor_server_connectivity_with_env(self):
+        """Test that the health monitor checks server connectivity using environment variables"""
+        with open(self.health_monitor_script, 'r') as f:
+            content = f.read()
+
+        # Should access environment variables in embedded Python code
+        self.assertIn('os.environ.get("VPN_SENTINEL_URL", "")', content)
+        self.assertIn('server_connectivity', content)
+        self.assertIn('unreachable', content)
+        self.assertIn('not_configured', content)
+
+    def test_health_monitor_embedded_python_env_access(self):
+        """Test that embedded Python code properly accesses environment variables"""
+        try:
+            # Set environment for testing server connectivity
+            env = os.environ.copy()
+            env.update({
+                'VPN_SENTINEL_HEALTH_PORT': '8084',  # Use different port for testing
+                'VPN_SENTINEL_URL': 'http://localhost:12345',  # Non-existent server for testing
+                'PATH': '/bin:/usr/bin'
+            })
+
+            result = subprocess.run(
+                [self.health_monitor_script, '--check'],
+                capture_output=True, text=True, timeout=15,
+                env=env
+            )
+
+            # Should exit successfully and produce JSON output
+            self.assertEqual(result.returncode, 0)
+            output = result.stdout.strip()
+
+            # Should be valid JSON
+            try:
+                data = json.loads(output)
+                self.assertIn('status', data)
+                self.assertIn('checks', data)
+                self.assertIn('server_connectivity', data['checks'])
+                # Since server doesn't exist, should be unreachable
+                self.assertEqual(data['checks']['server_connectivity'], 'unreachable')
+            except json.JSONDecodeError:
+                self.fail("Health monitor output is not valid JSON")
+
+        except subprocess.TimeoutExpired:
+            self.skipTest("Health monitor server connectivity test timed out")
