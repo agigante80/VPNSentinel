@@ -22,6 +22,8 @@ services:
     container_name: vpn-sentinel-client
     volumes:
       - ./certs:/certs:ro
+    ports:
+      - "18082:8082"  # Health monitor port
     environment:
       - VPN_SENTINEL_URL=http://vpn-sentinel-server:5000
       - VPN_SENTINEL_API_PATH=/api/v1
@@ -31,6 +33,8 @@ services:
       - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH}
       - VPN_SENTINEL_DEBUG=${VPN_SENTINEL_DEBUG:-false}
       - VPN_SENTINEL_GEOLOCATION_SERVICE=${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}
+      - VPN_SENTINEL_HEALTH_MONITOR=true
+      - VPN_SENTINEL_HEALTH_PORT=8082
     # network_mode: service:vpn-client  # Removed for no-VPN mode
     restart: always
     # depends_on:
