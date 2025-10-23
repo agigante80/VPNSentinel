@@ -135,14 +135,13 @@ check_server_connectivity() {
 
     # Check server connectivity by testing if the server URL is reachable
     # Use a simple HEAD request to the base server URL
-    cmd="curl -f -s --max-time 10 -I $server_url"
-
-    try {
-        result = subprocess.run(cmd, capture_output=True)
-        return "healthy" if result.returncode == 0 else "unreachable"
-    } catch {
-        return "unknown"
-    }
+    if curl -f -s --max-time 10 -I "$server_url" > /dev/null 2>&1; then
+        echo "healthy"
+        return 0
+    else
+        echo "unreachable"
+        return 1
+    fi
 }
 
 check_dns_leak_detection() {
@@ -527,45 +526,123 @@ main() {
 }
 
 # -----------------------------------------------------------------------------
-# Script Entry Point
+# Command Line Argument Parsing
 # -----------------------------------------------------------------------------
-if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    cat << 'HELP_EOF'
+# Parse command line arguments for testing and help
+SHOW_HELP=false
+SINGLE_CHECK=false
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        --help|-h)
+            SHOW_HELP=true
+            shift
+            ;;
+        --check|-c)
+            SINGLE_CHECK=true
+            shift
+            ;;
+        --port|-p)
+            if [ $# -gt 1 ]; then
+                HEALTH_PORT="$2"
+                shift 2
+            else
+                echo "Error: --port requires a value" >&2
+                exit 2
+            fi
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            echo "Use --help for usage information" >&2
+            exit 2
+            ;;
+    esac
+done
+
+# Show help if requested
+if [ "$SHOW_HELP" = true ]; then
+    cat << EOF
 VPN Sentinel Client Health Monitor
 
+A dedicated health monitoring process for VPN Sentinel Client that runs
+independently from the main VPN monitoring script.
+
 USAGE:
-  ./health-monitor.sh [OPTIONS]
+    $0 [OPTIONS]
 
 OPTIONS:
-  --help, -h          Show this help message
-  --port PORT         Health monitor port (default: 8082)
-  --check             Run single health check and exit
+    --help, -h          Show this help message
+    --check, -c         Perform a single health check and exit
+    --port, -p PORT     Health monitor port (default: 8082)
 
 ENVIRONMENT VARIABLES:
-  VPN_SENTINEL_HEALTH_PORT    Health monitor port (default: 8082)
-  VPN_SENTINEL_URL           Server URL for connectivity checks
-  VPN_SENTINEL_API_PATH      API path prefix (default: /api/v1)
-  VPN_SENTINEL_API_KEY       API key for server authentication
+    VPN_SENTINEL_HEALTH_PORT    Health monitor port (default: 8082)
+    VPN_SENTINEL_URL           Server URL for connectivity checks
+    VPN_SENTINEL_API_PATH      API path prefix (default: /api/v1)
+    VPN_SENTINEL_API_KEY       API key for server authentication
+    TZ                         Timezone for timestamps (default: UTC)
 
 EXAMPLES:
-  ./health-monitor.sh                    # Start health monitor
-  ./health-monitor.sh --check           # Run single check
-  VPN_SENTINEL_HEALTH_PORT=9090 ./health-monitor.sh
+    $0 --help
+    $0 --check
+    $0 --port 8083
 
-HEALTH ENDPOINTS:
-  GET /health         Comprehensive health check
-  GET /health/ready   Readiness check
-  GET /health/startup Startup check
-
-HELP_EOF
+EOF
     exit 0
 fi
 
-if [ "${1:-}" = "--check" ]; then
-    # Run single health check
-    generate_health_status
-    exit $?
+# Perform single check if requested
+if [ "$SINGLE_CHECK" = true ]; then
+    # Run health checks and output JSON
+    client_status=$(check_client_process)
+    network_status=$(check_network_connectivity)
+    server_status=$(check_server_connectivity)
+    
+    # Determine overall status
+    overall_status="healthy"
+    issues=""
+    
+    if [ "$client_status" != "healthy" ]; then
+        overall_status="unhealthy"
+        issues="$issues\"client_process_not_running\","
+    fi
+    
+    if [ "$network_status" != "healthy" ]; then
+        overall_status="unhealthy"
+        issues="$issues\"network_unreachable\","
+    fi
+    
+    if [ "$server_status" = "unreachable" ]; then
+        overall_status="degraded"
+        issues="$issues\"server_unreachable\","
+    fi
+    
+    # Remove trailing comma and format as JSON array
+    issues=$(echo "$issues" | sed 's/,$//')
+    if [ -z "$issues" ]; then
+        issues="[]"
+    else
+        issues="[$issues]"
+    fi
+    
+    # Output JSON
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    cat << EOF
+{
+  "status": "$overall_status",
+  "timestamp": "$timestamp",
+  "checks": {
+    "client_process": "$client_status",
+    "network_connectivity": "$network_status",
+    "server_connectivity": "$server_status"
+  },
+  "issues": $issues
+}
+EOF
+    exit 0
 fi
 
+# -----------------------------------------------------------------------------
 # Start health monitor
+# -----------------------------------------------------------------------------
 main "$@"
