@@ -126,34 +126,23 @@ check_network_connectivity() {
 
 check_server_connectivity() {
     # Check connectivity to VPN Sentinel server
-    if [ -z "$SERVER_URL" ]; then
+    server_url="${SERVER_URL}"
+
+    if [ -z "$server_url" ]; then
         echo "not_configured"
         return 0
     fi
 
-    # Check server connectivity by testing the keepalive endpoint (what the client actually uses)
-    keepalive_url="${SERVER_URL}${API_PATH}/keepalive"
-    cmd="curl -f -s --max-time 10"
+    # Check server connectivity by testing if the server URL is reachable
+    # Use a simple HEAD request to the base server URL
+    cmd="curl -f -s --max-time 10 -I $server_url"
 
-    # Add API key if configured
-    if [ -n "$API_KEY" ]; then
-        cmd="$cmd -H 'Authorization: Bearer $API_KEY'"
-    fi
-
-    # For connectivity check, we don't need to send actual data, just test if endpoint responds
-    # Use HEAD request or GET with minimal data
-    cmd="curl -f -s --max-time 10 -X HEAD $keepalive_url"
-    if [ -n "$API_KEY" ]; then
-        cmd="$cmd -H 'Authorization: Bearer $API_KEY'"
-    fi
-
-    if eval "$cmd" > /dev/null 2>&1; then
-        echo "healthy"
-        return 0
-    else
-        echo "unreachable"
-        return 1
-    fi
+    try {
+        result = subprocess.run(cmd, capture_output=True)
+        return "healthy" if result.returncode == 0 else "unreachable"
+    } catch {
+        return "unknown"
+    }
 }
 
 check_dns_leak_detection() {
@@ -341,24 +330,13 @@ def check_network_connectivity():
 
 def check_server_connectivity():
     server_url = os.environ.get("VPN_SENTINEL_URL", "")
-    api_path = os.environ.get("VPN_SENTINEL_API_PATH", "/api/v1")
-    api_key = os.environ.get("VPN_SENTINEL_API_KEY", "")
-
+    
     if not server_url:
         return "not_configured"
 
-    # Check server connectivity by testing the keepalive endpoint (what the client actually uses)
-    keepalive_url = f"{server_url}{api_path}/keepalive"
-    cmd = ["curl", "-f", "-s", "--max-time", "10", keepalive_url]
-
-    if api_key:
-        cmd.extend(["-H", f"Authorization: Bearer {api_key}"])
-
-    # For connectivity check, we don't need to send actual data, just test if endpoint responds
-    # Use HEAD request or GET with minimal data
-    cmd = ["curl", "-f", "-s", "--max-time", "10", "-X", "HEAD", keepalive_url]
-    if api_key:
-        cmd.extend(["-H", f"Authorization: Bearer {api_key}"])
+    # Check server connectivity by testing if the server URL is reachable
+    # Use a simple HEAD request to the base server URL
+    cmd = ["curl", "-f", "-s", "--max-time", "10", "-I", server_url.rstrip("/")]
 
     try:
         result = subprocess.run(cmd, capture_output=True)
