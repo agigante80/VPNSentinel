@@ -137,6 +137,11 @@ run_integration_tests() {
         
         cd "$TEST_DIR"
         
+        # Set environment variables for integration tests (matching CI/CD workflow)
+        export VPN_SENTINEL_URL=http://localhost:5000
+        export VPN_SENTINEL_API_PATH=/test/v1
+        export VPN_SENTINEL_API_KEY=test-api-key-abcdef123456789
+        
         if command -v pytest &> /dev/null; then
             pytest integration/ -v --tb=short
         else
