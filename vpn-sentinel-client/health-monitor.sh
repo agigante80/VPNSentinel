@@ -131,15 +131,23 @@ check_server_connectivity() {
         return 0
     fi
 
-    local health_url="${SERVER_URL}${API_PATH}/health"
-    local curl_cmd="curl -f -s --max-time 10"
+    # Check server connectivity by testing the keepalive endpoint (what the client actually uses)
+    keepalive_url="${SERVER_URL}${API_PATH}/keepalive"
+    cmd="curl -f -s --max-time 10"
 
     # Add API key if configured
     if [ -n "$API_KEY" ]; then
-        curl_cmd="$curl_cmd -H 'Authorization: Bearer $API_KEY'"
+        cmd="$cmd -H 'Authorization: Bearer $API_KEY'"
     fi
 
-    if $curl_cmd "$health_url" > /dev/null 2>&1; then
+    # For connectivity check, we don't need to send actual data, just test if endpoint responds
+    # Use HEAD request or GET with minimal data
+    cmd="curl -f -s --max-time 10 -X HEAD $keepalive_url"
+    if [ -n "$API_KEY" ]; then
+        cmd="$cmd -H 'Authorization: Bearer $API_KEY'"
+    fi
+
+    if eval "$cmd" > /dev/null 2>&1; then
         echo "healthy"
         return 0
     else
@@ -339,9 +347,16 @@ def check_server_connectivity():
     if not server_url:
         return "not_configured"
 
-    health_url = f"{server_url}{api_path}/health"
-    cmd = ["curl", "-f", "-s", "--max-time", "10", health_url]
+    # Check server connectivity by testing the keepalive endpoint (what the client actually uses)
+    keepalive_url = f"{server_url}{api_path}/keepalive"
+    cmd = ["curl", "-f", "-s", "--max-time", "10", keepalive_url]
 
+    if api_key:
+        cmd.extend(["-H", f"Authorization: Bearer {api_key}"])
+
+    # For connectivity check, we don't need to send actual data, just test if endpoint responds
+    # Use HEAD request or GET with minimal data
+    cmd = ["curl", "-f", "-s", "--max-time", "10", "-X", "HEAD", keepalive_url]
     if api_key:
         cmd.extend(["-H", f"Authorization: Bearer {api_key}"])
 
