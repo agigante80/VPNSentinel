@@ -301,137 +301,94 @@ def get_health_data():
 
     if current_time - last_update > CACHE_DURATION:
         try:
-            # Run shell health checks
-            result = subprocess.run(
-                [sys.executable, '-c', '''
-import subprocess
-import json
-import sys
-import os
+            # Run health checks using shell commands
+            client_status = subprocess.run(
+                ["sh", "-c", "if pgrep -f 'vpn-sentinel-client.sh' > /dev/null 2>&1; then echo 'healthy'; else echo 'not_running'; fi"],
+                capture_output=True, text=True
+            ).stdout.strip()
+            
+            network_status = subprocess.run(
+                ["sh", "-c", "if curl -f -s --max-time 5 'https://1.1.1.1/cdn-cgi/trace' > /dev/null 2>&1; then echo 'healthy'; else echo 'unreachable'; fi"],
+                capture_output=True, text=True
+            ).stdout.strip()
+            
+            server_url = os.environ.get("VPN_SENTINEL_URL", "")
+            server_status = "not_configured"
+            if server_url:
+                result = subprocess.run(
+                    ["curl", "-f", "-s", "--max-time", "10", "-I", server_url.rstrip("/")],
+                    capture_output=True
+                )
+                server_status = "healthy" if result.returncode == 0 else "unreachable"
+            
+            # Get system info
+            memory_percent = "unknown"
+            disk_percent = "unknown"
+            
+            try:
+                with open("/proc/meminfo", "r") as f:
+                    mem_total = None
+                    mem_available = None
+                    for line in f:
+                        if line.startswith("MemTotal:"):
+                            mem_total = int(line.split()[1])
+                        elif line.startswith("MemAvailable:"):
+                            mem_available = int(line.split()[1])
+                    if mem_total and mem_available:
+                        memory_percent = "{:.1f}".format((1 - mem_available/mem_total) * 100)
+            except:
+                pass
 
-def check_client_process():
-    try:
-        result = subprocess.run(["pgrep", "-f", "vpn-sentinel-client.sh"],
-                              capture_output=True, text=True)
-        return "healthy" if result.returncode == 0 else "not_running"
-    except:
-        return "unknown"
+            try:
+                result = subprocess.run(["df", "/"], capture_output=True, text=True)
+                if result.returncode == 0:
+                    lines = result.stdout.strip().split('\n')
+                    if len(lines) > 1:
+                        disk_percent = lines[1].split()[4].rstrip('%')
+            except:
+                pass
 
-def check_network_connectivity():
-    try:
-        result = subprocess.run([
-            "curl", "-f", "-s", "--max-time", "5",
-            "https://1.1.1.1/cdn-cgi/trace"
-        ], capture_output=True)
-        return "healthy" if result.returncode == 0 else "unreachable"
-    except:
-        return "unknown"
+            # Determine overall status
+            overall_status = "healthy"
+            issues = []
 
-def check_server_connectivity():
-    server_url = os.environ.get("VPN_SENTINEL_URL", "")
-    
-    if not server_url:
-        return "not_configured"
+            if client_status != "healthy":
+                overall_status = "unhealthy"
+                issues.append("client_process_not_running")
 
-    # Check server connectivity by testing if the server URL is reachable
-    # Use a simple HEAD request to the base server URL
-    cmd = ["curl", "-f", "-s", "--max-time", "10", "-I", server_url.rstrip("/")]
+            if network_status != "healthy":
+                overall_status = "unhealthy"
+                issues.append("network_unreachable")
 
-    try:
-        result = subprocess.run(cmd, capture_output=True)
-        return "healthy" if result.returncode == 0 else "unreachable"
-    except:
-        return "unknown"
+            if server_status == "unreachable":
+                overall_status = "degraded"
+                issues.append("server_unreachable")
 
-def get_system_info():
-    memory_percent = "unknown"
-    disk_percent = "unknown"
-
-    try:
-        with open("/proc/meminfo", "r") as f:
-            mem_total = None
-            mem_available = None
-            for line in f:
-                if line.startswith("MemTotal:"):
-                    mem_total = int(line.split()[1])
-                elif line.startswith("MemAvailable:"):
-                    mem_available = int(line.split()[1])
-            if mem_total and mem_available:
-                memory_percent = f"{(1 - mem_available/mem_total) * 100:.1f}"
-    except:
-        pass
-
-    try:
-        result = subprocess.run(["df", "/"], capture_output=True, text=True)
-        if result.returncode == 0:
-            lines = result.stdout.strip().split('\n')
-            if len(lines) > 1:
-                disk_percent = lines[1].split()[4].rstrip('%')
-    except:
-        pass
-
-    return {"memory_percent": memory_percent, "disk_percent": disk_percent}
-
-# Generate health status
-client_status = check_client_process()
-network_status = check_network_connectivity()
-server_status = check_server_connectivity()
-system_info = get_system_info()
-
-overall_status = "healthy"
-issues = []
-
-if client_status != "healthy":
-    overall_status = "unhealthy"
-    issues.append("client_process_not_running")
-
-if network_status != "healthy":
-    overall_status = "unhealthy"
-    issues.append("network_unreachable")
-
-if server_status == "unreachable":
-    overall_status = "degraded"
-    issues.append("server_unreachable")
-
-health_data = {
-    "status": overall_status,
-    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-    "checks": {
-        "client_process": client_status,
-        "network_connectivity": network_status,
-        "server_connectivity": server_status,
-        "dns_leak_detection": "healthy"  # Simplified for health monitor
-    },
-    "system": system_info,
-    "issues": issues
-}
-
-print(json.dumps(health_data))
-                '''],
-                capture_output=True, text=True, timeout=15
-            )
-
-            if result.returncode == 0:
-                health_data = json.loads(result.stdout)
-                last_update = current_time
-            else:
-                health_data = {
-                    "status": "error",
-                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                    "error": "Health check failed",
-                    "checks": {},
-                    "system": {},
-                    "issues": ["health_check_error"]
-                }
-
+            health_data = {
+                "status": overall_status,
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "checks": {
+                    "client_process": client_status,
+                    "network_connectivity": network_status,
+                    "server_connectivity": server_status
+                },
+                "system": {
+                    "memory_percent": memory_percent,
+                    "disk_percent": disk_percent
+                },
+                "issues": issues
+            }
+            
+            last_update = current_time
+            
         except Exception as e:
             health_data = {
                 "status": "error",
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "error": str(e),
+                "error": "Health check failed",
                 "checks": {},
                 "system": {},
-                "issues": ["health_check_exception"]
+                "issues": ["health_check_error"]
             }
 
     return health_data
