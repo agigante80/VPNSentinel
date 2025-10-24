@@ -146,36 +146,36 @@
 #   $3: Message text
 # Output: [TIMESTAMP] LEVEL [COMPONENT] MESSAGE
 log_message() {
-    local level="$1"
-    local component="$2"
-    local message="$3"
-    local timestamp
-    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    echo "${timestamp} ${level} [${component}] ${message}"
+  local level="$1"
+  local component="$2"
+  local message="$3"
+  local timestamp
+  timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  echo "${timestamp} ${level} [${component}] ${message}"
 }
 
 # log_info: Log informational messages for normal operations
 # Parameters: $1=component, $2=message
 log_info() {
-    log_message "INFO" "$1" "$2"
+  log_message "INFO" "$1" "$2"
 }
 
 # log_error: Log error conditions that may require attention
 # Parameters: $1=component, $2=message
 log_error() {
-    log_message "ERROR" "$1" "$2"
+  log_message "ERROR" "$1" "$2"
 }
 
 # Graceful shutdown handling: ensure background health monitor is stopped
 # and the script exits cleanly on SIGINT/SIGTERM
 graceful_shutdown() {
-    log_info "client" "🛑 Received shutdown signal, stopping..."
-    if [ -n "${HEALTH_MONITOR_PID:-}" ]; then
-        log_info "client" "Stopping health monitor (PID: $HEALTH_MONITOR_PID)"
-        kill "$HEALTH_MONITOR_PID" 2>/dev/null || true
-        wait "$HEALTH_MONITOR_PID" 2>/dev/null || true
-    fi
-    exit 0
+  log_info "client" "🛑 Received shutdown signal, stopping..."
+  if [ -n "${HEALTH_MONITOR_PID:-}" ]; then
+    log_info "client" "Stopping health monitor (PID: $HEALTH_MONITOR_PID)"
+    kill "$HEALTH_MONITOR_PID" 2>/dev/null || true
+    wait "$HEALTH_MONITOR_PID" 2>/dev/null || true
+  fi
+  exit 0
 }
 
 trap 'graceful_shutdown' INT TERM
@@ -183,7 +183,7 @@ trap 'graceful_shutdown' INT TERM
 # log_warn: Log warning conditions that don't stop operation but need monitoring
 # Parameters: $1=component, $2=message
 log_warn() {
-    log_message "WARN" "$1" "$2"
+  log_message "WARN" "$1" "$2"
 }
 
 # -----------------------------------------------------------------------------
@@ -199,26 +199,26 @@ log_warn() {
 
 # Version information
 if [ -n "$VERSION" ]; then
-    # Use version from build arg if available
-    : # version provided by build arg
+  # Use version from build arg if available
+  : # version provided by build arg
 else
-    # Fallback for local development
-    if [ -n "$COMMIT_HASH" ]; then
-        VERSION="1.0.0-dev-$COMMIT_HASH"
-    else
-        VERSION="1.0.0-dev"
-    fi
+  # Fallback for local development
+  if [ -n "$COMMIT_HASH" ]; then
+    VERSION="1.0.0-dev-$COMMIT_HASH"
+  else
+    VERSION="1.0.0-dev"
+  fi
 fi
 
 # API Endpoint Configuration
 # Constructs the complete monitoring server URL from base URL and API path
 API_BASE_URL="${VPN_SENTINEL_URL:-http://your-server-url:5000}"
 API_PATH="${VPN_SENTINEL_API_PATH:-/api/v1}"
-SERVER_URL="${API_BASE_URL}${API_PATH}"                         # Complete monitoring server endpoint
+SERVER_URL="${API_BASE_URL}${API_PATH}" # Complete monitoring server endpoint
 if echo "$API_BASE_URL" | grep -q '^https://'; then
-    export IS_HTTPS="true"
+  export IS_HTTPS="true"
 else
-    export IS_HTTPS="false"
+  export IS_HTTPS="false"
 fi
 
 # Client Identifier Generation and Validation
@@ -226,41 +226,41 @@ fi
 # Format: kebab-case (lowercase letters, numbers, dashes only)
 # If not provided, generates random 12-digit identifier for uniqueness
 if [ -z "${VPN_SENTINEL_CLIENT_ID}" ]; then
-    # Generate random 12-digit identifier using timestamp and random components
-    TIMESTAMP_PART=$(date +%s | tail -c 7)  # Last 6 digits of timestamp
-    # Try different methods for random numbers, fallback to hostname-based if needed
-    if command -v shuf >/dev/null 2>&1; then
-        RANDOM_PART=$(shuf -i 100000-999999 -n 1)
-    elif [ -r /dev/urandom ]; then
-        # POSIX-safe random number from /dev/urandom
-        RANDOM_PART=$(od -An -N3 -tu1 /dev/urandom | tr -d ' ' | head -c 6)
-        # Ensure we have 6 digits; pad if necessary
-        RANDOM_PART=$(printf "%06s" "$RANDOM_PART" | tr ' ' '0')
-    else
-        # Fallback: use hostname hash
-        RANDOM_PART=$(hostname | od -An -N3 -tu1 | tr -d ' ' | head -c 6)
-    fi
-    CLIENT_ID="vpn-client-${TIMESTAMP_PART}${RANDOM_PART}"
-    log_info "config" "🎲 Generated random client ID: $CLIENT_ID"
+  # Generate random 12-digit identifier using timestamp and random components
+  TIMESTAMP_PART=$(date +%s | tail -c 7) # Last 6 digits of timestamp
+  # Try different methods for random numbers, fallback to hostname-based if needed
+  if command -v shuf >/dev/null 2>&1; then
+    RANDOM_PART=$(shuf -i 100000-999999 -n 1)
+  elif [ -r /dev/urandom ]; then
+    # POSIX-safe random number from /dev/urandom
+    RANDOM_PART=$(od -An -N3 -tu1 /dev/urandom | tr -d ' ' | head -c 6)
+    # Ensure we have 6 digits; pad if necessary
+    RANDOM_PART=$(printf "%06s" "$RANDOM_PART" | tr ' ' '0')
+  else
+    # Fallback: use hostname hash
+    RANDOM_PART=$(hostname | od -An -N3 -tu1 | tr -d ' ' | head -c 6)
+  fi
+  CLIENT_ID="vpn-client-${TIMESTAMP_PART}${RANDOM_PART}"
+  log_info "config" "🎲 Generated random client ID: $CLIENT_ID"
 else
-    # Validate and sanitize CLIENT_ID to prevent JSON injection
-    # Remove any characters that aren't lowercase letters, numbers, or dashes
-    if echo "$VPN_SENTINEL_CLIENT_ID" | grep -q '[^a-z0-9-]'; then
-        log_warn "config" "⚠️ CLIENT_ID contains invalid characters, sanitizing: $VPN_SENTINEL_CLIENT_ID"
-        # Sanitize by removing invalid characters and replacing spaces with dashes
-        CLIENT_ID=$(echo "$VPN_SENTINEL_CLIENT_ID" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-//' | sed 's/-$//')
-        if [ -z "$CLIENT_ID" ]; then
-            CLIENT_ID="sanitized-client"
-        fi
-        log_info "config" "✅ Sanitized CLIENT_ID: $CLIENT_ID"
-    else
-        CLIENT_ID="${VPN_SENTINEL_CLIENT_ID}"
+  # Validate and sanitize CLIENT_ID to prevent JSON injection
+  # Remove any characters that aren't lowercase letters, numbers, or dashes
+  if echo "$VPN_SENTINEL_CLIENT_ID" | grep -q '[^a-z0-9-]'; then
+    log_warn "config" "⚠️ CLIENT_ID contains invalid characters, sanitizing: $VPN_SENTINEL_CLIENT_ID"
+    # Sanitize by removing invalid characters and replacing spaces with dashes
+    CLIENT_ID=$(echo "$VPN_SENTINEL_CLIENT_ID" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-//' | sed 's/-$//')
+    if [ -z "$CLIENT_ID" ]; then
+      CLIENT_ID="sanitized-client"
     fi
+    log_info "config" "✅ Sanitized CLIENT_ID: $CLIENT_ID"
+  else
+    CLIENT_ID="${VPN_SENTINEL_CLIENT_ID}"
+  fi
 fi
 
 # Timing Configuration
-TIMEOUT=30                                              # HTTP request timeout in seconds
-INTERVAL=300                                            # Keepalive interval: 5 minutes (300 seconds)
+TIMEOUT=30   # HTTP request timeout in seconds
+INTERVAL=300 # Keepalive interval: 5 minutes (300 seconds)
 
 # Startup Information Display
 log_info "client" "🚀 Starting VPN Keepalive Client"
@@ -272,8 +272,8 @@ log_info "config" "⏱️ Interval: ${INTERVAL}s (5 minutes)"
 # Timezone Configuration
 # Configure local timezone for accurate timestamp formatting
 if [ -n "$TZ" ]; then
-    export TZ="$TZ"
-    log_info "config" "🌍 Timezone set to: $TZ"
+  export TZ="$TZ"
+  log_info "config" "🌍 Timezone set to: $TZ"
 fi
 
 # Health Monitor Configuration
@@ -282,7 +282,7 @@ VPN_SENTINEL_HEALTH_MONITOR="${VPN_SENTINEL_HEALTH_MONITOR:-true}"
 VPN_SENTINEL_HEALTH_PORT="${VPN_SENTINEL_HEALTH_PORT:-8082}"
 
 if [ "$VPN_SENTINEL_HEALTH_MONITOR" != "false" ]; then
-    log_info "config" "🏥 Health monitor enabled on port: $VPN_SENTINEL_HEALTH_PORT"
+  log_info "config" "🏥 Health monitor enabled on port: $VPN_SENTINEL_HEALTH_PORT"
 fi
 
 # TLS Certificate Configuration
@@ -290,36 +290,36 @@ fi
 # If set, uses the specified certificate; otherwise trusts self-signed certificates
 TLS_CERT_PATH="${VPN_SENTINEL_TLS_CERT_PATH:-}"
 if [ -n "${TLS_CERT_PATH}" ]; then
-    if [ -f "${TLS_CERT_PATH}" ]; then
-        log_info "config" "🔒 Using custom TLS certificate: $TLS_CERT_PATH"
-        export CURL_CA_BUNDLE="${TLS_CERT_PATH}"
-    else
-        log_error "config" "❌ TLS certificate file not found: $TLS_CERT_PATH"
-        exit 1
-    fi
+  if [ -f "${TLS_CERT_PATH}" ]; then
+    log_info "config" "🔒 Using custom TLS certificate: $TLS_CERT_PATH"
+    export CURL_CA_BUNDLE="${TLS_CERT_PATH}"
+  else
+    log_error "config" "❌ TLS certificate file not found: $TLS_CERT_PATH"
+    exit 1
+  fi
 else
-    # Require explicit opt-in for insecure TLS behavior to avoid accidental
-    # trusting of self-signed certificates. Set VPN_SENTINEL_ALLOW_INSECURE=true
-    # to preserve the previous behavior (-k).
-    if [ "${VPN_SENTINEL_ALLOW_INSECURE:-false}" = "true" ]; then
-        export CURL_OPTS="${CURL_OPTS:-} -k"
-        log_warn "config" "⚠️ Insecure TLS mode enabled via VPN_SENTINEL_ALLOW_INSECURE=true; curl will not verify certificates"
-    else
-        # Preserve previous behavior for compatibility but log explicit guidance
-        export CURL_OPTS="${CURL_OPTS:-} -k"
-        log_warn "config" "⚠️ No TLS certificate provided. To explicitly allow insecure TLS set VPN_SENTINEL_ALLOW_INSECURE=true, or mount a CA at VPN_SENTINEL_TLS_CERT_PATH"
-    fi
+  # Require explicit opt-in for insecure TLS behavior to avoid accidental
+  # trusting of self-signed certificates. Set VPN_SENTINEL_ALLOW_INSECURE=true
+  # to preserve the previous behavior (-k).
+  if [ "${VPN_SENTINEL_ALLOW_INSECURE:-false}" = "true" ]; then
+    export CURL_OPTS="${CURL_OPTS:-} -k"
+    log_warn "config" "⚠️ Insecure TLS mode enabled via VPN_SENTINEL_ALLOW_INSECURE=true; curl will not verify certificates"
+  else
+    # Preserve previous behavior for compatibility but log explicit guidance
+    export CURL_OPTS="${CURL_OPTS:-} -k"
+    log_warn "config" "⚠️ No TLS certificate provided. To explicitly allow insecure TLS set VPN_SENTINEL_ALLOW_INSECURE=true, or mount a CA at VPN_SENTINEL_TLS_CERT_PATH"
+  fi
 fi
 
 # Debug Configuration
 # Enable verbose logging for troubleshooting API responses
 DEBUG="${VPN_SENTINEL_DEBUG:-false}"
 if [ "${DEBUG}" = "true" ]; then
-    log_info "config" "🐛 Debug mode enabled - API responses will be logged"
-    DEBUG_ENABLED=true
+  log_info "config" "🐛 Debug mode enabled - API responses will be logged"
+  DEBUG_ENABLED=true
 else
-    log_info "config" "ℹ️ Debug mode disabled"
-    DEBUG_ENABLED=false
+  log_info "config" "ℹ️ Debug mode disabled"
+  DEBUG_ENABLED=false
 fi
 export DEBUG_ENABLED
 
@@ -336,18 +336,18 @@ GEOLOCATION_SERVICE="${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}"
 # Returns:
 #   None (sets GEOLOCATION_SERVICE variable)
 validate_geolocation_service() {
-    local service="$1"
-    case "$service" in
-        auto|ipinfo.io|ip-api.com)
-            # Valid service
-            ;;
-        *)
-            log_error "config" "❌ Invalid VPN_SENTINEL_GEOLOCATION_SERVICE: $service"
-            log_info "config" "📋 Valid options: auto, ipinfo.io, ip-api.com"
-            log_info "config" "🔄 Defaulting to 'auto'"
-            GEOLOCATION_SERVICE="auto"
-            ;;
-    esac
+  local service="$1"
+  case "$service" in
+    auto | ipinfo.io | ip-api.com)
+      # Valid service
+      ;;
+    *)
+      log_error "config" "❌ Invalid VPN_SENTINEL_GEOLOCATION_SERVICE: $service"
+      log_info "config" "📋 Valid options: auto, ipinfo.io, ip-api.com"
+      log_info "config" "🔄 Defaulting to 'auto'"
+      GEOLOCATION_SERVICE="auto"
+      ;;
+  esac
 }
 
 # Validate the geolocation service
@@ -355,11 +355,11 @@ validate_geolocation_service "$GEOLOCATION_SERVICE"
 
 # Log the configured service
 if [ "$GEOLOCATION_SERVICE" = "ipinfo.io" ]; then
-    log_info "config" "🌐 Geolocation service: forced to ipinfo.io"
+  log_info "config" "🌐 Geolocation service: forced to ipinfo.io"
 elif [ "$GEOLOCATION_SERVICE" = "ip-api.com" ]; then
-    log_info "config" "🌐 Geolocation service: forced to ip-api.com"
+  log_info "config" "🌐 Geolocation service: forced to ip-api.com"
 else
-    log_info "config" "🌐 Geolocation service: auto (will try ipinfo.io first, fallback to ip-api.com)"
+  log_info "config" "🌐 Geolocation service: auto (will try ipinfo.io first, fallback to ip-api.com)"
 fi
 
 # -----------------------------------------------------------------------------
@@ -367,7 +367,7 @@ fi
 # -----------------------------------------------------------------------------
 # json_escape(): Safely escape strings for JSON inclusion
 # Prevents JSON injection attacks by properly escaping special characters
-# 
+#
 # Parameters:
 #   $1: String to escape
 # Returns:
@@ -376,8 +376,8 @@ fi
 # Security Note:
 #   Prevents injection attacks if external data contains quotes or backslashes
 json_escape() {
-    # Escape backslashes first, then quotes
-    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+  # Escape backslashes first, then quotes
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
 # sanitize_string(): Sanitize strings from external APIs to prevent JSON issues
@@ -391,8 +391,8 @@ json_escape() {
 # Security Note:
 #   Prevents JSON parsing failures from malformed external data
 sanitize_string() {
-    # Remove null bytes, control characters, and limit length
-    printf '%s' "$1" | tr -d '\000-\037' | head -c 100
+  # Remove null bytes, control characters, and limit length
+  printf '%s' "$1" | tr -d '\000-\037' | head -c 100
 }
 
 # -----------------------------------------------------------------------------
@@ -429,197 +429,197 @@ sanitize_string() {
 #   - TLS certificate validation when certificates are provided
 #
 send_keepalive() {
-    # Generate ISO 8601 timestamp with timezone offset for accurate reporting
-    TIMESTAMP=$(date +"%Y-%m-%dT%H:%M:%S%z")
+  # Generate ISO 8601 timestamp with timezone offset for accurate reporting
+  TIMESTAMP=$(date +"%Y-%m-%dT%H:%M:%S%z")
 
-    # -----------------------------------------------------------------------------
-    # VPN Information Gathering Section
-    # -----------------------------------------------------------------------------
-    # Query geolocation services for current public IP and comprehensive location data
-    # Uses multiple fallback services to ensure reliable location detection
-    # Primary: ipinfo.io, Fallback: ip-api.com, Final: empty defaults
-    log_info "vpn-info" "🔍 Gathering VPN information..."
-    
-    # Determine which geolocation service to use
-    if [ "$GEOLOCATION_SERVICE" = "ipinfo.io" ]; then
-        # Forced to use ipinfo.io
-        VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '')
-        GEOLOCATION_SOURCE="ipinfo.io"
-        if [ "$DEBUG" = "true" ]; then
-            log_info "vpn-info" "🔍 Raw VPN_INFO: $VPN_INFO"
-        fi
-    elif [ "$GEOLOCATION_SERVICE" = "ip-api.com" ]; then
-        # Forced to use ip-api.com
-        VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
-        GEOLOCATION_SOURCE="ip-api.com"
-        if [ "$DEBUG" = "true" ]; then
-            log_info "vpn-info" "🔍 Raw VPN_INFO: $VPN_INFO"
-        fi
-    else
-        # Auto mode: Try primary geolocation service (ipinfo.io)
-        VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '')
-        
-        # If primary service failed or returned empty, try fallback service (ip-api.com)
-        if [ -z "$VPN_INFO" ] || [ "$VPN_INFO" = "{}" ]; then
-            log_warn "vpn-info" "⚠️ Primary geolocation service (ipinfo.io) failed, trying fallback..."
-            VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
-            # Note: ip-api.com uses different field names, we'll handle this in parsing
-            GEOLOCATION_SOURCE="ip-api.com"
-        else
-            GEOLOCATION_SOURCE="ipinfo.io"
-        fi
-        
-        if [ "$DEBUG" = "true" ]; then
-            log_info "vpn-info" "🔍 Raw VPN_INFO: $VPN_INFO"
-        fi
+  # -----------------------------------------------------------------------------
+  # VPN Information Gathering Section
+  # -----------------------------------------------------------------------------
+  # Query geolocation services for current public IP and comprehensive location data
+  # Uses multiple fallback services to ensure reliable location detection
+  # Primary: ipinfo.io, Fallback: ip-api.com, Final: empty defaults
+  log_info "vpn-info" "🔍 Gathering VPN information..."
+
+  # Determine which geolocation service to use
+  if [ "$GEOLOCATION_SERVICE" = "ipinfo.io" ]; then
+    # Forced to use ipinfo.io
+    VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '')
+    GEOLOCATION_SOURCE="ipinfo.io"
+    if [ "$DEBUG" = "true" ]; then
+      log_info "vpn-info" "🔍 Raw VPN_INFO: $VPN_INFO"
     fi
-    
-    log_info "vpn-info" "📡 Using geolocation service: $GEOLOCATION_SOURCE"
-
-    # Parse JSON response using sed regex patterns (avoids jq dependency)
-    # Handles both ipinfo.io and ip-api.com response formats
-    # ipinfo.io format: "key": "value"
-    # ip-api.com format: "key": "value" (same structure)
-    
-    # Remove newlines and extra whitespace to make sed parsing work
-    VPN_INFO_CLEAN=$(echo "$VPN_INFO" | tr -d '\n' | sed 's/[[:space:]]\+/ /g')
-    
-    # Parse IP based on geolocation service (different field names)
-    if [ "$GEOLOCATION_SOURCE" = "ip-api.com" ]; then
-        PUBLIC_IP_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"query"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-    else
-        PUBLIC_IP_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"ip"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+  elif [ "$GEOLOCATION_SERVICE" = "ip-api.com" ]; then
+    # Forced to use ip-api.com
+    VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+    GEOLOCATION_SOURCE="ip-api.com"
+    if [ "$DEBUG" = "true" ]; then
+      log_info "vpn-info" "🔍 Raw VPN_INFO: $VPN_INFO"
     fi
-    PUBLIC_IP=$(sanitize_string "$PUBLIC_IP_RAW")
-    
-    # Handle different field names between services
-    if [ "$GEOLOCATION_SOURCE" = "ip-api.com" ]; then
-        COUNTRY_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"countryCode"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        CITY_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        REGION_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"regionName"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        ORG_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"isp"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        VPN_TIMEZONE_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        
-        COUNTRY=$(sanitize_string "$COUNTRY_RAW")
-        CITY=$(sanitize_string "$CITY_RAW")
-        REGION=$(sanitize_string "$REGION_RAW")
-        ORG=$(sanitize_string "$ORG_RAW")
-        VPN_TIMEZONE=$(sanitize_string "$VPN_TIMEZONE_RAW")
+  else
+    # Auto mode: Try primary geolocation service (ipinfo.io)
+    VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '')
+
+    # If primary service failed or returned empty, try fallback service (ip-api.com)
+    if [ -z "$VPN_INFO" ] || [ "$VPN_INFO" = "{}" ]; then
+      log_warn "vpn-info" "⚠️ Primary geolocation service (ipinfo.io) failed, trying fallback..."
+      VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+      # Note: ip-api.com uses different field names, we'll handle this in parsing
+      GEOLOCATION_SOURCE="ip-api.com"
     else
-        # ipinfo.io field names
-        COUNTRY_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"country"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        CITY_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        REGION_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"region"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        ORG_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"org"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        VPN_TIMEZONE_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        
-        COUNTRY=$(sanitize_string "$COUNTRY_RAW")
-        CITY=$(sanitize_string "$CITY_RAW")
-        REGION=$(sanitize_string "$REGION_RAW")
-        ORG=$(sanitize_string "$ORG_RAW")
-        VPN_TIMEZONE=$(sanitize_string "$VPN_TIMEZONE_RAW")
+      GEOLOCATION_SOURCE="ipinfo.io"
     fi
-    
-    # -----------------------------------------------------------------------------
-    # DNS Leak Detection Section
-    # -----------------------------------------------------------------------------
-    # Query Cloudflare's trace endpoint to determine DNS resolver location
-    # This critical test detects if DNS queries are leaking outside the VPN tunnel
-    #
-    # HOW DNS LEAK DETECTION WORKS:
-    # 1. VPN should route ALL traffic including DNS through encrypted tunnel
-    # 2. DNS resolver location should match VPN exit node location
-    # 3. If DNS location differs from VPN location, DNS is leaking
-    # 4. Leaks can expose browsing activity and bypass VPN privacy protection
-    #
-    # CLOUDFLARE TRACE ENDPOINT:
-    # - URL: https://1.1.1.1/cdn-cgi/trace
-    # - Returns: loc=COUNTRY_CODE, colo=DATACENTER_CODE
-    # - Example: loc=US, colo=LAX (Los Angeles, United States)
-    # - Fast, reliable, and doesn't require API keys
-    #
-    DNS_INFO=$(curl -s https://1.1.1.1/cdn-cgi/trace 2>/dev/null || echo '')
-    DNS_LOC_RAW=$(echo "$DNS_INFO" | grep '^loc=' | cut -d'=' -f2)
-    DNS_COLO_RAW=$(echo "$DNS_INFO" | grep '^colo=' | cut -d'=' -f2)
-    DNS_LOC=$(sanitize_string "$DNS_LOC_RAW")      # Country code where DNS resolved
-    DNS_COLO=$(sanitize_string "$DNS_COLO_RAW")    # Cloudflare data center identifier
 
-    # -----------------------------------------------------------------------------
-    # DNS Leak Testing Mode (Development/Testing Only)
-    # -----------------------------------------------------------------------------
-    # DEVELOPMENT TESTING INSTRUCTIONS:
-    # Uncomment the lines below to simulate a DNS leak for testing purposes
-    # This allows you to verify that the detection system and notifications work
-    #
-    # TESTING PROCEDURE:
-    # 1. Uncomment the three lines below
-    # 2. Restart the vpn-sentinel-client container: docker restart vpn-sentinel-client
-    # 3. Monitor logs and check Telegram notifications for DNS leak alerts
-    # 4. Verify that server correctly identifies and reports the simulated leak
-    # 5. Re-comment the lines to restore normal operation
-    #
-    # SIMULATION DETAILS:
-    # - Forces DNS_LOC to "US" (or any country code you specify)
-    # - Forces DNS_COLO to "LAX" (or any data center code)
-    # - Creates artificial mismatch between VPN and DNS locations
-    #
-    # DNS_LOC="US"    # Simulate US DNS leak (change to any country code)
-    # DNS_COLO="LAX"  # Simulate Los Angeles data center (change to any colo)
-    # echo "⚠️  TESTING MODE: Simulating DNS leak - DNS location forced to $DNS_LOC"
-    
-    # -----------------------------------------------------------------------------
-    # Data Validation and Fallback Section
-    # -----------------------------------------------------------------------------
-    # Ensure all variables have values to prevent JSON formatting issues
-    # Applies safe fallback values when external API calls fail or return empty data
-    #
-    # FALLBACK STRATEGY:
-    # - PUBLIC_IP: "unknown" (critical for IP change detection)
-    # - Location fields: "Unknown" (for display purposes)
-    # - DNS fields: "Unknown" (for leak detection analysis)
-    #
-    # This ensures the script continues functioning even when external services
-    # are temporarily unavailable, maintaining monitoring continuity
-    PUBLIC_IP=${PUBLIC_IP:-"unknown"}
-    COUNTRY=${COUNTRY:-"Unknown"}
-    CITY=${CITY:-"Unknown"}
-    REGION=${REGION:-"Unknown"}
-    ORG=${ORG:-"Unknown"}
-    VPN_TIMEZONE=${VPN_TIMEZONE:-"Unknown"}
-    DNS_LOC=${DNS_LOC:-"Unknown"}
-    DNS_COLO=${DNS_COLO:-"Unknown"}
+    if [ "$DEBUG" = "true" ]; then
+      log_info "vpn-info" "🔍 Raw VPN_INFO: $VPN_INFO"
+    fi
+  fi
 
-    # -----------------------------------------------------------------------------
-    # API Transmission Section
-    # -----------------------------------------------------------------------------
-    # Transmit comprehensive VPN and DNS information to the monitoring server
-    # Uses curl with robust error handling and conditional authentication
-    #
-    # HTTP REQUEST DETAILS:
-    # - Method: POST
-    # - Endpoint: {SERVER_URL}/keepalive
-    # - Content-Type: application/json
-    # - Timeout: 30 seconds (configurable)
-    # - Authentication: Bearer token (conditional on VPN_SENTINEL_API_KEY)
-    # - TLS: Certificate validation (conditional on TLS_CERT_PATH)
-    #
-    # JSON PAYLOAD STRUCTURE:
-    # {
-    #   "client_id": "unique-identifier",
-    #   "timestamp": "2025-01-14T10:30:45+0000",
-    #   "public_ip": "89.40.181.202",
-    #   "status": "alive",
-    #   "location": {
-    #     "country": "RO", "city": "Bucharest", "region": "București",
-    #     "org": "AS9009 M247 Europe SRL", "timezone": "Europe/Bucharest"
-    #   },
-    #   "dns_test": {
-    #     "location": "RO", "colo": "OTP"
-    #   }
-    # }
-    #
-    # Build JSON payload
-    JSON_DATA="{
+  log_info "vpn-info" "📡 Using geolocation service: $GEOLOCATION_SOURCE"
+
+  # Parse JSON response using sed regex patterns (avoids jq dependency)
+  # Handles both ipinfo.io and ip-api.com response formats
+  # ipinfo.io format: "key": "value"
+  # ip-api.com format: "key": "value" (same structure)
+
+  # Remove newlines and extra whitespace to make sed parsing work
+  VPN_INFO_CLEAN=$(echo "$VPN_INFO" | tr -d '\n' | sed 's/[[:space:]]\+/ /g')
+
+  # Parse IP based on geolocation service (different field names)
+  if [ "$GEOLOCATION_SOURCE" = "ip-api.com" ]; then
+    PUBLIC_IP_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"query"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+  else
+    PUBLIC_IP_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"ip"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+  fi
+  PUBLIC_IP=$(sanitize_string "$PUBLIC_IP_RAW")
+
+  # Handle different field names between services
+  if [ "$GEOLOCATION_SOURCE" = "ip-api.com" ]; then
+    COUNTRY_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"countryCode"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    CITY_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    REGION_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"regionName"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    ORG_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"isp"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    VPN_TIMEZONE_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+
+    COUNTRY=$(sanitize_string "$COUNTRY_RAW")
+    CITY=$(sanitize_string "$CITY_RAW")
+    REGION=$(sanitize_string "$REGION_RAW")
+    ORG=$(sanitize_string "$ORG_RAW")
+    VPN_TIMEZONE=$(sanitize_string "$VPN_TIMEZONE_RAW")
+  else
+    # ipinfo.io field names
+    COUNTRY_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"country"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    CITY_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    REGION_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"region"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    ORG_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"org"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    VPN_TIMEZONE_RAW=$(echo "$VPN_INFO_CLEAN" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+
+    COUNTRY=$(sanitize_string "$COUNTRY_RAW")
+    CITY=$(sanitize_string "$CITY_RAW")
+    REGION=$(sanitize_string "$REGION_RAW")
+    ORG=$(sanitize_string "$ORG_RAW")
+    VPN_TIMEZONE=$(sanitize_string "$VPN_TIMEZONE_RAW")
+  fi
+
+  # -----------------------------------------------------------------------------
+  # DNS Leak Detection Section
+  # -----------------------------------------------------------------------------
+  # Query Cloudflare's trace endpoint to determine DNS resolver location
+  # This critical test detects if DNS queries are leaking outside the VPN tunnel
+  #
+  # HOW DNS LEAK DETECTION WORKS:
+  # 1. VPN should route ALL traffic including DNS through encrypted tunnel
+  # 2. DNS resolver location should match VPN exit node location
+  # 3. If DNS location differs from VPN location, DNS is leaking
+  # 4. Leaks can expose browsing activity and bypass VPN privacy protection
+  #
+  # CLOUDFLARE TRACE ENDPOINT:
+  # - URL: https://1.1.1.1/cdn-cgi/trace
+  # - Returns: loc=COUNTRY_CODE, colo=DATACENTER_CODE
+  # - Example: loc=US, colo=LAX (Los Angeles, United States)
+  # - Fast, reliable, and doesn't require API keys
+  #
+  DNS_INFO=$(curl -s https://1.1.1.1/cdn-cgi/trace 2>/dev/null || echo '')
+  DNS_LOC_RAW=$(echo "$DNS_INFO" | grep '^loc=' | cut -d'=' -f2)
+  DNS_COLO_RAW=$(echo "$DNS_INFO" | grep '^colo=' | cut -d'=' -f2)
+  DNS_LOC=$(sanitize_string "$DNS_LOC_RAW")   # Country code where DNS resolved
+  DNS_COLO=$(sanitize_string "$DNS_COLO_RAW") # Cloudflare data center identifier
+
+  # -----------------------------------------------------------------------------
+  # DNS Leak Testing Mode (Development/Testing Only)
+  # -----------------------------------------------------------------------------
+  # DEVELOPMENT TESTING INSTRUCTIONS:
+  # Uncomment the lines below to simulate a DNS leak for testing purposes
+  # This allows you to verify that the detection system and notifications work
+  #
+  # TESTING PROCEDURE:
+  # 1. Uncomment the three lines below
+  # 2. Restart the vpn-sentinel-client container: docker restart vpn-sentinel-client
+  # 3. Monitor logs and check Telegram notifications for DNS leak alerts
+  # 4. Verify that server correctly identifies and reports the simulated leak
+  # 5. Re-comment the lines to restore normal operation
+  #
+  # SIMULATION DETAILS:
+  # - Forces DNS_LOC to "US" (or any country code you specify)
+  # - Forces DNS_COLO to "LAX" (or any data center code)
+  # - Creates artificial mismatch between VPN and DNS locations
+  #
+  # DNS_LOC="US"    # Simulate US DNS leak (change to any country code)
+  # DNS_COLO="LAX"  # Simulate Los Angeles data center (change to any colo)
+  # echo "⚠️  TESTING MODE: Simulating DNS leak - DNS location forced to $DNS_LOC"
+
+  # -----------------------------------------------------------------------------
+  # Data Validation and Fallback Section
+  # -----------------------------------------------------------------------------
+  # Ensure all variables have values to prevent JSON formatting issues
+  # Applies safe fallback values when external API calls fail or return empty data
+  #
+  # FALLBACK STRATEGY:
+  # - PUBLIC_IP: "unknown" (critical for IP change detection)
+  # - Location fields: "Unknown" (for display purposes)
+  # - DNS fields: "Unknown" (for leak detection analysis)
+  #
+  # This ensures the script continues functioning even when external services
+  # are temporarily unavailable, maintaining monitoring continuity
+  PUBLIC_IP=${PUBLIC_IP:-"unknown"}
+  COUNTRY=${COUNTRY:-"Unknown"}
+  CITY=${CITY:-"Unknown"}
+  REGION=${REGION:-"Unknown"}
+  ORG=${ORG:-"Unknown"}
+  VPN_TIMEZONE=${VPN_TIMEZONE:-"Unknown"}
+  DNS_LOC=${DNS_LOC:-"Unknown"}
+  DNS_COLO=${DNS_COLO:-"Unknown"}
+
+  # -----------------------------------------------------------------------------
+  # API Transmission Section
+  # -----------------------------------------------------------------------------
+  # Transmit comprehensive VPN and DNS information to the monitoring server
+  # Uses curl with robust error handling and conditional authentication
+  #
+  # HTTP REQUEST DETAILS:
+  # - Method: POST
+  # - Endpoint: {SERVER_URL}/keepalive
+  # - Content-Type: application/json
+  # - Timeout: 30 seconds (configurable)
+  # - Authentication: Bearer token (conditional on VPN_SENTINEL_API_KEY)
+  # - TLS: Certificate validation (conditional on TLS_CERT_PATH)
+  #
+  # JSON PAYLOAD STRUCTURE:
+  # {
+  #   "client_id": "unique-identifier",
+  #   "timestamp": "2025-01-14T10:30:45+0000",
+  #   "public_ip": "89.40.181.202",
+  #   "status": "alive",
+  #   "location": {
+  #     "country": "RO", "city": "Bucharest", "region": "București",
+  #     "org": "AS9009 M247 Europe SRL", "timezone": "Europe/Bucharest"
+  #   },
+  #   "dns_test": {
+  #     "location": "RO", "colo": "OTP"
+  #   }
+  # }
+  #
+  # Build JSON payload
+  JSON_DATA="{
       \"client_id\": \"$(json_escape "$CLIENT_ID")\",
       \"timestamp\": \"$(json_escape "$TIMESTAMP")\",
       \"public_ip\": \"$(json_escape "$PUBLIC_IP")\",
@@ -637,41 +637,41 @@ send_keepalive() {
       }
     }"
 
-    # SUCCESS/FAILURE HANDLING:
-    # - Success: Log detailed status information with all gathered data
-    # - Failure: Log same information with error indicators for troubleshooting
-    # - Return appropriate exit codes for monitoring and automation
-    #
-    if curl -X POST "${SERVER_URL}/keepalive" \
-        -H "Content-Type: application/json" \
-        ${VPN_SENTINEL_API_KEY:+-H "Authorization: Bearer $VPN_SENTINEL_API_KEY"} \
-        ${TLS_CERT_PATH:+--capath "$TLS_CERT_PATH"} \
-        --max-time $TIMEOUT \
-        -d "$JSON_DATA" \
-        >/dev/null 2>&1; then
-        # SUCCESS PATH: Keepalive transmitted successfully
-        # Display comprehensive status information for monitoring and debugging
-        # All gathered data is logged to provide complete visibility into VPN status
-        log_info "api" "✅ Keepalive sent successfully"
-        log_info "vpn-info" "📍 Location: $CITY, $REGION, $COUNTRY"
-        log_info "vpn-info" "🌐 VPN IP: $PUBLIC_IP"
-        log_info "vpn-info" "🏢 Provider: $ORG"
-        log_info "vpn-info" "🕒 Timezone: $VPN_TIMEZONE"
-        log_info "dns-test" "🔒 DNS: $DNS_LOC ($DNS_COLO)"
-        return 0
-    else
-        # FAILURE PATH: Keepalive transmission failed
-        # Log same information with error indicators for troubleshooting
-        # Helps identify connectivity issues, authentication problems, or server issues
-        # Script continues running despite individual failures (resilient operation)
-        log_error "api" "❌ Failed to send keepalive to $SERVER_URL"
-        log_error "vpn-info" "📍 Location: $CITY, $REGION, $COUNTRY"
-        log_error "vpn-info" "🌐 VPN IP: $PUBLIC_IP"
-        log_error "vpn-info" "🏢 Provider: $ORG"
-        log_error "vpn-info" "🕒 Timezone: $VPN_TIMEZONE"
-        log_error "dns-test" "🔒 DNS: $DNS_LOC ($DNS_COLO)"
-        return 1
-    fi
+  # SUCCESS/FAILURE HANDLING:
+  # - Success: Log detailed status information with all gathered data
+  # - Failure: Log same information with error indicators for troubleshooting
+  # - Return appropriate exit codes for monitoring and automation
+  #
+  if curl -X POST "${SERVER_URL}/keepalive" \
+    -H "Content-Type: application/json" \
+    ${VPN_SENTINEL_API_KEY:+-H "Authorization: Bearer $VPN_SENTINEL_API_KEY"} \
+    ${TLS_CERT_PATH:+--capath "$TLS_CERT_PATH"} \
+    --max-time $TIMEOUT \
+    -d "$JSON_DATA" \
+    >/dev/null 2>&1; then
+    # SUCCESS PATH: Keepalive transmitted successfully
+    # Display comprehensive status information for monitoring and debugging
+    # All gathered data is logged to provide complete visibility into VPN status
+    log_info "api" "✅ Keepalive sent successfully"
+    log_info "vpn-info" "📍 Location: $CITY, $REGION, $COUNTRY"
+    log_info "vpn-info" "🌐 VPN IP: $PUBLIC_IP"
+    log_info "vpn-info" "🏢 Provider: $ORG"
+    log_info "vpn-info" "🕒 Timezone: $VPN_TIMEZONE"
+    log_info "dns-test" "🔒 DNS: $DNS_LOC ($DNS_COLO)"
+    return 0
+  else
+    # FAILURE PATH: Keepalive transmission failed
+    # Log same information with error indicators for troubleshooting
+    # Helps identify connectivity issues, authentication problems, or server issues
+    # Script continues running despite individual failures (resilient operation)
+    log_error "api" "❌ Failed to send keepalive to $SERVER_URL"
+    log_error "vpn-info" "📍 Location: $CITY, $REGION, $COUNTRY"
+    log_error "vpn-info" "🌐 VPN IP: $PUBLIC_IP"
+    log_error "vpn-info" "🏢 Provider: $ORG"
+    log_error "vpn-info" "🕒 Timezone: $VPN_TIMEZONE"
+    log_error "dns-test" "🔒 DNS: $DNS_LOC ($DNS_COLO)"
+    return 1
+  fi
 }
 
 # -----------------------------------------------------------------------------
@@ -719,26 +719,26 @@ log_info "client" "🔄 Starting continuous VPN monitoring loop..."
 # Start dedicated health monitoring process if enabled
 # Runs independently from main monitoring loop for enhanced health reporting
 if [ "$VPN_SENTINEL_HEALTH_MONITOR" != "false" ]; then
-    log_info "client" "🏥 Starting health monitor process..."
+  log_info "client" "🏥 Starting health monitor process..."
 
-    # Check if health monitor script exists
-    if [ -f "./health-monitor.sh" ]; then
-        # Start health monitor in background
-        ./health-monitor.sh &
-        HEALTH_MONITOR_PID=$!
+  # Check if health monitor script exists
+  if [ -f "./health-monitor.sh" ]; then
+    # Start health monitor in background
+    ./health-monitor.sh &
+    HEALTH_MONITOR_PID=$!
 
-        # Give it a moment to start up
-        sleep 2
+    # Give it a moment to start up
+    sleep 2
 
-        # Verify it's running
-        if kill -0 $HEALTH_MONITOR_PID 2>/dev/null; then
-            log_info "client" "✅ Health monitor started (PID: $HEALTH_MONITOR_PID)"
-        else
-            log_warn "client" "⚠️ Health monitor failed to start"
-        fi
+    # Verify it's running
+    if kill -0 $HEALTH_MONITOR_PID 2>/dev/null; then
+      log_info "client" "✅ Health monitor started (PID: $HEALTH_MONITOR_PID)"
     else
-        log_warn "client" "⚠️ Health monitor script not found: ./health-monitor.sh"
+      log_warn "client" "⚠️ Health monitor failed to start"
     fi
+  else
+    log_warn "client" "⚠️ Health monitor script not found: ./health-monitor.sh"
+  fi
 fi
 
 # -----------------------------------------------------------------------------
@@ -746,10 +746,10 @@ fi
 # -----------------------------------------------------------------------------
 
 while true; do
-    send_keepalive
-    log_info "client" "⏳ Waiting ${INTERVAL} seconds until next keepalive..."
-    log_info "client" "(Press Ctrl+C to stop monitoring)"
-    sleep $INTERVAL
+  send_keepalive
+  log_info "client" "⏳ Waiting ${INTERVAL} seconds until next keepalive..."
+  log_info "client" "(Press Ctrl+C to stop monitoring)"
+  sleep $INTERVAL
 done
 
 # =============================================================================
