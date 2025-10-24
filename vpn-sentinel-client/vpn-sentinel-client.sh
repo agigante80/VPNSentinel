@@ -149,7 +149,8 @@ log_message() {
     local level="$1"
     local component="$2"
     local message="$3"
-    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     echo "${timestamp} ${level} [${component}] ${message}"
 }
 
@@ -226,8 +227,11 @@ if [ -z "${VPN_SENTINEL_CLIENT_ID}" ]; then
     # Try different methods for random numbers, fallback to hostname-based if needed
     if command -v shuf >/dev/null 2>&1; then
         RANDOM_PART=$(shuf -i 100000-999999 -n 1)
-    elif [ -n "$RANDOM" ]; then
-        RANDOM_PART=$(printf "%06d" $((RANDOM % 900000 + 100000)))
+    elif [ -r /dev/urandom ]; then
+        # POSIX-safe random number from /dev/urandom
+        RANDOM_PART=$(od -An -N3 -tu1 /dev/urandom | tr -d ' ' | head -c 6)
+        # Ensure we have 6 digits; pad if necessary
+        RANDOM_PART=$(printf "%06s" "$RANDOM_PART" | tr ' ' '0')
     else
         # Fallback: use hostname hash
         RANDOM_PART=$(hostname | od -An -N3 -tu1 | tr -d ' ' | head -c 6)
