@@ -113,7 +113,7 @@ COPY vpn-sentinel-client/healthcheck.sh /app/healthcheck.sh
 # Shared Libraries
 # -----------------------------------------------------------------------------
 # Copy shared library files from project root
-COPY lib /app/lib
+COPY lib/ /app/lib/
 
 # Make the scripts executable and set proper ownership
 # Ensures the scripts can be executed by the container runtime
