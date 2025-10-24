@@ -12,7 +12,10 @@ services:
     networks:
       - vpn-sentinel-test
     healthcheck:
-      test: ["CMD", "python3", "-c", "import requests; requests.get('http://localhost:5000/test/v1/health', timeout=5).raise_for_status()"]
+      # Use the dedicated health server port (8081) and plain /health path.
+      # The API-mounted health endpoints are only registered when API and HEALTH ports are equal,
+      # so checking the dedicated health port avoids false negatives during startup.
+      test: ["CMD", "python3", "-c", "import requests; requests.get('http://localhost:8081/health', timeout=5).raise_for_status()"]
       interval: 30s
       timeout: 10s
       retries: 3
