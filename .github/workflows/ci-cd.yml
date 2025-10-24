@@ -317,7 +317,9 @@ jobs:
       - name: Build and push server image
         uses: docker/build-push-action@v5
         with:
-          context: vpn-sentinel-server/
+          # Use repository root as the build context so Dockerfile COPY paths
+          # that reference files under the repo root resolve correctly.
+          context: .
           file: vpn-sentinel-server/Dockerfile
           push: true
           tags: ${{ steps.meta-server.outputs.tags }}
@@ -327,7 +329,9 @@ jobs:
       - name: Build and push client image
         uses: docker/build-push-action@v5
         with:
-          context: vpn-sentinel-client/
+          # Use repository root as the build context so Dockerfile COPY paths
+          # that reference files under the repo root resolve correctly.
+          context: .
           file: vpn-sentinel-client/Dockerfile
           push: true
           tags: ${{ steps.meta-client.outputs.tags }}
