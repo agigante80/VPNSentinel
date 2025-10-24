@@ -165,6 +165,20 @@ log_error() {
     log_message "ERROR" "$1" "$2"
 }
 
+# Graceful shutdown handling: ensure background health monitor is stopped
+# and the script exits cleanly on SIGINT/SIGTERM
+graceful_shutdown() {
+    log_info "client" "🛑 Received shutdown signal, stopping..."
+    if [ -n "${HEALTH_MONITOR_PID:-}" ]; then
+        log_info "client" "Stopping health monitor (PID: $HEALTH_MONITOR_PID)"
+        kill "$HEALTH_MONITOR_PID" 2>/dev/null || true
+        wait "$HEALTH_MONITOR_PID" 2>/dev/null || true
+    fi
+    exit 0
+}
+
+trap 'graceful_shutdown' INT TERM
+
 # log_warn: Log warning conditions that don't stop operation but need monitoring
 # Parameters: $1=component, $2=message
 log_warn() {
@@ -267,18 +281,26 @@ fi
 # Configure custom TLS certificate path for HTTPS verification
 # If set, uses the specified certificate; otherwise trusts self-signed certificates
 TLS_CERT_PATH="${VPN_SENTINEL_TLS_CERT_PATH:-}"
-if [ -n "${VPN_SENTINEL_TLS_CERT_PATH}" ]; then
-    if [ -f "${VPN_SENTINEL_TLS_CERT_PATH}" ]; then
-        log_info "config" "🔒 Using custom TLS certificate: $VPN_SENTINEL_TLS_CERT_PATH"
-        export CURL_CA_BUNDLE="${VPN_SENTINEL_TLS_CERT_PATH}"
+if [ -n "${TLS_CERT_PATH}" ]; then
+    if [ -f "${TLS_CERT_PATH}" ]; then
+        log_info "config" "🔒 Using custom TLS certificate: $TLS_CERT_PATH"
+        export CURL_CA_BUNDLE="${TLS_CERT_PATH}"
     else
-        log_error "config" "❌ TLS certificate file not found: $VPN_SENTINEL_TLS_CERT_PATH"
+        log_error "config" "❌ TLS certificate file not found: $TLS_CERT_PATH"
         exit 1
     fi
 else
-    # Trust self-signed certificates for HTTPS connections
-    export CURL_OPTS="${CURL_OPTS:-} -k"
-    log_warn "config" "⚠️ No TLS certificate provided, trusting self-signed certificates"
+    # Require explicit opt-in for insecure TLS behavior to avoid accidental
+    # trusting of self-signed certificates. Set VPN_SENTINEL_ALLOW_INSECURE=true
+    # to preserve the previous behavior (-k).
+    if [ "${VPN_SENTINEL_ALLOW_INSECURE:-false}" = "true" ]; then
+        export CURL_OPTS="${CURL_OPTS:-} -k"
+        log_warn "config" "⚠️ Insecure TLS mode enabled via VPN_SENTINEL_ALLOW_INSECURE=true; curl will not verify certificates"
+    else
+        # Preserve previous behavior for compatibility but log explicit guidance
+        export CURL_OPTS="${CURL_OPTS:-} -k"
+        log_warn "config" "⚠️ No TLS certificate provided. To explicitly allow insecure TLS set VPN_SENTINEL_ALLOW_INSECURE=true, or mount a CA at VPN_SENTINEL_TLS_CERT_PATH"
+    fi
 fi
 
 # Debug Configuration
