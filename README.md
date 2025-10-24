@@ -90,6 +90,15 @@ VPN Container
 - Docker Compose v2.0+
 - Internet connectivity for API calls
 
+### Note for contributors
+
+The project's Dockerfiles assume the build context is the repository root so COPY instructions can reference files using repository-relative paths (for example `COPY vpn-sentinel-server/vpn-sentinel-server.py /app/`). The GitHub Actions workflow has been updated to use the repository root as the build context when building component images. When building locally, run from the repo root with a command like:
+
+```bash
+# from repository root
+docker build -f vpn-sentinel-server/Dockerfile .
+```
+
 ### **Quick Start (5 minutes)**
 
 ```bash
