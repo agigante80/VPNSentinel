@@ -200,7 +200,7 @@ log_warn() {
 # Version information
 if [ -n "$VERSION" ]; then
     # Use version from build arg if available
-    VERSION="$VERSION"
+    : # version provided by build arg
 else
     # Fallback for local development
     if [ -n "$COMMIT_HASH" ]; then
@@ -215,7 +215,11 @@ fi
 API_BASE_URL="${VPN_SENTINEL_URL:-http://your-server-url:5000}"
 API_PATH="${VPN_SENTINEL_API_PATH:-/api/v1}"
 SERVER_URL="${API_BASE_URL}${API_PATH}"                         # Complete monitoring server endpoint
-IS_HTTPS=$(echo "$API_BASE_URL" | grep -q '^https://' && echo "true")  # Check if URL uses HTTPS
+if echo "$API_BASE_URL" | grep -q '^https://'; then
+    export IS_HTTPS="true"
+else
+    export IS_HTTPS="false"
+fi
 
 # Client Identifier Generation and Validation
 # Generates or validates a unique client identifier for tracking and reporting
@@ -317,6 +321,7 @@ else
     log_info "config" "ℹ️ Debug mode disabled"
     DEBUG_ENABLED=false
 fi
+export DEBUG_ENABLED
 
 # Geolocation Service Configuration
 # Configure which external service to use for IP geolocation
