@@ -79,53 +79,53 @@ HEALTH_CHECK_INTERVAL=30
 # Health Status Generation
 # -----------------------------------------------------------------------------
 generate_health_status() {
-    local client_status
-    client_status=$(check_client_process)
+  local client_status
+  client_status=$(check_client_process)
 
-    local network_status
-    network_status=$(check_network_connectivity)
+  local network_status
+  network_status=$(check_network_connectivity)
 
-    local dns_status
-    dns_status=$(check_dns_leak_detection)
+  local dns_status
+  dns_status=$(check_dns_leak_detection)
 
-    local system_info
-    system_info=$(get_system_info)
+  local system_info
+  system_info=$(get_system_info)
 
-    # Determine overall health
-    local overall_status="healthy"
-    local issues="[]"
+  # Determine overall health
+  local overall_status="healthy"
+  local issues="[]"
 
-    if [ "$client_status" != "healthy" ]; then
-        overall_status="unhealthy"
-        issues='["client_process_not_running"]'
-    fi
+  if [ "$client_status" != "healthy" ]; then
+    overall_status="unhealthy"
+    issues='["client_process_not_running"]'
+  fi
 
-    if [ "$network_status" != "healthy" ]; then
-        overall_status="unhealthy"
-        if [ "$issues" = "[]" ]; then
-            issues='["network_unreachable"]'
-        else
-            issues='["client_process_not_running", "network_unreachable"]'
-        fi
-    fi
-
-    if [ "$dns_status" != "healthy" ]; then
-        overall_status="degraded"
-        if [ "$issues" = "[]" ]; then
-            issues='["dns_detection_unavailable"]'
-        else
-            issues=$(echo "$issues" | sed 's/\]$/, "dns_detection_unavailable"]/')
-        fi
-    fi
-
-    # Fix empty issues array
+  if [ "$network_status" != "healthy" ]; then
+    overall_status="unhealthy"
     if [ "$issues" = "[]" ]; then
-        issues="[]"
+      issues='["network_unreachable"]'
     else
-        issues=$(echo "$issues" | sed 's/^,\[/\[/')
+      issues='["client_process_not_running", "network_unreachable"]'
     fi
+  fi
 
-    cat << EOF
+  if [ "$dns_status" != "healthy" ]; then
+    overall_status="degraded"
+    if [ "$issues" = "[]" ]; then
+      issues='["dns_detection_unavailable"]'
+    else
+      issues=$(echo "$issues" | sed 's/\]$/, "dns_detection_unavailable"]/')
+    fi
+  fi
+
+  # Fix empty issues array
+  if [ "$issues" = "[]" ]; then
+    issues="[]"
+  else
+    issues=$(echo "$issues" | sed 's/^,\[/\[/')
+  fi
+
+  cat <<EOF
 {
   "status": "$overall_status",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
@@ -141,18 +141,18 @@ EOF
 }
 
 generate_readiness_status() {
-    local client_status
-    client_status=$(check_client_process)
+  local client_status
+  client_status=$(check_client_process)
 
-    local network_status
-    network_status=$(check_network_connectivity)
+  local network_status
+  network_status=$(check_network_connectivity)
 
-    local overall_status="ready"
-    if [ "$client_status" != "healthy" ] || [ "$network_status" != "healthy" ]; then
-        overall_status="not_ready"
-    fi
+  local overall_status="ready"
+  if [ "$client_status" != "healthy" ] || [ "$network_status" != "healthy" ]; then
+    overall_status="not_ready"
+  fi
 
-    cat << EOF
+  cat <<EOF
 {
   "status": "$overall_status",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
@@ -165,8 +165,8 @@ EOF
 }
 
 generate_startup_status() {
-    # Startup check - verify basic functionality
-    cat << EOF
+  # Startup check - verify basic functionality
+  cat <<EOF
 {
   "status": "started",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
@@ -179,7 +179,7 @@ EOF
 # Flask Health Server (Python)
 # -----------------------------------------------------------------------------
 create_flask_server() {
-    cat << 'EOF'
+  cat <<'EOF'
 import os
 import sys
 import json
@@ -339,7 +339,7 @@ EOF
 # Main Script Execution
 # -----------------------------------------------------------------------------
 # Start Flask health server in the background
-create_flask_server | /opt/venv/bin/python3 > /dev/null 2>&1 &
+create_flask_server | /opt/venv/bin/python3 >/dev/null 2>&1 &
 
 FLASK_PID=$!
 
@@ -348,12 +348,12 @@ sleep 2
 
 # Main loop - health status generation
 while true; do
-    # Generate and log health status
-    health_status=$(generate_health_status)
-    echo "$health_status" | jq . -C | tee -a /var/log/vpn-sentinel-health.log
+  # Generate and log health status
+  health_status=$(generate_health_status)
+  echo "$health_status" | jq . -C | tee -a /var/log/vpn-sentinel-health.log
 
-    # Sleep before next health check
-    sleep "$HEALTH_CHECK_INTERVAL"
+  # Sleep before next health check
+  sleep "$HEALTH_CHECK_INTERVAL"
 done
 
 # Wait for Flask server to exit (should not happen)
