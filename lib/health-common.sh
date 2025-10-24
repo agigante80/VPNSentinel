@@ -37,7 +37,8 @@ log_message() {
     local level="$1"
     local component="$2"
     local message="$3"
-    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     echo "${timestamp} ${level} [${component}] ${message}" >&2
 }
 
@@ -80,7 +81,8 @@ check_network_connectivity() {
 
 check_server_connectivity() {
     # Check connectivity to VPN Sentinel server
-    local server_url="${VPN_SENTINEL_URL:-}"
+    local server_url
+    server_url="${VPN_SENTINEL_URL:-}"
 
     if [ -z "$server_url" ]; then
         echo "not_configured"
@@ -115,8 +117,11 @@ check_dns_leak_detection() {
 # -----------------------------------------------------------------------------
 get_system_info() {
     # Get basic system resource information
-    local memory_percent="unknown"
-    local disk_percent="unknown"
+    local memory_percent
+    memory_percent="unknown"
+
+    local disk_percent
+    disk_percent="unknown"
 
     # Get memory usage percentage
     if command -v free > /dev/null 2>&1; then

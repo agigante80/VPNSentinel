@@ -4,7 +4,8 @@
 
 # Source common health library
 LIB_DIR="/app/lib"
-source "$LIB_DIR/health-common.sh"
+# shellcheck source=lib/health-common.sh
+. "$LIB_DIR/health-common.sh"
 
 # Check if the main script is running
 CLIENT_STATUS=$(check_client_process)
@@ -21,25 +22,21 @@ fi
 
 # Check if we can reach external services for DNS leak detection
 NETWORK_STATUS=$(check_network_connectivity)
-NETWORK_HEALTHY=true
 if [ "$NETWORK_STATUS" != "healthy" ]; then
     echo "❌ Cannot reach Cloudflare for DNS leak detection"
-    NETWORK_HEALTHY=false
 fi
 
 # Check if we can reach the monitoring server (if URL is configured)
 SERVER_WARNING=""
-SERVER_HEALTHY=true
 SERVER_STATUS=$(check_server_connectivity)
 if [ "$SERVER_STATUS" = "unreachable" ]; then
     SERVER_WARNING="⚠️ Cannot reach VPN Sentinel server at $VPN_SENTINEL_URL (client will retry)"
-    SERVER_HEALTHY=false
 fi
 
 # Check health monitor endpoint (if running)
 HEALTH_MONITOR_STATUS=""
 if [ "$HEALTH_MONITOR_RUNNING" = true ]; then
-    local health_port="${VPN_SENTINEL_HEALTH_PORT:-8082}"
+    health_port="${VPN_SENTINEL_HEALTH_PORT:-8082}"
     if ! curl -f -s --max-time 5 "http://localhost:$health_port/health" > /dev/null 2>&1; then
         HEALTH_MONITOR_STATUS="⚠️ Health monitor running but not responding on port $health_port"
     else
@@ -66,8 +63,7 @@ fi
 
 # Overall health assessment
 OVERALL_HEALTHY=true
-
-if [ "$NETWORK_HEALTHY" = false ]; then
+if [ "$NETWORK_STATUS" != "healthy" ]; then
     OVERALL_HEALTHY=false
 fi
 
