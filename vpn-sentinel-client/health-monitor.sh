@@ -63,29 +63,33 @@
 
 # Source common health library
 LIB_DIR="/app/lib"
-source "$LIB_DIR/health-common.sh"
+# shellcheck source=lib/health-common.sh
+. "$LIB_DIR/health-common.sh"
 
 # -----------------------------------------------------------------------------
 # Configuration and Constants
 # -----------------------------------------------------------------------------
 HEALTH_PORT="${VPN_SENTINEL_HEALTH_PORT:-8082}"
-SERVER_URL="${VPN_SENTINEL_URL:-}"
-API_PATH="${VPN_SENTINEL_API_PATH:-/api/v1}"
-API_KEY="${VPN_SENTINEL_API_KEY:-}"
 TZ="${TZ:-UTC}"
 
 # Health check intervals (seconds)
 HEALTH_CHECK_INTERVAL=30
-CLIENT_PROCESS_CHECK_INTERVAL=10
 
 # -----------------------------------------------------------------------------
 # Health Status Generation
 # -----------------------------------------------------------------------------
 generate_health_status() {
-    local client_status=$(check_client_process)
-    local network_status=$(check_network_connectivity)
-    local dns_status=$(check_dns_leak_detection)
-    local system_info=$(get_system_info)
+    local client_status
+    client_status=$(check_client_process)
+
+    local network_status
+    network_status=$(check_network_connectivity)
+
+    local dns_status
+    dns_status=$(check_dns_leak_detection)
+
+    local system_info
+    system_info=$(get_system_info)
 
     # Determine overall health
     local overall_status="healthy"
@@ -137,8 +141,11 @@ EOF
 }
 
 generate_readiness_status() {
-    local client_status=$(check_client_process)
-    local network_status=$(check_network_connectivity)
+    local client_status
+    client_status=$(check_client_process)
+
+    local network_status
+    network_status=$(check_network_connectivity)
 
     local overall_status="ready"
     if [ "$client_status" != "healthy" ] || [ "$network_status" != "healthy" ]; then
