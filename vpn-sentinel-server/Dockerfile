@@ -146,7 +146,7 @@ RUN pip install --no-cache-dir \
 # -----------------------------------------------------------------------------
 # Copy the monitoring server application code
 # The server contains all VPN monitoring and notification logic
-COPY vpn-sentinel-server.py /app/vpn-sentinel-server.py
+COPY vpn-sentinel-server/vpn-sentinel-server.py /app/vpn-sentinel-server.py
 
 # Set proper file permissions and ownership
 RUN chmod +x /app/vpn-sentinel-server.py && \
@@ -172,7 +172,7 @@ USER appuser
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     FLASK_ENV=production \
-    FLASK_APP=vpn-sentinel-server.py
+    FLASK_APP=server.py
 
 # -----------------------------------------------------------------------------
 # Health Check Configuration

@@ -71,11 +71,14 @@ ENV VERSION=${VERSION}
 # --no-cache: Don't store package index locally to reduce image size
 # curl: Essential for communicating with ipinfo.io, Cloudflare, and monitoring server
 # python3: Required for Flask-based health monitor
-RUN apk add --no-cache curl python3 py3-pip \
+# jq: Required for JSON processing in health monitor
+RUN apk add --no-cache curl python3 py3-pip bash jq \
     && echo "✅ Package installation completed" \
-    && echo "📦 Installed packages: curl, python3, py3-pip" \
+    && echo "📦 Installed packages: curl, python3, py3-pip, bash, jq" \
     && curl --version \
-    && python3 --version
+    && python3 --version \
+    && bash --version \
+    && jq --version
 
 # Install Flask for health monitor
 RUN python3 -m venv /opt/venv \
@@ -88,18 +91,35 @@ ENV PATH="/opt/venv/bin:$PATH"
 # -----------------------------------------------------------------------------
 # Script Installation and Configuration
 # -----------------------------------------------------------------------------
-# Copy the keepalive monitoring script from local directory to container
-# The script contains all the VPN monitoring and DNS leak detection logic
-COPY vpn-sentinel-client.sh /app/vpn-sentinel-client.sh
+# -----------------------------------------------------------------------------
+# VPN Sentinel Client Script
+# -----------------------------------------------------------------------------
+# Copy the main VPN Sentinel client script
+COPY vpn-sentinel-client/vpn-sentinel-client.sh /app/vpn-sentinel-client.sh
 
-# Copy the health monitor script for dedicated health monitoring
-COPY health-monitor.sh /app/health-monitor.sh
+# -----------------------------------------------------------------------------
+# Health Monitor Script  
+# -----------------------------------------------------------------------------
+# Copy the health monitor script
+COPY vpn-sentinel-client/health-monitor.sh /app/health-monitor.sh
+
+# -----------------------------------------------------------------------------
+# Health Check Script
+# -----------------------------------------------------------------------------
+# Copy the health check script
+COPY vpn-sentinel-client/healthcheck.sh /app/healthcheck.sh
+
+# -----------------------------------------------------------------------------
+# Shared Libraries
+# -----------------------------------------------------------------------------
+# Copy shared library files from project root
+COPY lib /app/lib
 
 # Make the scripts executable and set proper ownership
 # Ensures the scripts can be executed by the container runtime
-RUN chmod +x /app/vpn-sentinel-client.sh /app/health-monitor.sh \
+RUN chmod +x /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/healthcheck.sh /app/lib/health-common.sh \
     && echo "VPN Sentinel client container built successfully" \
-    && ls -la /app/vpn-sentinel-client.sh /app/health-monitor.sh
+    && ls -la /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/lib/health-common.sh
 
 # -----------------------------------------------------------------------------
 # Working Directory and User Setup
@@ -111,15 +131,6 @@ WORKDIR /app
 # Uncomment the lines below to run as non-root user:
 # RUN adduser -D -s /bin/sh keepalive
 # USER keepalive
-
-# -----------------------------------------------------------------------------
-# Health Check Script
-# -----------------------------------------------------------------------------
-# Copy the health check script
-COPY healthcheck.sh /app/healthcheck.sh
-
-# Make the health check script executable
-RUN chmod +x /app/healthcheck.sh
 
 # -----------------------------------------------------------------------------
 # Container Startup Configuration  

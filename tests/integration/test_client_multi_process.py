@@ -88,7 +88,7 @@ class TestClientMultiProcessIntegration(unittest.TestCase):
                 self.fail(f"Client process exited early. STDOUT: {stdout}, STDERR: {stderr}")
 
             # Check that health monitor is accessible
-            health_url = f"http://localhost:{self.test_port}/health"
+            health_url = f"http://localhost:{self.test_port}/client/health"
             response = requests.get(health_url, timeout=5)
 
             self.assertEqual(response.status_code, 200)
@@ -188,7 +188,7 @@ class TestClientMultiProcessIntegration(unittest.TestCase):
                 self.skipTest("Health monitor exited prematurely - may not be compatible with test environment")
 
             # Test readiness endpoint - should return 503 when client not running
-            readiness_url = f"http://localhost:{self.test_port}/health/ready"
+            readiness_url = f"http://localhost:{self.test_port}/client/health/ready"
             response = requests.get(readiness_url, timeout=5)
 
             self.assertEqual(response.status_code, 503)  # Not ready when client not running
@@ -222,7 +222,7 @@ class TestClientMultiProcessIntegration(unittest.TestCase):
             time.sleep(3)
 
             # Test startup endpoint
-            startup_url = f"http://localhost:{self.test_port}/health/startup"
+            startup_url = f"http://localhost:{self.test_port}/client/health/startup"
             response = requests.get(startup_url, timeout=5)
 
             self.assertEqual(response.status_code, 200)
@@ -341,7 +341,7 @@ class TestClientMultiProcessIntegration(unittest.TestCase):
                 # Process is still running - check if it's actually functional
                 # Try to connect to see if the health monitor is working
                 try:
-                    response = requests.get(f"http://localhost:{self.test_port}/health", timeout=2)
+                    response = requests.get(f"http://localhost:{self.test_port}/client/health", timeout=2)
                     # If we get here, the health monitor is working despite limited PATH
                     self.health_monitor_process.terminate()
                     self.health_monitor_process.wait(timeout=5)

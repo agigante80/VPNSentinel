@@ -1,9 +1,14 @@
-#!/bin/sh
+#!/bin/bash
 # Enhanced Health check script for VPN Sentinel Client
 # Comprehensive health verification with detailed status reporting
 
+# Source common health library
+LIB_DIR="/app/lib"
+source "$LIB_DIR/health-common.sh"
+
 # Check if the main script is running
-if ! pgrep -f "vpn-sentinel-client.sh" > /dev/null; then
+CLIENT_STATUS=$(check_client_process)
+if [ "$CLIENT_STATUS" != "healthy" ]; then
     echo "❌ VPN Sentinel client script is not running"
     exit 1
 fi
@@ -15,8 +20,9 @@ if pgrep -f "health-monitor.sh" > /dev/null 2>&1; then
 fi
 
 # Check if we can reach external services for DNS leak detection
+NETWORK_STATUS=$(check_network_connectivity)
 NETWORK_HEALTHY=true
-if ! curl -f -s --max-time 5 "https://1.1.1.1/cdn-cgi/trace" > /dev/null 2>&1; then
+if [ "$NETWORK_STATUS" != "healthy" ]; then
     echo "❌ Cannot reach Cloudflare for DNS leak detection"
     NETWORK_HEALTHY=false
 fi
@@ -24,12 +30,10 @@ fi
 # Check if we can reach the monitoring server (if URL is configured)
 SERVER_WARNING=""
 SERVER_HEALTHY=true
-if [ -n "$VPN_SENTINEL_URL" ]; then
-    # Try to connect to the server health endpoint
-    if ! curl -f -s --max-time 10 "$VPN_SENTINEL_URL/api/v1/health" > /dev/null 2>&1; then
-        SERVER_WARNING="⚠️ Cannot reach VPN Sentinel server at $VPN_SENTINEL_URL (client will retry)"
-        SERVER_HEALTHY=false
-    fi
+SERVER_STATUS=$(check_server_connectivity)
+if [ "$SERVER_STATUS" = "unreachable" ]; then
+    SERVER_WARNING="⚠️ Cannot reach VPN Sentinel server at $VPN_SENTINEL_URL (client will retry)"
+    SERVER_HEALTHY=false
 fi
 
 # Check health monitor endpoint (if running)
@@ -108,9 +112,9 @@ if [ "${1:-}" = "--json" ]; then
   "status": "$([ "$OVERALL_HEALTHY" = true ] && echo "healthy" || echo "unhealthy")",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "checks": {
-    "client_process": "running",
-    "network_connectivity": "$([ "$NETWORK_HEALTHY" = true ] && echo "healthy" || echo "unreachable")",
-    "server_connectivity": "$([ "$SERVER_HEALTHY" = true ] && echo "healthy" || echo "unreachable")",
+    "client_process": "$CLIENT_STATUS",
+    "network_connectivity": "$NETWORK_STATUS",
+    "server_connectivity": "$SERVER_STATUS",
     "health_monitor": "$([ "$HEALTH_MONITOR_RUNNING" = true ] && echo "running" || echo "not_running")"
   },
   "warnings": [
