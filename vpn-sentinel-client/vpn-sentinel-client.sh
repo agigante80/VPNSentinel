@@ -132,33 +132,14 @@
 # Repository: https://github.com/agigante80/VPNSentinel
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# Logging Functions
-# -----------------------------------------------------------------------------
-# Structured logging system with component-based categorization for better
-# debugging and monitoring. All log messages include UTC timestamps and
-# component tags for easy filtering and analysis.
 
-# log_message: Core logging function with standardized format
-# Parameters:
-#   $1: Log level (INFO, ERROR, WARN)
-#   $2: Component name (config, client, vpn-info, dns-test, api)
-#   $3: Message text
-# Output: [TIMESTAMP] LEVEL [COMPONENT] MESSAGE
-log_message() {
-  local level="$1"
-  local component="$2"
-  local message="$3"
-  local timestamp
-  timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  echo "${timestamp} ${level} [${component}] ${message}"
-}
-
-# log_info: Log informational messages for normal operations
-# Parameters: $1=component, $2=message
-log_info() {
-  log_message "INFO" "$1" "$2"
-}
+# Source helper libraries (logging, config, utils)
+# shellcheck source=lib/log.sh
+# shellcheck source=lib/config.sh
+# shellcheck source=lib/utils.sh
+. ./lib/log.sh
+. ./lib/config.sh
+. ./lib/utils.sh
 
 # log_error: Log error conditions that may require attention
 # Parameters: $1=component, $2=message
@@ -362,38 +343,7 @@ else
   log_info "config" "🌐 Geolocation service: auto (will try ipinfo.io first, fallback to ip-api.com)"
 fi
 
-# -----------------------------------------------------------------------------
-# JSON Escaping Function
-# -----------------------------------------------------------------------------
-# json_escape(): Safely escape strings for JSON inclusion
-# Prevents JSON injection attacks by properly escaping special characters
-#
-# Parameters:
-#   $1: String to escape
-# Returns:
-#   Escaped string safe for JSON inclusion
-#
-# Security Note:
-#   Prevents injection attacks if external data contains quotes or backslashes
-json_escape() {
-  # Escape backslashes first, then quotes
-  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
-}
-
-# sanitize_string(): Sanitize strings from external APIs to prevent JSON issues
-# Removes or escapes potentially dangerous characters
-#
-# Parameters:
-#   $1: String to sanitize
-# Returns:
-#   Sanitized string safe for JSON inclusion
-#
-# Security Note:
-#   Prevents JSON parsing failures from malformed external data
-sanitize_string() {
-  # Remove null bytes, control characters, and limit length
-  printf '%s' "$1" | tr -d '\000-\037' | head -c 100
-}
+# JSON escape/sanitize utilities are provided by lib/utils.sh
 
 # -----------------------------------------------------------------------------
 # Main Keepalive Function
