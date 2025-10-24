@@ -70,8 +70,12 @@ jobs:
       - name: Run ShellCheck (koalaman/shellcheck-action)
         uses: koalaman/shellcheck-action@v1
         with:
-          # Limit to client scripts to keep runtime short
-          files: 'vpn-sentinel-client/*.sh'
+          # Include client scripts, health helpers and shared shell libs
+          files: |
+            vpn-sentinel-client/*.sh
+            vpn-sentinel-client/health-monitor.sh
+            vpn-sentinel-client/healthcheck.sh
+            lib/*.sh
           shellcheck_version: 'latest'
           github_token: ${{ secrets.GITHUB_TOKEN }}
   unit-tests:
