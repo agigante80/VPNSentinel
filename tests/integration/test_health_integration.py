@@ -189,10 +189,21 @@ class TestHealthCheckIntegration(unittest.TestCase):
 
         with open(dockerfile_path, 'r') as f:
             content = f.read()
-
-        # Should copy the health check script
-        self.assertIn('COPY healthcheck.sh /app/healthcheck.sh', content)
-        self.assertIn('chmod +x /app/healthcheck.sh', content)
+        # Should copy the health check script. Depending on how CI builds (component
+        # context vs repo-root context) the COPY may be either relative to the
+        # `vpn-sentinel-client/` directory or use the repo-root path. Accept both.
+        ok1 = 'COPY healthcheck.sh /app/healthcheck.sh' in content
+        ok2 = 'COPY vpn-sentinel-client/healthcheck.sh /app/healthcheck.sh' in content
+        self.assertTrue(ok1 or ok2, "Dockerfile must COPY the healthcheck script (either component-relative or repo-root path)")
+        # The Dockerfile may chmod multiple files in a single RUN; accept either
+        # a direct 'chmod +x /app/healthcheck.sh' or a RUN that contains healthcheck.sh
+        if 'chmod +x /app/healthcheck.sh' in content:
+            pass
+        else:
+            # look for any chmod line that includes healthcheck.sh
+            import re
+            m = re.search(r'chmod\s*\+x[\s\\].*healthcheck\.sh', content, re.IGNORECASE)
+            self.assertIsNotNone(m, "Dockerfile must chmod healthcheck.sh to be executable")
 
         # Script should exist
         self.assertTrue(os.path.exists(script_path))
