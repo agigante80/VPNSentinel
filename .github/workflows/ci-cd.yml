@@ -203,9 +203,10 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      - name: Build Docker image
+      - name: Build Docker image (use repo root as context)
         run: |
-          docker build -t vpn-sentinel-${{ matrix.component }}:test ${{ matrix.component }}/
+          # Build from repository root so Dockerfile can reference project-root paths
+          docker build -t vpn-sentinel-${{ matrix.component }}:test -f ${{ matrix.component }}/Dockerfile .
       - name: Test server container startup
         if: matrix.component == 'vpn-sentinel-server'
         run: |
