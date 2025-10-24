@@ -191,7 +191,7 @@ class TestHealthCheckIntegration(unittest.TestCase):
             content = f.read()
 
         # Should copy the health check script
-        self.assertIn('COPY healthcheck.sh', content)
+        self.assertIn('COPY healthcheck.sh /app/healthcheck.sh', content)
         self.assertIn('chmod +x /app/healthcheck.sh', content)
 
         # Script should exist

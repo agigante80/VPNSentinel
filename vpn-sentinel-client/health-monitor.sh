@@ -28,8 +28,6 @@
 # HEALTH CHECKS PERFORMED:
 #   - Client process health (main script running)
 #   - Network connectivity (external API reachability)
-#   - Server API connectivity (VPN Sentinel server reachability)
-#   - DNS leak detection capability
 #   - System resource monitoring
 #
 # ENVIRONMENT VARIABLES:
@@ -40,13 +38,13 @@
 #   - TZ: Timezone for timestamps (default: UTC)
 #
 # API ENDPOINTS:
-#   GET /health - Comprehensive health check
-#   GET /health/ready - Readiness check (can client serve traffic)
-#   GET /health/startup - Startup check (has client started successfully)
+#   GET /client/health - Comprehensive health check
+#   GET /client/health/ready - Readiness check (can client serve traffic)
+#   GET /client/health/startup - Startup check (has client started successfully)
 #
 # USAGE:
 #   ./health-monitor.sh &
-#   curl http://localhost:8082/health
+#   curl http://localhost:8082/client/health
 #
 # DEPENDENCIES:
 #   - python3: For Flask health server
@@ -63,6 +61,10 @@
 # License: MIT
 # =============================================================================
 
+# Source common health library
+LIB_DIR="/app/lib"
+source "$LIB_DIR/health-common.sh"
+
 # -----------------------------------------------------------------------------
 # Configuration and Constants
 # -----------------------------------------------------------------------------
@@ -77,110 +79,11 @@ HEALTH_CHECK_INTERVAL=30
 CLIENT_PROCESS_CHECK_INTERVAL=10
 
 # -----------------------------------------------------------------------------
-# Logging Functions
-# -----------------------------------------------------------------------------
-log_message() {
-    local level="$1"
-    local component="$2"
-    local message="$3"
-    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    echo "${timestamp} ${level} [${component}] ${message}" >&2
-}
-
-log_info() {
-    log_message "INFO" "$1" "$2"
-}
-
-log_error() {
-    log_message "ERROR" "$1" "$2"
-}
-
-log_warn() {
-    log_message "WARN" "$1" "$2"
-}
-
-# -----------------------------------------------------------------------------
-# Health Check Functions
-# -----------------------------------------------------------------------------
-check_client_process() {
-    # Check if main client script is running
-    if pgrep -f "vpn-sentinel-client.sh" > /dev/null 2>&1; then
-        echo "healthy"
-        return 0
-    else
-        echo "not_running"
-        return 1
-    fi
-}
-
-check_network_connectivity() {
-    # Check external connectivity using Cloudflare
-    if curl -f -s --max-time 5 "https://1.1.1.1/cdn-cgi/trace" > /dev/null 2>&1; then
-        echo "healthy"
-        return 0
-    else
-        echo "unreachable"
-        return 1
-    fi
-}
-
-check_server_connectivity() {
-    # Check connectivity to VPN Sentinel server
-    server_url="${SERVER_URL}"
-
-    if [ -z "$server_url" ]; then
-        echo "not_configured"
-        return 0
-    fi
-
-    # Check server connectivity by testing if the server URL is reachable
-    # Use a simple HEAD request to the base server URL
-    if curl -s --max-time 10 -I "$server_url" > /dev/null 2>&1; then
-        echo "healthy"
-        return 0
-    else
-        echo "unreachable"
-        return 1
-    fi
-}
-
-check_dns_leak_detection() {
-    # Check if DNS leak detection is functional
-    # This is a basic check - full leak detection happens in main client
-    if curl -f -s --max-time 5 "https://ipinfo.io/json" > /dev/null 2>&1; then
-        echo "healthy"
-        return 0
-    else
-        echo "unreachable"
-        return 1
-    fi
-}
-
-get_system_info() {
-    # Get basic system information
-    local memory_percent="unknown"
-    local disk_percent="unknown"
-
-    # Try to get memory usage (Linux-specific)
-    if command -v free > /dev/null 2>&1; then
-        memory_percent=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}')
-    fi
-
-    # Try to get disk usage
-    if command -v df > /dev/null 2>&1; then
-        disk_percent=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
-    fi
-
-    echo "{\"memory_percent\": \"$memory_percent\", \"disk_percent\": \"$disk_percent\"}"
-}
-
-# -----------------------------------------------------------------------------
 # Health Status Generation
 # -----------------------------------------------------------------------------
 generate_health_status() {
     local client_status=$(check_client_process)
     local network_status=$(check_network_connectivity)
-    local server_status=$(check_server_connectivity)
     local dns_status=$(check_dns_leak_detection)
     local system_info=$(get_system_info)
 
@@ -199,15 +102,6 @@ generate_health_status() {
             issues='["network_unreachable"]'
         else
             issues='["client_process_not_running", "network_unreachable"]'
-        fi
-    fi
-
-    if [ "$server_status" = "unreachable" ]; then
-        overall_status="degraded"
-        if [ "$issues" = "[]" ]; then
-            issues='["server_unreachable"]'
-        else
-            issues=$(echo "$issues" | sed 's/\]$/, "server_unreachable"]/')
         fi
     fi
 
@@ -234,7 +128,6 @@ generate_health_status() {
   "checks": {
     "client_process": "$client_status",
     "network_connectivity": "$network_status",
-    "server_connectivity": "$server_status",
     "dns_leak_detection": "$dns_status"
   },
   "system": $system_info,
@@ -312,15 +205,6 @@ def get_health_data():
                 capture_output=True, text=True
             ).stdout.strip()
             
-            server_url = os.environ.get("VPN_SENTINEL_URL", "")
-            server_status = "not_configured"
-            if server_url:
-                result = subprocess.run(
-                    ["curl", "-s", "--max-time", "10", "-I", server_url.rstrip("/")],
-                    capture_output=True
-                )
-                server_status = "healthy" if result.returncode == 0 else "unreachable"
-            
             # Get system info
             memory_percent = "unknown"
             disk_percent = "unknown"
@@ -360,17 +244,12 @@ def get_health_data():
                 overall_status = "unhealthy"
                 issues.append("network_unreachable")
 
-            if server_status == "unreachable":
-                overall_status = "degraded"
-                issues.append("server_unreachable")
-
             health_data = {
                 "status": overall_status,
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "checks": {
                     "client_process": client_status,
-                    "network_connectivity": network_status,
-                    "server_connectivity": server_status
+                    "network_connectivity": network_status
                 },
                 "system": {
                     "memory_percent": memory_percent,
@@ -393,13 +272,13 @@ def get_health_data():
 
     return health_data
 
-@app.route('/health', methods=['GET'])
+@app.route('/client/health', methods=['GET'])
 def health():
     data = get_health_data()
     status_code = 200 if data.get('status') in ['healthy', 'degraded'] else 503
     return jsonify(data), status_code
 
-@app.route('/health/ready', methods=['GET'])
+@app.route('/client/health/ready', methods=['GET'])
 def readiness():
     data = get_health_data()
     # Readiness requires client process and network to be healthy
@@ -427,7 +306,7 @@ def readiness():
         }
         return jsonify(status_data), 503
 
-@app.route('/health/startup', methods=['GET'])
+@app.route('/client/health/startup', methods=['GET'])
 def startup():
     status_data = {
         "status": "started",
@@ -450,156 +329,25 @@ EOF
 }
 
 # -----------------------------------------------------------------------------
-# Main Health Monitor Logic
+# Main Script Execution
 # -----------------------------------------------------------------------------
-main() {
-    log_info "health-monitor" "🚀 Starting VPN Sentinel Client Health Monitor on port $HEALTH_PORT"
+# Start Flask health server in the background
+create_flask_server | /opt/venv/bin/python3 > /dev/null 2>&1 &
 
-    # Check if Python and Flask are available
-    if ! command -v python3 > /dev/null 2>&1; then
-        log_error "health-monitor" "❌ Python3 not found. Health monitor requires Python3."
-        exit 1
-    fi
+FLASK_PID=$!
 
-    # Check if Flask is available
-    if ! python3 -c "import flask" 2>/dev/null; then
-        log_error "health-monitor" "❌ Flask not found. Install with: pip install flask"
-        exit 1
-    fi
+# Wait for the Flask server to start
+sleep 2
 
-    # Create temporary Flask server script
-    local flask_script=$(mktemp)
-    create_flask_server > "$flask_script"
+# Main loop - health status generation
+while true; do
+    # Generate and log health status
+    health_status=$(generate_health_status)
+    echo "$health_status" | jq . -C | tee -a /var/log/vpn-sentinel-health.log
 
-    # Set up signal handling for graceful shutdown
-    trap 'log_info "health-monitor" "🛑 Shutting down health monitor..."; rm -f "$flask_script"; exit 0' INT TERM
-
-    # Start Flask server
-    log_info "health-monitor" "🌐 Starting health server on port $HEALTH_PORT"
-    python3 "$flask_script"
-
-    # Cleanup
-    rm -f "$flask_script"
-}
-
-# -----------------------------------------------------------------------------
-# Command Line Argument Parsing
-# -----------------------------------------------------------------------------
-# Parse command line arguments for testing and help
-SHOW_HELP=false
-SINGLE_CHECK=false
-
-while [ $# -gt 0 ]; do
-    case $1 in
-        --help|-h)
-            SHOW_HELP=true
-            shift
-            ;;
-        --check|-c)
-            SINGLE_CHECK=true
-            shift
-            ;;
-        --port|-p)
-            if [ $# -gt 1 ]; then
-                HEALTH_PORT="$2"
-                shift 2
-            else
-                echo "Error: --port requires a value" >&2
-                exit 2
-            fi
-            ;;
-        *)
-            echo "Unknown option: $1" >&2
-            echo "Use --help for usage information" >&2
-            exit 2
-            ;;
-    esac
+    # Sleep before next health check
+    sleep "$HEALTH_CHECK_INTERVAL"
 done
 
-# Show help if requested
-if [ "$SHOW_HELP" = true ]; then
-    cat << EOF
-VPN Sentinel Client Health Monitor
-
-A dedicated health monitoring process for VPN Sentinel Client that runs
-independently from the main VPN monitoring script.
-
-USAGE:
-    $0 [OPTIONS]
-
-OPTIONS:
-    --help, -h          Show this help message
-    --check, -c         Perform a single health check and exit
-    --port, -p PORT     Health monitor port (default: 8082)
-
-ENVIRONMENT VARIABLES:
-    VPN_SENTINEL_HEALTH_PORT    Health monitor port (default: 8082)
-    VPN_SENTINEL_URL           Server URL for connectivity checks
-    VPN_SENTINEL_API_PATH      API path prefix (default: /api/v1)
-    VPN_SENTINEL_API_KEY       API key for server authentication
-    TZ                         Timezone for timestamps (default: UTC)
-
-EXAMPLES:
-    $0 --help
-    $0 --check
-    $0 --port 8083
-
-EOF
-    exit 0
-fi
-
-# Perform single check if requested
-if [ "$SINGLE_CHECK" = true ]; then
-    # Run health checks and output JSON
-    client_status=$(check_client_process)
-    network_status=$(check_network_connectivity)
-    server_status=$(check_server_connectivity)
-    
-    # Determine overall status
-    overall_status="healthy"
-    issues=""
-    
-    if [ "$client_status" != "healthy" ]; then
-        overall_status="unhealthy"
-        issues="$issues\"client_process_not_running\","
-    fi
-    
-    if [ "$network_status" != "healthy" ]; then
-        overall_status="unhealthy"
-        issues="$issues\"network_unreachable\","
-    fi
-    
-    if [ "$server_status" = "unreachable" ]; then
-        overall_status="degraded"
-        issues="$issues\"server_unreachable\","
-    fi
-    
-    # Remove trailing comma and format as JSON array
-    issues=$(echo "$issues" | sed 's/,$//')
-    if [ -z "$issues" ]; then
-        issues="[]"
-    else
-        issues="[$issues]"
-    fi
-    
-    # Output JSON
-    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    cat << EOF
-{
-  "status": "$overall_status",
-  "timestamp": "$timestamp",
-  "checks": {
-    "client_process": "$client_status",
-    "network_connectivity": "$network_status",
-    "server_connectivity": "$server_status"
-  },
-  "issues": $issues
-}
-EOF
-    exit 0
-fi
-
-# -----------------------------------------------------------------------------
-# Start health monitor
-# -----------------------------------------------------------------------------
-main "$@"
+# Wait for Flask server to exit (should not happen)
+wait $FLASK_PID

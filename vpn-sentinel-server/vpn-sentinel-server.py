@@ -105,6 +105,7 @@ if not VERSION:
 
 # Initialize Flask applications
 api_app = Flask(__name__)               # API server application
+health_app = Flask(__name__)            # Health server application (public endpoints)
 dashboard_app = Flask(__name__)         # Dashboard web application
 
 # Telegram Bot Configuration
@@ -135,6 +136,7 @@ CHECK_INTERVAL_MINUTES = int(os.getenv("VPN_SENTINEL_SERVER_CHECK_INTERVAL_MINUT
 
 # Server Port Configuration  
 API_PORT = int(os.getenv("VPN_SENTINEL_SERVER_API_PORT", "5000"))                               # API server port for client connections
+HEALTH_PORT = int(os.getenv("VPN_SENTINEL_SERVER_HEALTH_PORT", "8081"))                         # Health server port for monitoring systems
 DASHBOARD_PORT = int(os.getenv("VPN_SENTINEL_SERVER_DASHBOARD_PORT", "8080"))                   # Web dashboard port
 
 # Web Dashboard Configuration
@@ -864,7 +866,6 @@ def keepalive():
             message += f"🔒 <b>DNS Leak Test:</b>\n"
             message += f"DNS Location: <code>{dns_location}</code>\n"
             message += f"DNS Server: <code>{dns_colo}</code>\n"
-            
             if dns_location != 'Unknown' and country != 'Unknown':
                 if dns_location.upper() == country.upper():
                     message += f"✅ <b>No DNS leak detected</b>"
@@ -1208,6 +1209,108 @@ def readiness():
 @api_app.route(f'{API_PATH}/health/startup', methods=['GET'])
 def startup():
     """Startup probe - quick check that application has started"""
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    log_access('startup', client_ip, user_agent, None, "200_OK")
+    
+    # Quick startup check - just verify Flask is running and basic structures exist
+    return jsonify({
+        'status': 'started',
+        'server_time': get_current_time().isoformat(),
+        'uptime_info': 'VPN Keepalive Server is running'
+    })
+
+# =============================================================================
+# Dedicated Health Server Endpoints (Port 8081)
+# =============================================================================
+
+@health_app.route('/health', methods=['GET'])
+def health_check():
+    """Comprehensive health check - liveness probe with detailed status (public endpoint)"""
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    log_access('health', client_ip, user_agent, None, "200_OK")
+    
+    # Get system resource information
+    memory = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+    
+    health_status = {
+        'status': 'healthy',
+        'server_time': get_current_time().isoformat(),
+        'active_clients': len(clients),
+        'uptime_info': 'VPN Keepalive Server is running',
+        'system': {
+            'memory_usage_percent': round(memory.percent, 1),
+            'memory_used_gb': round(memory.used / (1024**3), 2),
+            'memory_total_gb': round(memory.total / (1024**3), 2),
+            'disk_usage_percent': round(disk.percent, 1),
+            'disk_free_gb': round(disk.free / (1024**3), 2)
+        },
+        'dependencies': {
+            'telegram_bot': 'not_configured'
+        }
+    }
+    
+    # Check for critical resource issues
+    if memory.percent > 95:  # Critical memory usage
+        health_status['status'] = 'unhealthy'
+        health_status['issues'] = ['Critical memory usage']
+        
+    if disk.percent > 95:  # Critical disk usage
+        health_status['status'] = 'unhealthy'
+        health_status['issues'] = health_status.get('issues', []) + ['Critical disk usage']
+    
+    # Check Telegram bot status (lighter check than readiness probe)
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        health_status['dependencies']['telegram_bot'] = 'configured'
+    else:
+        health_status['dependencies']['telegram_bot'] = 'not_configured'
+    
+    # Return appropriate HTTP status
+    status_code = 200 if health_status['status'] == 'healthy' else 503
+    return jsonify(health_status), status_code
+
+@health_app.route('/health/ready', methods=['GET'])
+def health_readiness():
+    """Readiness probe - checks if service is ready to serve traffic (public endpoint)"""
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    log_access('readiness', client_ip, user_agent, None, "200_OK")
+    
+    readiness_status = {
+        'status': 'ready',
+        'checks': {
+            'flask_app': 'healthy',
+            'telegram_bot': 'not_configured'
+        }
+    }
+    
+    # Check Telegram bot configuration and connectivity if enabled
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        try:
+            # Quick connectivity test to Telegram API
+            test_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getMe"
+            response = requests.get(test_url, timeout=5, verify=True)
+            
+            if response.status_code == 200:
+                readiness_status['checks']['telegram_bot'] = 'healthy'
+            else:
+                readiness_status['checks']['telegram_bot'] = 'unhealthy'
+                readiness_status['status'] = 'not_ready'
+                
+        except Exception as e:
+            log_warn("readiness", f"Telegram connectivity check failed: {e}")
+            readiness_status['checks']['telegram_bot'] = 'unhealthy'
+            readiness_status['status'] = 'not_ready'
+    
+    # Return appropriate HTTP status based on readiness
+    status_code = 200 if readiness_status['status'] == 'ready' else 503
+    return jsonify(readiness_status), status_code
+
+@health_app.route('/health/startup', methods=['GET'])
+def health_startup():
+    """Startup probe - quick check that application has started (public endpoint)"""
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
     user_agent = request.headers.get('User-Agent', 'Unknown')
     log_access('startup', client_ip, user_agent, None, "200_OK")
@@ -1956,6 +2059,7 @@ def handle_telegram_commands():
     Threading:
         - Runs as daemon thread (terminates on shutdown)
         - Independent of main server operation
+       
         - Can be disabled by not setting Telegram credentials
     """
     if not TELEGRAM_BOT_TOKEN:
@@ -2104,11 +2208,13 @@ if __name__ == "__main__":
     Server Modes:
         - Single Port: API and Dashboard on same port (default API_PORT)
         - Dual Port: API on API_PORT, Dashboard on DASHBOARD_PORT
+        - Triple Port: API on API_PORT, Health on HEALTH_PORT, Dashboard on DASHBOARD_PORT
         
     Threading:
         - Client checker runs as daemon thread
         - Telegram polling runs as daemon thread (if enabled)
-        - API server runs in background thread (dual port mode)
+        - API server runs in background thread (dual/triple port mode)
+        - Health server runs in background thread (triple port mode)
         - Dashboard server runs in main thread
         
     Shutdown:
@@ -2139,6 +2245,7 @@ if __name__ == "__main__":
     startup_message = f"🚀 <b>VPN Sentinel Server Started</b>\n\n"
     startup_message += f"📊 <b>Configuration:</b>\n"
     startup_message += f"• API Port: <code>{API_PORT}</code>\n"
+    startup_message += f"• Health Port: <code>{HEALTH_PORT}</code>\n"
     startup_message += f"• Dashboard Port: <code>{DASHBOARD_PORT}</code>\n"
     startup_message += f"• Alert Threshold: <code>{ALERT_THRESHOLD_MINUTES} minutes</code>\n"
     startup_message += f"• Check Interval: <code>{CHECK_INTERVAL_MINUTES} minutes</code>\n"
@@ -2146,8 +2253,8 @@ if __name__ == "__main__":
     startup_message += f"• TLS: <code>{'Enabled' if TLS_CERT_PATH and TLS_KEY_PATH else 'Disabled'}</code>\n\n"
     startup_message += f"🌐 <b>Access URLs:</b>\n"
     startup_message += f"• API: <code>http://your-server:{API_PORT}{API_PATH}</code>\n"
-    startup_message += f"• Dashboard: <code>http://your-server:{DASHBOARD_PORT}/dashboard</code>\n"
-    startup_message += f"• Health: <code>http://your-server:{API_PORT}{API_PATH}/health</code>\n\n"
+    startup_message += f"• Health: <code>http://your-server:{HEALTH_PORT}/health</code>\n"
+    startup_message += f"• Dashboard: <code>http://your-server:{DASHBOARD_PORT}/dashboard</code>\n\n"
     startup_message += f"✅ <b>Server is ready to receive VPN client connections!</b>"
     
     if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
@@ -2175,12 +2282,18 @@ if __name__ == "__main__":
     
     # Start web servers based on configuration
     if WEB_DASHBOARD_ENABLED and API_PORT != DASHBOARD_PORT:
-        # Dual port mode: API and Dashboard on separate ports
+        # Triple port mode: API, Health, and Dashboard on separate ports
         def run_api_server():
             ssl_ctx = None
             if TLS_CERT_PATH and TLS_KEY_PATH:
                                ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
             api_app.run(host='0.0.0.0', port=API_PORT, debug=False, use_reloader=False, ssl_context=None)
+        
+        def run_health_server():
+            ssl_ctx = None
+            if TLS_CERT_PATH and TLS_KEY_PATH:
+                ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
+            health_app.run(host='0.0.0.0', port=HEALTH_PORT, debug=False, use_reloader=False, ssl_context=None)
         
         def run_dashboard_server():
             ssl_ctx = None
@@ -2193,14 +2306,30 @@ if __name__ == "__main__":
         api_thread.start()
         log_info("server", f"🚀 API Server started on port {API_PORT}")
         
+        # Start health server in background thread
+        health_thread = threading.Thread(target=run_health_server, daemon=True)
+        health_thread.start()
+        log_info("server", f"🏥 Health Server started on port {HEALTH_PORT}")
+        
         # Start dashboard server in main thread
         log_info("server", f"🌐 Dashboard Server starting on port {DASHBOARD_PORT}")
         run_dashboard_server()
     else:
-        # Single port mode: API and Dashboard on same port
+        # Single port mode: API and Dashboard on same port (health still separate)
         @api_app.route('/dashboard', methods=['GET'])
         def dashboard_single_port():
             return web_dashboard()
+        
+        def run_health_server():
+            ssl_ctx = None
+            if TLS_CERT_PATH and TLS_KEY_PATH:
+                ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
+            health_app.run(host='0.0.0.0', port=HEALTH_PORT, debug=False, use_reloader=False, ssl_context=None)
+        
+        # Start health server in background thread
+        health_thread = threading.Thread(target=run_health_server, daemon=True)
+        health_thread.start()
+        log_info("server", f"🏥 Health Server started on port {HEALTH_PORT}")
         
         log_info("server", f"🚀 Server starting on port {API_PORT} (API + Dashboard)")
         ssl_ctx = None
