@@ -1,9 +1,9 @@
-version: "3.8"
 services:
   vpn-sentinel-server-test:
     build: 
-      context: ../vpn-sentinel-server
-      dockerfile: Dockerfile
+      # use repository root as build context so Dockerfile can COPY files across the repo
+      context: ..
+      dockerfile: vpn-sentinel-server/Dockerfile
     container_name: vpn-sentinel-server-test
     env_file: .env.test
     ports:
@@ -20,8 +20,9 @@ services:
     restart: unless-stopped
   vpn-sentinel-client-test:
     build:
-      context: ../vpn-sentinel-client  
-      dockerfile: Dockerfile
+      # use repository root as build context so Dockerfile can COPY files across the repo
+      context: ..
+      dockerfile: vpn-sentinel-client/Dockerfile
     container_name: vpn-sentinel-client-test
     env_file: .env.test
     environment:
