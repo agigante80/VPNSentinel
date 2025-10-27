@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Pre-commit hook: block commits that stage files containing absolute paths
+# or local-only IPs, or that add generated log/coverage artifacts.
+
+FORBIDDEN_PATTERNS=("/home/" "192.168.33.")
+FORBIDDEN_PATHS=("scripts/smoke/logs/" "tests/coverage_html/" "tests/coverage.xml")
+
+echo "[pre-commit] scanning staged files for forbidden patterns..."
+
+fail=0
+
+# Check staged file paths first
+staged_files=$(git diff --cached --name-only --diff-filter=ACM)
+for f in $staged_files; do
+  for p in "${FORBIDDEN_PATHS[@]}"; do
+    if [[ "$f" == "$p"* ]]; then
+      echo "[pre-commit] blocked: staged file path matches forbidden path: $f"
+      fail=1
+    fi
+  done
+done
+
+# Check staged file contents for forbidden patterns
+for f in $staged_files; do
+  # Skip binary files
+  if git diff --cached --numstat -- "$f" | awk '{print $1}' | grep -qE '^-|[0-9]+'; then
+    :
+  fi
+  # Extract staged content and search
+  if git show :"$f" 2>/dev/null | grep -n -E "$(printf '%s|' "${FORBIDDEN_PATTERNS[@]}")" >/dev/null 2>&1; then
+    echo "[pre-commit] blocked: staged file '$f' contains forbidden pattern (/home/ or 192.168.33.)"
+    fail=1
+  fi
+done
+
+if [ $fail -ne 0 ]; then
+  echo "[pre-commit] Commit blocked. Remove sensitive/generated content or update .gitignore before committing."
+  exit 1
+fi
+
+echo "[pre-commit] OK"
+exit 0
