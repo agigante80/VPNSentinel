@@ -77,34 +77,28 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      - name: Run ShellCheck (koalaman/shellcheck-action)
-        uses: koalaman/shellcheck-action@v1
-        with:
-          # Include client scripts, health helpers and shared shell libs
-          files: |
-            # client scripts and nested helpers
-            vpn-sentinel-client/*.sh
-            vpn-sentinel-client/**/*.sh
-            vpn-sentinel-client/health-monitor.sh
-            vpn-sentinel-client/healthcheck.sh
-            # shared libraries
-            lib/*.sh
-            lib/**/*.sh
-            # server-side scripts and helpers
-            vpn-sentinel-server/*.sh
-            vpn-sentinel-server/**/*.sh
-            # top-level and repo scripts
-            scripts/*.sh
-            scripts/**/*.sh
-            # test and deployment helper scripts
-            tests/**/*.sh
-            deployments/**/*.sh
-            # other helper script locations
-            vpn-client/*.sh
-            # include any top-level scripts as a fallback
-            *.sh
-          shellcheck_version: 'latest'
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run ShellCheck (install & run)
+        run: |
+          set -euo pipefail
+          echo "Installing shellcheck..."
+          sudo apt-get update -y
+          sudo apt-get install -y shellcheck
+
+          # Collect shell script paths to check (respect .gitignore via git ls-files)
+          files=$(git ls-files \
+            "vpn-sentinel-client/*.sh" "vpn-sentinel-client/**/*.sh" "vpn-sentinel-client/health-monitor.sh" "vpn-sentinel-client/healthcheck.sh" \
+            "lib/*.sh" "lib/**/*.sh" \
+            "vpn-sentinel-server/*.sh" "vpn-sentinel-server/**/*.sh" \
+            "scripts/*.sh" "scripts/**/*.sh" \
+            "tests/**/*.sh" "deployments/**/*.sh" \
+            "vpn-client/*.sh" "*.sh" 2>/dev/null | tr '\n' ' ')
+
+          if [ -z "$files" ]; then
+            echo "No shell scripts found to check"
+          else
+            echo "Running shellcheck on: $files"
+            shellcheck $files || exit 1
+          fi
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
