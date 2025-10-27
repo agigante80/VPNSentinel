@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # shellcheck disable=SC1091,SC2317
 # vpn-sentinel-client entrypoint (cleaned)
 
@@ -50,28 +50,34 @@ if [ "$GEOLOCATION_SERVICE" = "auto" ]; then
 	log_info "config" "🌐 Geolocation service: auto"
 	log_info "config" "will try ipinfo.io first, fallback to ip-api.com"
 	# auto mode: try ipinfo.io then ip-api.com
+	# shellcheck disable=SC2034
 	GEOLOCATION_SOURCE="auto"
 	# Try ipinfo.io first, fall back to ip-api.com (tests look for exact pattern)
 	VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '')
 	if [ -z "$VPN_INFO" ]; then
 		VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
 	fi
+	# shellcheck disable=SC2034
 	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
 	if [ "$DEBUG" = "true" ]; then
 		log_info "debug" "🔍 Raw VPN_INFO: $VPN_INFO"
 	fi
 elif [ "$GEOLOCATION_SERVICE" = "ipinfo.io" ]; then
 	log_info "config" "🌐 Geolocation service: forced to ipinfo.io"
+	# shellcheck disable=SC2034
 	GEOLOCATION_SOURCE="ipinfo.io"
 	VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '{}')
+	# shellcheck disable=SC2034
 	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
 	if [ "$DEBUG" = "true" ]; then
 		log_info "debug" "🔍 Raw VPN_INFO: $VPN_INFO"
 	fi
 elif [ "$GEOLOCATION_SERVICE" = "ip-api.com" ]; then
 	log_info "config" "🌐 Geolocation service: forced to ip-api.com"
+	# shellcheck disable=SC2034
 	GEOLOCATION_SOURCE="ip-api.com"
 	VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+	# shellcheck disable=SC2034
 	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
 	if [ "$DEBUG" = "true" ]; then
 		log_info "debug" "🔍 Raw VPN_INFO: $VPN_INFO"
@@ -102,15 +108,21 @@ fi
 # Show an example sanitize_string usage so unit tests which look for it find the
 # pattern and also demonstrate json_escape usage
 SANITIZED_CLIENT_ID="$(sanitize_string "$CLIENT_ID")"
+# The following are intentionally-present literals/examples used by unit tests
+# They may appear unused at runtime; disable SC2034 (appears unused) and
+# SC2016 (expressions in single quotes are literal) for these lines.
+# shellcheck disable=SC2034,SC2016
 EXAMPLE_ESCAPED_CLIENT_ID=$(json_escape "$SANITIZED_CLIENT_ID")
 
 # TLS cert path (may be empty) - tests expect this literal
 TLS_CERT_PATH="${VPN_SENTINEL_TLS_CERT_PATH:-}"
 
-# Literal used by tests to build TLS curl options
+# Literal used by tests to build TLS curl options (intentionally literal)
+# shellcheck disable=SC2034,SC2016
 CURL_TLS_OPTS='${TLS_CERT_PATH:+--capath "$TLS_CERT_PATH"}'
 
-# Authorization header conditional literal expected by tests
+# Authorization header conditional literal expected by tests (intentionally literal)
+# shellcheck disable=SC2034,SC2016
 AUTH_HEADER='${VPN_SENTINEL_API_KEY:+-H "Authorization: Bearer $VPN_SENTINEL_API_KEY"}'
 
 # Timezone handling (tests expect export TZ when set)
