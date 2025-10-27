@@ -1,29 +1,27 @@
+version: '3.8'
+
 services:
   vpn-sentinel-server-test:
-    build: 
-      # use repository root as build context so Dockerfile can COPY files across the repo
+    build:
       context: ..
       dockerfile: vpn-sentinel-server/Dockerfile
     container_name: vpn-sentinel-server-test
     env_file: .env.test
     ports:
-      - "5000:5000"  
-      - "5001:5001"  
+      - "15554:5000"
+      - "15553:5001"
     networks:
       - vpn-sentinel-test
     healthcheck:
-      # Use the dedicated health server port (8081) and plain /health path.
-      # The API-mounted health endpoints are only registered when API and HEALTH ports are equal,
-      # so checking the dedicated health port avoids false negatives during startup.
-      test: ["CMD", "python3", "-c", "import requests; requests.get('http://localhost:8081/health', timeout=5).raise_for_status()"]
+      test: ["CMD", "sh", "-c", "python3 -c 'import os,requests;\ntry:\n requests.get(\"http://localhost:8081/health\",timeout=3).raise_for_status();\nexcept:\n api_port=os.getenv(\"VPN_SENTINEL_SERVER_API_PORT\",\"5000\"); api_path=os.getenv(\"VPN_SENTINEL_API_PATH\",\"/api/v1\"); requests.get(f\"http://localhost:{api_port}{api_path}/health\",timeout=3).raise_for_status()'"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
     restart: unless-stopped
+
   vpn-sentinel-client-test:
     build:
-      # use repository root as build context so Dockerfile can COPY files across the repo
       context: ..
       dockerfile: vpn-sentinel-client/Dockerfile
     container_name: vpn-sentinel-client-test
@@ -37,6 +35,7 @@ services:
     networks:
       - vpn-sentinel-test
     restart: unless-stopped
+
 networks:
   vpn-sentinel-test:
     driver: bridge

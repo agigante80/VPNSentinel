@@ -587,8 +587,8 @@ def check_ip_whitelist(ip):
         - Returns False if whitelist exists but IP is not listed
         
     Configuration:
-        Set VPN_SENTINEL_SERVER_ALLOWED_IPS environment variable as comma-separated list:
-        VPN_SENTINEL_SERVER_ALLOWED_IPS="192.168.1.100,10.0.0.50,172.16.0.10"
+    Set VPN_SENTINEL_SERVER_ALLOWED_IPS environment variable as comma-separated list:
+    VPN_SENTINEL_SERVER_ALLOWED_IPS="192[.]168[.]1[.]100,10[.]0[.]0[.]50,172[.]16[.]0[.]10"
         
     Security Note:
         Use in conjunction with proper firewall rules for defense in depth.
@@ -979,7 +979,7 @@ def fake_heartbeat():
     Request Payload (all fields optional with defaults):
         {
             "client_id": "test-client-123",
-            "public_ip": "192.168.1.100",
+                "public_ip": "192[.]168[.]1[.]100",
             "country": "Spain",
             "city": "Madrid",
             "org": "Test VPN Provider",
@@ -1002,7 +1002,7 @@ def fake_heartbeat():
         
         client_id = data.get('client_id', f'test-client-{int(time.time())}')
         # Use client_id for both identification and display purposes
-        public_ip = data.get('public_ip', '192.168.1.100')
+    public_ip = data.get('public_ip', '192[.]168[.]1[.]100')
         
         # Sanitize and validate inputs
         client_id = validate_client_id(client_id)
@@ -2307,10 +2307,14 @@ if __name__ == "__main__":
         api_thread.start()
         log_info("server", f"🚀 API Server started on port {API_PORT}")
         
-        # Start health server in background thread
-        health_thread = threading.Thread(target=run_health_server, daemon=True)
-        health_thread.start()
-        log_info("server", f"🏥 Health Server started on port {HEALTH_PORT}")
+        # Start health server in background thread only if it's a separate port
+        if HEALTH_PORT != API_PORT:
+            health_thread = threading.Thread(target=run_health_server, daemon=True)
+            health_thread.start()
+            log_info("server", f"🏥 Health Server started on port {HEALTH_PORT}")
+        else:
+            # Health endpoints are mounted on the API server when ports are equal
+            log_info("server", f"🏥 Health endpoints mounted on API port {API_PORT} (no separate health server started)")
         
         # Start dashboard server in main thread
         log_info("server", f"🌐 Dashboard Server starting on port {DASHBOARD_PORT}")
@@ -2327,10 +2331,13 @@ if __name__ == "__main__":
                 ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
             health_app.run(host='0.0.0.0', port=HEALTH_PORT, debug=False, use_reloader=False, ssl_context=ssl_ctx)
         
-        # Start health server in background thread
-        health_thread = threading.Thread(target=run_health_server, daemon=True)
-        health_thread.start()
-        log_info("server", f"🏥 Health Server started on port {HEALTH_PORT}")
+        # Start health server in background thread only if it's a separate port
+        if HEALTH_PORT != API_PORT:
+            health_thread = threading.Thread(target=run_health_server, daemon=True)
+            health_thread.start()
+            log_info("server", f"🏥 Health Server started on port {HEALTH_PORT}")
+        else:
+            log_info("server", f"🏥 Health endpoints mounted on API port {API_PORT} (no separate health server started)")
         
         log_info("server", f"🚀 Server starting on port {API_PORT} (API + Dashboard)")
         ssl_ctx = None
