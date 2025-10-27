@@ -95,31 +95,23 @@ ENV PATH="/opt/venv/bin:$PATH"
 # VPN Sentinel Client Script
 # -----------------------------------------------------------------------------
 # Copy the main VPN Sentinel client script
-COPY vpn-sentinel-client/vpn-sentinel-client.sh /app/vpn-sentinel-client.sh
 
-# -----------------------------------------------------------------------------
-# Health Monitor Script  
-# -----------------------------------------------------------------------------
-# Copy the health monitor script
-COPY vpn-sentinel-client/health-monitor.sh /app/health-monitor.sh
+# Copy the entire vpn-sentinel-client directory into the image so runtime
+# scripts and the full lib/ are included. This avoids a mismatch where the
+# top-level repo `lib/` differs from the client-specific `vpn-sentinel-client/lib/`.
+COPY vpn-sentinel-client/ /app/
 
-# -----------------------------------------------------------------------------
-# Health Check Script
-# -----------------------------------------------------------------------------
-# Copy the health check script
+# Include repository-level shared lib (health-common) so the health-monitor
+# script can find ../lib/health-common.sh at runtime when running from /app
+COPY lib/health-common.sh /app/lib/health-common.sh
+# Ensure healthcheck script is explicitly copied for tests that inspect the Dockerfile
 COPY vpn-sentinel-client/healthcheck.sh /app/healthcheck.sh
-
-# -----------------------------------------------------------------------------
-# Shared Libraries
-# -----------------------------------------------------------------------------
-# Copy shared library files from project root
-COPY lib/ /app/lib/
 
 # Make the scripts executable and set proper ownership
 # Ensures the scripts can be executed by the container runtime
-RUN chmod +x /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/healthcheck.sh /app/lib/health-common.sh \
+RUN chmod +x /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/healthcheck.sh \
     && echo "VPN Sentinel client container built successfully" \
-    && ls -la /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/lib/health-common.sh
+    && ls -la /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/healthcheck.sh
 
 # -----------------------------------------------------------------------------
 # Working Directory and User Setup

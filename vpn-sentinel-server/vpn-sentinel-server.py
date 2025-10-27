@@ -2287,20 +2287,20 @@ if __name__ == "__main__":
         def run_api_server():
             ssl_ctx = None
             if TLS_CERT_PATH and TLS_KEY_PATH:
-                               ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
-            api_app.run(host='0.0.0.0', port=API_PORT, debug=False, use_reloader=False, ssl_context=None)
+                ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
+            api_app.run(host='0.0.0.0', port=API_PORT, debug=False, use_reloader=False, ssl_context=ssl_ctx)
         
         def run_health_server():
             ssl_ctx = None
             if TLS_CERT_PATH and TLS_KEY_PATH:
                 ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
-            health_app.run(host='0.0.0.0', port=HEALTH_PORT, debug=False, use_reloader=False, ssl_context=None)
+            health_app.run(host='0.0.0.0', port=HEALTH_PORT, debug=False, use_reloader=False, ssl_context=ssl_ctx)
         
         def run_dashboard_server():
             ssl_ctx = None
             if TLS_CERT_PATH and TLS_KEY_PATH:
                 ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
-            dashboard_app.run(host='0.0.0.0', port=DASHBOARD_PORT, debug=False, use_reloader=False, ssl_context=None)
+            dashboard_app.run(host='0.0.0.0', port=DASHBOARD_PORT, debug=False, use_reloader=False, ssl_context=ssl_ctx)
         
         # Start API server in background thread
         api_thread = threading.Thread(target=run_api_server, daemon=True)
@@ -2325,7 +2325,7 @@ if __name__ == "__main__":
             ssl_ctx = None
             if TLS_CERT_PATH and TLS_KEY_PATH:
                 ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
-            health_app.run(host='0.0.0.0', port=HEALTH_PORT, debug=False, use_reloader=False, ssl_context=None)
+            health_app.run(host='0.0.0.0', port=HEALTH_PORT, debug=False, use_reloader=False, ssl_context=ssl_ctx)
         
         # Start health server in background thread
         health_thread = threading.Thread(target=run_health_server, daemon=True)
@@ -2336,4 +2336,4 @@ if __name__ == "__main__":
         ssl_ctx = None
         if TLS_CERT_PATH and TLS_KEY_PATH:
             ssl_ctx = (TLS_CERT_PATH, TLS_KEY_PATH)
-        api_app.run(host='0.0.0.0', port=API_PORT, debug=False, ssl_context=None)
+        api_app.run(host='0.0.0.0', port=API_PORT, debug=False, ssl_context=ssl_ctx)

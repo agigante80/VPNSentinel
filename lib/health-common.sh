@@ -70,7 +70,7 @@ check_client_process() {
 
 check_network_connectivity() {
   # Check external connectivity using Cloudflare
-  if curl -f -s --max-time 5 "https://1.1.1.1/cdn-cgi/trace" >/dev/null 2>&1; then
+  if curl -f -s --max-time 5 "https://1.1.1.1/cdn-cgi/trace" > /dev/null 2>&1; then
     echo "healthy"
     return 0
   else
@@ -91,7 +91,7 @@ check_server_connectivity() {
 
   # Check server connectivity by testing if the server URL is reachable
   # Use a simple HEAD request to the base server URL
-  if curl -s --max-time 10 -I "$server_url" >/dev/null 2>&1; then
+  if curl -s --max-time 10 -I "$server_url" > /dev/null 2>&1; then
     echo "healthy"
     return 0
   else
@@ -103,7 +103,7 @@ check_server_connectivity() {
 check_dns_leak_detection() {
   # Check if DNS leak detection is functional
   # This is a basic check - full leak detection happens in main client
-  if curl -f -s --max-time 5 "https://ipinfo.io/json" >/dev/null 2>&1; then
+  if curl -f -s --max-time 5 "https://ipinfo.io/json" > /dev/null 2>&1; then
     echo "healthy"
     return 0
   else
