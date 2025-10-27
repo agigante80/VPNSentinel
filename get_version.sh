@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck shell=bash
 # VPN Sentinel Version Determination Script
 # This script determines the version based on Git context
 
