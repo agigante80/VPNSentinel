@@ -30,6 +30,21 @@ SERVER_HEALTH_PORT=${SERVER_HEALTH_PORT:-8081}
 
 CERT_DIR="${CERT_DIR:-$ROOT_DIR/scripts/smoke/certs}"
 
+# If running locally and SERVER_HOST is localhost, try detect Docker bridge gateway
+# so containers can reach services published on the host. This prefers an explicit
+# SERVER_HOST env override when provided.
+if [ "${SERVER_HOST}" = "localhost" ] || [ "${SERVER_HOST}" = "127.0.0.1" ]; then
+  # Attempt to detect Docker bridge gateway IP (common default 172.17.0.1)
+  if command -v docker >/dev/null 2>&1; then
+    DOCKER_GW=$(docker network inspect bridge --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}' 2>/dev/null || true)
+    if [ -n "${DOCKER_GW}" ]; then
+      # Use simple echo here to avoid colliding with external 'info' command
+      echo "[INFO] Detected Docker bridge gateway: ${DOCKER_GW} — using it for container-to-host access"
+      SERVER_HOST="${DOCKER_GW}"
+    fi
+  fi
+fi
+
 info(){ echo "[INFO] $*"; }
 err(){ echo "[ERROR] $*" >&2; }
 
@@ -282,6 +297,8 @@ run_smoke_once(){
 
   info "Smoke test passed for TLS=${USE_TLS} — tearing down containers"
   # Write a small summary file into the log dir for debugging
+  # Write a compact summary using workspace-relative log_dir to avoid embedding
+  # absolute user home paths in generated artifacts.
   cat > "$ROOT_DIR/$LOG_DIR/smoke-summary.txt" <<EOF
 timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 server_image: ${SERVER_IMAGE}
@@ -289,7 +306,7 @@ client_image: ${CLIENT_IMAGE}
 server_container: ${SERVER_CID:-unknown}
 client_container: ${CLIENT_CID:-unknown}
 tls_enabled: ${USE_TLS}
-log_dir: ${ROOT_DIR}/${LOG_DIR}
+log_dir: ${LOG_DIR}
 EOF
 
   cleanup_containers
