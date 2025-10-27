@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# shellcheck shell=bash
 # Payload helpers for vpn-sentinel-client
 # Sourced by vpn-sentinel-client.sh
 
