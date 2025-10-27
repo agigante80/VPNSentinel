@@ -43,19 +43,16 @@ jobs:
         run: |
           bash -n vpn-sentinel-client/vpn-sentinel-client.sh
           echo "✅ Shell script syntax check passed"
-      - name: Check shell script formatting (shfmt)
-        uses: mvdan/shfmt-action@v3
-        with:
-          # Show unformatted files and fail the job if any are found
-          args: -l -w
-          # Target the repository shell scripts broadly
-          pattern: |
-            vpn-sentinel-client/**/*.sh
-            lib/**/*.sh
-            vpn-sentinel-server/**/*.sh
-            scripts/**/*.sh
-            tests/**/*.sh
-            *.sh
+      - name: Check shell script formatting (shfmt via Docker)
+        run: |
+          # Collect shell script paths to check (respect .gitignore via git ls-files)
+          files=$(git ls-files "vpn-sentinel-client/**/*.sh" "lib/**/*.sh" "vpn-sentinel-server/**/*.sh" "scripts/**/*.sh" "tests/**/*.sh" "*.sh" 2>/dev/null | tr '\n' ' ')
+          if [ -z "$files" ]; then
+            echo "No shell scripts found to check"
+          else
+            echo "Running shfmt on: $files"
+            docker run --rm -v "$PWD":/workdir -w /workdir mvdan/shfmt:latest -l $files
+          fi
       - name: Python code style check
         run: |
           flake8 vpn-sentinel-server/ --count --select=E9,F63,F7,F82 --show-source --statistics
