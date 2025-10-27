@@ -15,7 +15,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../" && pwd)"
 cd "$ROOT_DIR"
 
 # Configurable values
-SERVER_HOST="192.168.33.11"
+# Default to localhost for local testing; allow override via env var
+SERVER_HOST="${SERVER_HOST:-localhost}"
 API_PORT=${API_PORT:-5000}
 API_PATH=${API_PATH:-/api/v1}
 SERVER_IMAGE=${SERVER_IMAGE:-vpn-sentinel-server:local}
@@ -132,9 +133,11 @@ run_smoke_once(){
   # Prepare logging directory for this iteration
   TS=$(date -u +%Y%m%dT%H%M%SZ)
   ITER_NAME="${FORCE_TLS}"
-  LOG_DIR="$ROOT_DIR/scripts/smoke/logs/${TS}_${ITER_NAME}"
+  # Use workspace-relative log dir (avoid embedding absolute user paths)
+  LOG_DIR="scripts/smoke/logs/${TS}_${ITER_NAME}"
+  mkdir -p "$ROOT_DIR/$LOG_DIR"
   mkdir -p "$LOG_DIR"
-  info "Starting server container (TLS=${USE_TLS}) -- logs -> ${LOG_DIR}"
+  info "Starting server container (TLS=${USE_TLS}) -- logs -> ${ROOT_DIR}/${LOG_DIR}"
   SERVER_RUN_OPTS=( -d --name "$SERVER_NAME" -e VPN_SENTINEL_SERVER_API_PORT=$API_PORT -e VPN_SENTINEL_API_PATH=$API_PATH -e VPN_SENTINEL_API_KEY= -p ${API_PORT}:${API_PORT} -p ${SERVER_DASHBOARD_PORT}:${SERVER_DASHBOARD_PORT} -p ${SERVER_HEALTH_PORT}:${SERVER_HEALTH_PORT} )
   if [ "$USE_TLS" -eq 1 ]; then
     SERVER_RUN_OPTS+=( -v "$CERT_DIR":/certs:ro -e VPN_SENTINEL_TLS_CERT_PATH="$SERVER_TLS_CERT_PATH" -e VPN_SENTINEL_TLS_KEY_PATH="$SERVER_TLS_KEY_PATH" )
@@ -279,14 +282,14 @@ run_smoke_once(){
 
   info "Smoke test passed for TLS=${USE_TLS} — tearing down containers"
   # Write a small summary file into the log dir for debugging
-  cat > "$LOG_DIR/smoke-summary.txt" <<EOF
+  cat > "$ROOT_DIR/$LOG_DIR/smoke-summary.txt" <<EOF
 timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 server_image: ${SERVER_IMAGE}
 client_image: ${CLIENT_IMAGE}
 server_container: ${SERVER_CID:-unknown}
 client_container: ${CLIENT_CID:-unknown}
 tls_enabled: ${USE_TLS}
-log_dir: ${LOG_DIR}
+log_dir: ${ROOT_DIR}/${LOG_DIR}
 EOF
 
   cleanup_containers
