@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck shell=bash
 # Test Runner Script for VPN Sentinel
 # Runs comprehensive test suite with proper environment setup
 

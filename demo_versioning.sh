@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck shell=bash
 # VPN Sentinel Versioning Demonstration
 # This script shows how automatic versioning works in different scenarios
 
