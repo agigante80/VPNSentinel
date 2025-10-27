@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
+# shellcheck disable=SC2317
 set -euo pipefail
 
 # Simple smoke test for local server+client (no VPN container)
@@ -49,6 +51,7 @@ info(){ echo "[INFO] $*"; }
 err(){ echo "[ERROR] $*" >&2; }
 
 ## Timeouts
+# shellcheck disable=SC2034
 BUILD_TIMEOUT=300
 START_TIMEOUT=30
 RETRY_INTERVAL=2
@@ -153,9 +156,11 @@ run_smoke_once(){
   mkdir -p "$ROOT_DIR/$LOG_DIR"
   mkdir -p "$LOG_DIR"
   info "Starting server container (TLS=${USE_TLS}) -- logs -> ${ROOT_DIR}/${LOG_DIR}"
+  # shellcheck disable=SC2206
   SERVER_RUN_OPTS=( -d --name "$SERVER_NAME" -e VPN_SENTINEL_SERVER_API_PORT=$API_PORT -e VPN_SENTINEL_API_PATH=$API_PATH -e VPN_SENTINEL_API_KEY= -p ${API_PORT}:${API_PORT} -p ${SERVER_DASHBOARD_PORT}:${SERVER_DASHBOARD_PORT} -p ${SERVER_HEALTH_PORT}:${SERVER_HEALTH_PORT} )
   if [ "$USE_TLS" -eq 1 ]; then
-    SERVER_RUN_OPTS+=( -v "$CERT_DIR":/certs:ro -e VPN_SENTINEL_TLS_CERT_PATH="$SERVER_TLS_CERT_PATH" -e VPN_SENTINEL_TLS_KEY_PATH="$SERVER_TLS_KEY_PATH" )
+  # shellcheck disable=SC2206
+  SERVER_RUN_OPTS+=( -v "$CERT_DIR":/certs:ro -e VPN_SENTINEL_TLS_CERT_PATH="$SERVER_TLS_CERT_PATH" -e VPN_SENTINEL_TLS_KEY_PATH="$SERVER_TLS_KEY_PATH" )
   fi
 
   # Start server and capture container ID
@@ -197,10 +202,12 @@ run_smoke_once(){
   curl ${CURL_OPTS} -s -D - "${SERVER_HEALTH_URL}" > "$LOG_DIR/server_health_response.txt" 2>&1 || true
 
   info "Starting client container (health monitor enabled)"
+  # shellcheck disable=SC2206
   CLIENT_RUN_OPTS=( -d --name "$CLIENT_NAME" -e VPN_SENTINEL_URL="${PROTO}://${SERVER_HOST}:${API_PORT}" -e VPN_SENTINEL_API_PATH=$API_PATH -e VPN_SENTINEL_CLIENT_ID=$CLIENT_ID -e VPN_SENTINEL_API_KEY= -e VPN_SENTINEL_DEBUG=true -e VPN_SENTINEL_INTERVAL=3 -e VPN_SENTINEL_TIMEOUT=3 -e VPN_SENTINEL_HEALTH_MONITOR=true -p ${CLIENT_HEALTH_PORT}:${CLIENT_HEALTH_PORT} )
   if [ "$USE_TLS" -eq 1 ]; then
     # allow insecure for test client (self-signed) or you can mount CA instead
-    CLIENT_RUN_OPTS+=( -e VPN_SENTINEL_ALLOW_INSECURE=true )
+  # shellcheck disable=SC2206
+  CLIENT_RUN_OPTS+=( -e VPN_SENTINEL_ALLOW_INSECURE=true )
   fi
   # Start client and capture container ID
   CLIENT_CID=$(docker run "${CLIENT_RUN_OPTS[@]}" "$CLIENT_IMAGE")
@@ -236,6 +243,7 @@ run_smoke_once(){
   # Wait for client health base to become available (health monitor can be slow to bind)
   info "Waiting up to 10s for client health endpoint to respond"
   client_health_ready=1
+  # shellcheck disable=SC2034
   for i in $(seq 1 10); do
     if curl ${CURL_OPTS} -s -f "${CLIENT_HEALTH_BASE}/health" >/dev/null 2>&1; then
       client_health_ready=0
