@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# shellcheck shell=bash
 # VPN Sentinel Client Health Monitor
 # Dedicated health monitoring process that runs independently from the main client
 # Provides health status information similar to server health endpoints

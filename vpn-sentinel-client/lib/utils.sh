@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# shellcheck shell=bash
 # Utility helpers for vpn-sentinel-client
 
 json_escape() {

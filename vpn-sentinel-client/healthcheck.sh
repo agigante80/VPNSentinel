@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# shellcheck shell=bash
 # Lightweight refactor: dynamic LIB_DIR, use health-common logging, robust JSON
 # shellcheck disable=SC2155
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# shellcheck shell=bash
 # Configuration helpers for VPN Sentinel client
 # Sourced by vpn-sentinel-client.sh
 
