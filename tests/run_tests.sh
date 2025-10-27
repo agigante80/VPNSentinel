@@ -131,15 +131,29 @@ run_unit_tests() {
 run_integration_tests() {
   echo -e "${YELLOW}🔗 Running integration tests...${NC}"
 
-  # Check if server is running
-  if curl -s "http://localhost:5000/test/v1/health" >/dev/null 2>&1; then
+  # Check if server is running. Some deployments expose health on the API path
+  # (e.g. http://localhost:5000${API_PATH}/health) while docker-compose test stacks
+  # expose a dedicated health server on the HEALTH_PORT (e.g. http://localhost:8081/health).
+  # Try the API-mounted health endpoint first, then fall back to the dedicated health port.
+  API_CHECK_URL="http://localhost:5000${API_PATH}/health"
+  HEALTH_CHECK_URL="http://localhost:8081/health"
+
+  server_up=1
+  if curl -sSf "$API_CHECK_URL" >/dev/null 2>&1; then
+    server_up=0
+  elif curl -sSf "$HEALTH_CHECK_URL" >/dev/null 2>&1; then
+    server_up=0
+  fi
+
+  if [ $server_up -eq 0 ]; then
     echo -e "${GREEN}✅ Server is running, proceeding with integration tests${NC}"
 
     cd "$TEST_DIR"
 
     # Set environment variables for integration tests (matching CI/CD workflow)
-    export VPN_SENTINEL_URL=http://localhost:5000
-    export VPN_SENTINEL_API_PATH=/test/v1
+  export VPN_SENTINEL_URL=http://localhost:5000
+  # Use the test API path used by the compose stack (if set in environment), otherwise default to /test/v1
+  export VPN_SENTINEL_API_PATH=${VPN_SENTINEL_API_PATH:-/test/v1}
     export VPN_SENTINEL_API_KEY=test-api-key-abcdef123456789
 
     if command -v pytest &>/dev/null; then
