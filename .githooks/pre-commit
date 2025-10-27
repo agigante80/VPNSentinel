@@ -2,18 +2,43 @@
 set -euo pipefail
 
 # Pre-commit hook: block commits that stage files containing absolute paths
-# or local-only IPs, or that add generated log/coverage artifacts.
+# or private IP addresses, or that add generated log/coverage artifacts.
 
-FORBIDDEN_PATTERNS=("/home/" "192.168.33.")
-FORBIDDEN_PATHS=("scripts/smoke/logs/" "tests/coverage_html/" "tests/coverage.xml")
+# Forbidden path prefixes (staged file paths that should not be committed)
+FORBIDDEN_PATHS=(
+  "scripts/smoke/logs/"
+  "tests/coverage_html/"
+  "htmlcov/"
+  "tests/coverage.xml"
+  ".venv/"
+  "venv/"
+  "env/"
+)
+
+# Forbidden content regex: /home/ and private IP ranges
+# Matches: /home/, 10.*, 192.168.*, and 172.16.0.0/12 (172.16. - 172.31.)
+FORBIDDEN_CONTENT_REGEX='(/home/|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)'
 
 echo "[pre-commit] scanning staged files for forbidden patterns..."
 
 fail=0
 
-# Check staged file paths first
+# Get staged files (Added, Copied, Modified)
 staged_files=$(git diff --cached --name-only --diff-filter=ACM)
+
+# Paths to skip from checks (allow updating/installing hooks and installer)
+SKIP_PATHS=(".githooks/" "scripts/setup/")
+
+# 1) Check staged file paths
 for f in $staged_files; do
+  # Skip files that are part of the hook installation itself
+  skip=0
+  for s in "${SKIP_PATHS[@]}"; do
+    if [[ "$f" == "$s"* ]]; then skip=1; break; fi
+  done
+  if [ $skip -eq 1 ]; then
+    continue
+  fi
   for p in "${FORBIDDEN_PATHS[@]}"; do
     if [[ "$f" == "$p"* ]]; then
       echo "[pre-commit] blocked: staged file path matches forbidden path: $f"
@@ -22,15 +47,29 @@ for f in $staged_files; do
   done
 done
 
-# Check staged file contents for forbidden patterns
+# 2) Check staged file contents for forbidden patterns
 for f in $staged_files; do
-  # Skip binary files
-  if git diff --cached --numstat -- "$f" | awk '{print $1}' | grep -qE '^-|[0-9]+'; then
-    :
+  # Skip files that are part of the hook installation itself
+  skip=0
+  for s in "${SKIP_PATHS[@]}"; do
+    if [[ "$f" == "$s"* ]]; then skip=1; break; fi
+  done
+  if [ $skip -eq 1 ]; then
+    continue
   fi
-  # Extract staged content and search
-  if git show :"$f" 2>/dev/null | grep -n -E "$(printf '%s|' "${FORBIDDEN_PATTERNS[@]}")" >/dev/null 2>&1; then
-    echo "[pre-commit] blocked: staged file '$f' contains forbidden pattern (/home/ or 192.168.33.)"
+  # Skip files not in the index (deleted or similar)
+  if ! git ls-files --error-unmatch --cached -- "$f" >/dev/null 2>&1; then
+    continue
+  fi
+
+  # Extract staged content and skip binary files
+  if git show :"$f" 2>/dev/null | grep -q $'\x00'; then
+    # binary file — skip content checks
+    continue
+  fi
+
+  if git show :"$f" 2>/dev/null | grep -n -E "$FORBIDDEN_CONTENT_REGEX" >/dev/null 2>&1; then
+    echo "[pre-commit] blocked: staged file '$f' contains forbidden content (home/private IP)"
     fail=1
   fi
 done
