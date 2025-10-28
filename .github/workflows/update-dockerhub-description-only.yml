@@ -1,18 +1,11 @@
-name: Update Docker Hub descriptions on publish
+name: Update Docker Hub Descriptions (manual)
 
 on:
-  workflow_run:
-    # Trigger when a publish workflow completes successfully. Adjust the workflow
-    # names below to match your repository's publish workflow names.
-    workflows: ["Publish Docker image", "Build and Push Docker Image"]
-    types: [completed]
   workflow_dispatch: {}
 
 jobs:
-  update-descriptions:
-    name: Update Docker Hub descriptions
-    # Only run when the triggering workflow succeeded (or when manually dispatched)
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+  update-descriptions-only:
+    name: Update Docker Hub descriptions (client + server)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
