@@ -31,8 +31,6 @@ if [ -z "$TOKEN" ]; then
   exit 3
 fi
 
-DESC=$(python3 -c "import sys; print(open(sys.argv[1],'r',encoding='utf-8').read())" "$MDPATH")
-
 echo "Updating repository description for $REPO..."
 # Docker Hub API endpoint for repository details
 API_URL="https://hub.docker.com/v2/repositories/$REPO/"
