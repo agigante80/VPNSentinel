@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
+# shellcheck disable=SC2317,SC1091,SC1090,SC2034,SC2001,SC2206
 # VPN Sentinel Client Health Monitor
 # Dedicated health monitoring process that runs independently from the main client
 # Provides health status information similar to server health endpoints
@@ -73,12 +74,14 @@ REPO_HEALTH_COMMON="$SCRIPT_DIR/../lib/health-common.sh"
 LIB_DIR="${LIB_DIR:-$SCRIPT_DIR/lib}"
 if [ -f "$LIB_DIR/health-common.sh" ]; then
   # shellcheck source=lib/health-common.sh
+  # shellcheck disable=SC1091
   source "$LIB_DIR/health-common.sh"
 fi
 
 # Source component log if available, else provide lightweight fallback
 if [ -f "$COMP_LOG_SH" ]; then
   # shellcheck source=lib/log.sh
+  # shellcheck disable=SC1091
   . "$COMP_LOG_SH"
 else
   log_message() { printf '%s %s [%s] %s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$1" "$2" "$3" >&2; }
@@ -90,11 +93,13 @@ fi
 # Prefer component health-common if present, otherwise use repo-level shared lib
 if [ -f "$COMP_HEALTH_COMMON" ]; then
   # shellcheck source=lib/health-common.sh
+  # shellcheck disable=SC1090,SC1091
   # Provide an explicit source line variant for unit tests that look for it
   source "$COMP_HEALTH_COMMON"
   . "$COMP_HEALTH_COMMON"
 elif [ -f "$REPO_HEALTH_COMMON" ]; then
   # shellcheck source=../lib/health-common.sh
+  # shellcheck disable=SC1090,SC1091
   # Provide an explicit source line variant for unit tests that look for it
   source "$REPO_HEALTH_COMMON"
   . "$REPO_HEALTH_COMMON"

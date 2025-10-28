@@ -1,8 +1,9 @@
-# shellcheck shell=bash
 #!/usr/bin/env bash
+# shellcheck shell=bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HOOKS_DIR="$ROOT_DIR/.githooks"
 GIT_HOOKS_DIR="$ROOT_DIR/.git/hooks"
 
