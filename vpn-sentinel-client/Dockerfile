@@ -62,6 +62,8 @@ FROM alpine:latest
 # Accept version information
 ARG VERSION
 ENV VERSION=${VERSION}
+ARG COMMIT_HASH
+ENV COMMIT_HASH=${COMMIT_HASH}
 
 # -----------------------------------------------------------------------------
 # Package Installation

@@ -211,6 +211,15 @@ log_info "config" "📡 Server: ${SERVER_URL}"
 log_info "config" "🏷️ Client ID: ${CLIENT_ID:-not-set}"
 log_info "config" "⏱️ Interval: ${INTERVAL:-300}s"
 
+# Print version information if available (align with server logging)
+VERSION="${VERSION:-}"
+if [ -n "${VERSION}" ]; then
+	log_info "client" "📦 Version: ${VERSION}"
+else
+	# Provide a sensible default for local/dev runs so logs are consistent
+	log_info "client" "📦 Version: 1.0.0-dev"
+fi
+
 # Main loop
 while true; do
 	send_keepalive
