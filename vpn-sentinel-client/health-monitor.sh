@@ -261,7 +261,7 @@ fi
 
 log_info "health" "Using Python executable: $PYTHON_EXE"
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${0}")" && pwd)"
 PY_MODULE="$SCRIPT_DIR/health-monitor.py"
 
 if [ ! -f "$PY_MODULE" ]; then
@@ -269,9 +269,32 @@ if [ ! -f "$PY_MODULE" ]; then
   exit 1
 fi
 
-log_info "health" "Starting health monitor using $PYTHON_EXE $PY_MODULE"
-"$PYTHON_EXE" "$PY_MODULE" &
+# Prepare a log file for the health monitor so test harnesses and CI can
+# inspect runtime errors when the monitor exits unexpectedly. Allow override
+# via VPN_SENTINEL_HEALTH_LOG for tests.
+LOG_PATH="${VPN_SENTINEL_HEALTH_LOG:-/tmp/vpn-sentinel-health-monitor.log}"
+mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
+rm -f "$LOG_PATH" 2>/dev/null || true
+
+log_info "health" "Starting health monitor using $PYTHON_EXE $PY_MODULE (log: $LOG_PATH)"
+"$PYTHON_EXE" "$PY_MODULE" >> "$LOG_PATH" 2>&1 &
 HEALTH_PID=$!
+
+# Give the monitor a moment to start and detect early failures. If the
+# python process exits, print the tail of the log to stderr so the test
+# harness (which captures the client's stdout/stderr) can surface useful
+# diagnostics instead of a silent failure.
+sleep 1
+if ! kill -0 "$HEALTH_PID" 2>/dev/null; then
+  log_error "health" "Health monitor process (PID: $HEALTH_PID) exited prematurely. Dumping last 200 lines of $LOG_PATH"
+  if [ -f "$LOG_PATH" ]; then
+    tail -n 200 "$LOG_PATH" >&2 || true
+  else
+    log_error "health" "No health monitor log found at $LOG_PATH"
+  fi
+  # Exit with failure so the parent/client knows the monitor did not start
+  exit 1
+fi
 
 shutdown_handler() {
   log_info "health" "Shutting down health monitor (pid=$HEALTH_PID)"
