@@ -1,0 +1,42 @@
+name: Update Docker Hub descriptions on publish
+
+on:
+  workflow_run:
+    # Trigger when a publish workflow completes successfully. Adjust the workflow
+    # names below to match your repository's publish workflow names.
+    workflows: ["Publish Docker image", "Build and Push Docker Image"]
+    types: [completed]
+  workflow_dispatch: {}
+
+jobs:
+  update-descriptions:
+    name: Update Docker Hub descriptions
+    # Only run when the triggering workflow succeeded (or when manually dispatched)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make update script executable
+        run: chmod +x scripts/update_dockerhub_description.sh
+
+      - name: Update client description on Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DOCKERHUB_USERNAME:-}" ] || [ -z "${DOCKERHUB_TOKEN:-}" ]; then
+            echo "ERROR: DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets must be set"
+            exit 1
+          fi
+          ./scripts/update_dockerhub_description.sh "$DOCKERHUB_USERNAME" "$DOCKERHUB_TOKEN" agigante80/vpn-sentinel-client dockerhub/client_description.md
+
+      - name: Update server description on Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ./scripts/update_dockerhub_description.sh "$DOCKERHUB_USERNAME" "$DOCKERHUB_TOKEN" agigante80/vpn-sentinel-server dockerhub/server_description.md
