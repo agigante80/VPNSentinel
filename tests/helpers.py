@@ -38,11 +38,13 @@ def start_client_with_monitor(client_script, port, client_id='test-helper', extr
     Returns the subprocess.Popen object.
     """
     env = os.environ.copy()
+    # Do not overwrite PATH here - preserve the test runner's environment so
+    # subprocesses (notably the health monitor's Python detection) can find
+    # executables installed in CI/toolcache locations.
     env.update({
         'VPN_SENTINEL_HEALTH_PORT': str(port),
         'VPN_SENTINEL_URL': 'http://localhost:5000',
         'VPN_SENTINEL_API_PATH': '/api/v1',
-        'PATH': '/bin:/usr/bin'
     })
     # Short timeout for tests to avoid long external HTTP waits
     env.setdefault('VPN_SENTINEL_TIMEOUT', '2')
