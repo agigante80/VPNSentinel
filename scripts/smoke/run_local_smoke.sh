@@ -202,6 +202,48 @@ run_smoke_once(){
   curl ${CURL_OPTS} -s -D - "${SERVER_HEALTH_URL}" > "$LOG_DIR/server_health_response.txt" 2>&1 || true
 
   info "Starting client container (health monitor enabled)"
+  # If the desired CLIENT_HEALTH_PORT is already in use on the host, pick a free port
+  port_in_use() {
+    local p=$1
+    if command -v ss >/dev/null 2>&1; then
+      ss -ltn | awk '{print $4}' | grep -qE ":${p}$|:${p}\\b" && return 0 || return 1
+    elif command -v lsof >/dev/null 2>&1; then
+      lsof -iTCP -sTCP:LISTEN -P -n | grep -q ":${p} " && return 0 || return 1
+    else
+      # Unable to determine; assume not in use
+      return 1
+    fi
+  }
+
+  if port_in_use "${CLIENT_HEALTH_PORT}"; then
+    info "Host port ${CLIENT_HEALTH_PORT} appears in use; selecting an available port"
+    # Prefer python3 method to allocate an ephemeral free port
+    if command -v python3 >/dev/null 2>&1; then
+      FREE_PORT=$(python3 - <<'PY'
+import socket
+s=socket.socket()
+s.bind(('0.0.0.0',0))
+port=s.getsockname()[1]
+s.close()
+print(port)
+PY
+)
+    else
+      # Fallback: scan a small port range for a free port
+      for try_port in $(seq 8083 8199); do
+        if ! port_in_use "$try_port"; then
+          FREE_PORT=$try_port
+          break
+        fi
+      done
+    fi
+    if [ -n "${FREE_PORT:-}" ]; then
+      info "Using host port ${FREE_PORT} for client health (was ${CLIENT_HEALTH_PORT})"
+      CLIENT_HEALTH_PORT=${FREE_PORT}
+    else
+      err "Failed to find an available host port for client health; continuing with ${CLIENT_HEALTH_PORT}"
+    fi
+  fi
   # shellcheck disable=SC2206
   CLIENT_RUN_OPTS=( -d --name "$CLIENT_NAME" -e VPN_SENTINEL_URL="${PROTO}://${SERVER_HOST}:${API_PORT}" -e VPN_SENTINEL_API_PATH=$API_PATH -e VPN_SENTINEL_CLIENT_ID=$CLIENT_ID -e VPN_SENTINEL_API_KEY= -e VPN_SENTINEL_DEBUG=true -e VPN_SENTINEL_INTERVAL=3 -e VPN_SENTINEL_TIMEOUT=3 -e VPN_SENTINEL_HEALTH_MONITOR=true -p ${CLIENT_HEALTH_PORT}:${CLIENT_HEALTH_PORT} )
   if [ "$USE_TLS" -eq 1 ]; then
