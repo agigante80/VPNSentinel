@@ -18,6 +18,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Make repository path safe for git
+        if: env.GITHUB_WORKSPACE != ''
+        run: |
+          # Some CI runners mount the repository with a different UID which
+          # causes `git` to refuse operations with 'detected dubious ownership'.
+          # Configure git to treat the workspace as safe so scripts like
+          # get_version.sh can run inside the job.
+          git config --global --add safe.directory "${GITHUB_WORKSPACE:-$(pwd)}"
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
