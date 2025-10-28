@@ -3,7 +3,7 @@
 # Usage:
 #   ./scripts/update_dockerhub_description.sh <username> <password_or_token> <namespace/repo> <path_to_markdown>
 # Example:
-#   ./scripts/update_dockerhub_description.sh myuser mypass agigante80/vpn-sentinel-client dockerhub/client_description.md
+#   ./scripts/update_dockerhub_description.sh myuser mypass agigante80/vpn-sentinel-client dockerhub/client_docker-repository-overview.md
  
 # Make this script executable: chmod +x update_dockerhub_description.sh
 # Note: This script updates the Docker Hub repository description using the provided markdown file.
