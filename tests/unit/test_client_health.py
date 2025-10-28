@@ -45,10 +45,9 @@ class TestClientHealthCheck(unittest.TestCase):
 
     def test_health_script_basic_execution(self):
         """Test that the health check script can be executed (basic smoke test)"""
-        # Test with minimal environment - should fail gracefully when dependencies not met
-        env = {
-            'PATH': '/bin:/usr/bin'  # Minimal PATH
-        }
+        # Use a preserved copy of the current environment so installed tools
+        # (python, pgrep, curl, etc.) remain discoverable in CI/container runs.
+        env = os.environ.copy()
 
         # This should execute but may fail due to missing commands - that's OK for a smoke test
         try:

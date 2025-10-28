@@ -254,6 +254,18 @@ if [ -z "$PYTHON_EXE" ]; then
   done
 fi
 
+# Also check common local installation paths that may be present in images
+# (for example /usr/local/bin in many official python images). This covers
+# the case where tests set PATH=/bin:/usr/bin and hide /usr/local/bin.
+if [ -z "$PYTHON_EXE" ]; then
+  for p in /usr/local/bin/python3 /usr/local/bin/python /usr/bin/python3 /usr/bin/python; do
+    if [ -x "$p" ]; then
+      PYTHON_EXE="$p"
+      break
+    fi
+  done
+fi
+
 if [ -z "$PYTHON_EXE" ] || [ ! -x "$PYTHON_EXE" ]; then
   log_error "health" "Python executable not found (tried: python3, python, and common toolcache locations)"
   exit 1
