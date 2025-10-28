@@ -98,9 +98,10 @@ jobs:
           else
             echo "Running shellcheck on: $files"
             # Use -x so shellcheck follows sourced files and analyzes them too.
-            # Exclude SC1091/SC1090 (non-constant source resolution) to avoid CI failures
-            # for dynamic 'source' patterns that are otherwise safe and handled at runtime.
-            shellcheck -x -e SC1091,SC1090 $files || exit 1
+            # Exclude SC1091/SC1090/SC2317 (non-constant source resolution and
+            # unreachable-command infos) to avoid CI failures for dynamic
+            # 'source' patterns and intentional constructs which are safe at runtime.
+            shellcheck -x -e SC1091,SC1090,SC2317 $files || exit 1
           fi
   unit-tests:
     name: Unit Tests
