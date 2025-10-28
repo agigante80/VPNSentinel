@@ -237,6 +237,40 @@ run_smoke_once(){
     return 4
   fi
   info "Server received keepalive from '${CLIENT_ID}'"
+
+  # --- New check: wait for a second keepalive and confirm server still reports 1 client ---
+  # Capture previous last_seen for the client (may be empty if field missing)
+  prev_last_seen=$(curl ${CURL_OPTS} -s "${SERVER_URL}/status" | python3 -c "import sys,json; j=json.load(sys.stdin); print(j.get('${CLIENT_ID}', {}).get('last_seen',''))" 2>/dev/null || true)
+
+  info "Waiting for second keepalive (up to 20s) to ensure client continues to report"
+  SECOND_WAIT_TIMEOUT=20
+  found_second=1
+  for i in $(seq 1 $SECOND_WAIT_TIMEOUT); do
+    sleep 1
+    new_last_seen=$(curl ${CURL_OPTS} -s "${SERVER_URL}/status" | python3 -c "import sys,json; j=json.load(sys.stdin); print(j.get('${CLIENT_ID}', {}).get('last_seen',''))" 2>/dev/null || true)
+    if [ -n "${new_last_seen}" ] && [ "${new_last_seen}" != "${prev_last_seen}" ]; then
+      found_second=0
+      break
+    fi
+  done
+  if [ $found_second -ne 0 ]; then
+    err "Did not detect a second keepalive from '${CLIENT_ID}' within ${SECOND_WAIT_TIMEOUT}s"
+    # Save status for debugging
+    curl ${CURL_OPTS} -s "${SERVER_URL}/status" > "$LOG_DIR/status_after_second.json" || true
+    cleanup_containers
+    return 7
+  fi
+  info "Second keepalive detected for '${CLIENT_ID}'"
+
+  # Verify the server still reports exactly one client connected
+  client_count=$(curl ${CURL_OPTS} -s "${SERVER_URL}/status" | python3 -c "import sys,json; j=json.load(sys.stdin); print(len(j))")
+  if [ "${client_count}" -ne 1 ]; then
+    err "Server reports ${client_count} clients (expected 1) after second keepalive"
+    curl ${CURL_OPTS} -s "${SERVER_URL}/status" > "$LOG_DIR/status_after_second.json" || true
+    cleanup_containers
+    return 8
+  fi
+  info "Server still reports 1 client connected after second update"
   info "Checking client health endpoints (via host port ${CLIENT_HEALTH_PORT})"
   CLIENT_HEALTH_BASE="http://localhost:${CLIENT_HEALTH_PORT}/client"
 
