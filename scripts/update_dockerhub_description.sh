@@ -28,7 +28,7 @@ echo "Logging in to Docker Hub..."
 # If the provided password/token looks like a PAT, use it directly and skip the /users/login call.
 TOKEN=""
 USE_BEARER_HEADER=false
-if [[ "$PASSWORD" =~ ^(dhp_|dckr_pat_|[A-Za-z0-9_-]{40,}) ]]; then
+if printf '%s' "$PASSWORD" | grep -Eq '^(dhp_|dckr_pat_|[A-Za-z0-9_-]{40,})'; then
   echo "Detected probable Personal Access Token (PAT). Using it directly (no login)."
   # Try exchanging PAT for a usable JWT via the standard login endpoint (username + PAT)
   echo "Exchanging PAT for a Hub JWT via /v2/users/login/ (username + PAT)..."
