@@ -233,12 +233,33 @@ EOF
 # starts the module in the background, and forwards shutdown signals.
 
 # Find a Python executable (prefer python3)
-PYTHON_EXE="${PYTHON_EXE:-$(command -v python3 2>/dev/null || command -v python 2>/dev/null || true)}"
+# Locate a Python executable. Prefer PYTHON_EXE env override, then PATH, then
+# common CI/toolcache locations. Tests sometimes override PATH to a minimal set
+# (/bin:/usr/bin) which can hide hosted tool locations (for example
+# /opt/hostedtoolcache). Try a few fallbacks so the health monitor starts in
+# CI and constrained environments.
+PYTHON_EXE="${PYTHON_EXE:-}"
+if [ -z "$PYTHON_EXE" ]; then
+  # Try normal PATH lookup first
+  PYTHON_EXE=$(command -v python3 2>/dev/null || command -v python 2>/dev/null || true)
+fi
+
+if [ -z "$PYTHON_EXE" ]; then
+  # Try common GitHub Actions / hostedtoolcache locations
+  for p in /opt/hostedtoolcache/Python/*/x64/bin/python3 /opt/hostedtoolcache/Python/*/x64/bin/python; do
+    if [ -x "$p" ]; then
+      PYTHON_EXE="$p"
+      break
+    fi
+  done
+fi
 
 if [ -z "$PYTHON_EXE" ] || [ ! -x "$PYTHON_EXE" ]; then
-  log_error "health" "Python executable not found (tried: python3, python)"
+  log_error "health" "Python executable not found (tried: python3, python, and common toolcache locations)"
   exit 1
 fi
+
+log_info "health" "Using Python executable: $PYTHON_EXE"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PY_MODULE="$SCRIPT_DIR/health-monitor.py"
