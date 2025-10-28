@@ -381,6 +381,7 @@ jobs:
           labels: ${{ steps.meta-server.outputs.labels }}
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
+            COMMIT_HASH=${{ steps.commit-hash.outputs.short_sha }}
       - name: Build and push client image
         uses: docker/build-push-action@v5
         with:
@@ -393,6 +394,7 @@ jobs:
           labels: ${{ steps.meta-client.outputs.labels }}
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
+            COMMIT_HASH=${{ steps.commit-hash.outputs.short_sha }}
 
       - name: Push client repository overview to Docker Hub
         if: github.ref == 'refs/heads/main'
