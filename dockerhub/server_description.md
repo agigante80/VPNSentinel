@@ -1,6 +1,6 @@
 # VPN Sentinel Server (agigante80/vpn-sentinel-server)
 
-Python Flask-based monitoring server for VPN Sentinel clients. Receives keepalive messages, performs DNS leak detection, and can send alerts/notifications (Telegram integration supported).
+Python Flask-based monitoring server for VPN Sentinel clients. Receives keepalive messages, performs DNS leak detection, exposes a web dashboard, and can send alerts via Telegram.
 
 Key features
 - Flask REST API for keepalive ingestion and status endpoints
