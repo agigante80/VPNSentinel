@@ -1351,7 +1351,6 @@ DASHBOARD_HTML_TEMPLATE = '''
         
         .container {
             max-width: 1400px;
-            VPN_SENTINEL_SERVER_ALLOWED_IPS="PRIVATE_IP_EXAMPLE,PRIVATE_IP_EXAMPLE_2,PRIVATE_IP_EXAMPLE_3"
             background: rgba(255, 255, 255, 0.95);
             border-radius: 15px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
@@ -1421,9 +1420,6 @@ DASHBOARD_HTML_TEMPLATE = '''
         
         .stat-card {
             background: rgba(255, 255, 255, 0.2);
-                    if geolocation_source == "ip-api.com":
-                        # ip-api.com field mapping
-                        server_info['public_ip'] = data.get('ip', 'Unknown')
             backdrop-filter: blur(10px);
         }
         
