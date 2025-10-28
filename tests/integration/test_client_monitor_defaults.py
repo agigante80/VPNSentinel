@@ -42,7 +42,6 @@ class TestClientMonitorDefaults(unittest.TestCase):
             'VPN_SENTINEL_URL': 'http://localhost:5000',
             'VPN_SENTINEL_API_PATH': '/api/v1',
             'VPN_SENTINEL_CLIENT_ID': 'test-default-monitor',
-            'PATH': '/bin:/usr/bin'
         })
 
         # Start the client and monitor using shared helper
@@ -81,7 +80,6 @@ class TestClientMonitorDefaults(unittest.TestCase):
             'VPN_SENTINEL_URL': 'http://localhost:5000',
             'VPN_SENTINEL_API_PATH': '/api/v1',
             'VPN_SENTINEL_CLIENT_ID': 'test-disabled-monitor',
-            'PATH': '/bin:/usr/bin'
         })
 
         # Start client with monitor disabled
@@ -114,7 +112,6 @@ class TestClientMonitorDefaults(unittest.TestCase):
             'VPN_SENTINEL_URL': 'http://localhost:5000',
             'VPN_SENTINEL_API_PATH': '/api/v1',
             'VPN_SENTINEL_CLIENT_ID': 'test-custom-port',
-            'PATH': '/bin:/usr/bin'
         })
 
         self.client_process = start_client_with_monitor(

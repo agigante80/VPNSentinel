@@ -71,7 +71,6 @@ class TestClientKeepaliveClientID(unittest.TestCase):
             'VPN_SENTINEL_INTERVAL': self.interval,
             'VPN_SENTINEL_TIMEOUT': '2',
             'VPN_SENTINEL_TEST_CAPTURE_PATH': self.capture_path,
-            'PATH': '/bin:/usr/bin'
         })
 
         self.client_process = start_client_with_monitor(self.client_script, '0', client_id='', extra_env=env, wait=4)
@@ -98,7 +97,6 @@ class TestClientKeepaliveClientID(unittest.TestCase):
             'VPN_SENTINEL_INTERVAL': self.interval,
             'VPN_SENTINEL_TIMEOUT': '2',
             'VPN_SENTINEL_TEST_CAPTURE_PATH': self.capture_path,
-            'PATH': '/bin:/usr/bin'
         })
 
         self.client_process = start_client_with_monitor(self.client_script, '0', client_id=explicit_id, extra_env=env, wait=4)
