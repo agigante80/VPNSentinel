@@ -53,9 +53,23 @@ if [ "$GEOLOCATION_SERVICE" = "auto" ]; then
 	# shellcheck disable=SC2034
 	GEOLOCATION_SOURCE="auto"
 	# Try ipinfo.io first, fall back to ip-api.com (tests look for exact pattern)
-	VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '')
-	if [ -z "$VPN_INFO" ]; then
-		VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+	# Use HTTP-aware checks so we can fall back on non-200 responses (429 rate limit etc)
+	# First, try ipinfo.io and capture HTTP status and body
+	IPINFO_HTTP=$(curl -sS -w "%{http_code}" -o /tmp/vpn_ipinfo_body.$$ https://ipinfo.io/json 2>/dev/null || echo "000")
+	IPINFO_BODY=$(cat /tmp/vpn_ipinfo_body.$$ 2>/dev/null || echo '')
+	# Clean up temp file
+	rm -f /tmp/vpn_ipinfo_body.$$ 2>/dev/null || true
+	if [ "$IPINFO_HTTP" = "200" ] && [ -n "$IPINFO_BODY" ]; then
+		VPN_INFO="$IPINFO_BODY"
+	else
+		# Log the failure when debug enabled
+		if [ "$DEBUG" = "true" ]; then
+			log_info "debug" "🔍 ipinfo.io HTTP status: $IPINFO_HTTP"
+			log_info "debug" "🔍 ipinfo.io response: $IPINFO_BODY"
+		fi
+		# Fall back to ip-api.com and capture body (ip-api returns 200 with JSON or an error object)
+		IPAPI_BODY=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+		VPN_INFO="$IPAPI_BODY"
 	fi
 	# shellcheck disable=SC2034
 	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
@@ -66,7 +80,19 @@ elif [ "$GEOLOCATION_SERVICE" = "ipinfo.io" ]; then
 	log_info "config" "🌐 Geolocation service: forced to ipinfo.io"
 	# shellcheck disable=SC2034
 	GEOLOCATION_SOURCE="ipinfo.io"
-	VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '{}')
+	# Forced ipinfo.io mode: attempt ipinfo.io and fall back to ip-api.com on non-200
+	IPINFO_HTTP=$(curl -sS -w "%{http_code}" -o /tmp/vpn_ipinfo_body.$$ https://ipinfo.io/json 2>/dev/null || echo "000")
+	IPINFO_BODY=$(cat /tmp/vpn_ipinfo_body.$$ 2>/dev/null || echo '')
+	rm -f /tmp/vpn_ipinfo_body.$$ 2>/dev/null || true
+	if [ "$IPINFO_HTTP" = "200" ] && [ -n "$IPINFO_BODY" ]; then
+		VPN_INFO="$IPINFO_BODY"
+	else
+		if [ "$DEBUG" = "true" ]; then
+			log_info "debug" "🔍 ipinfo.io HTTP status: $IPINFO_HTTP"
+			log_info "debug" "🔍 ipinfo.io response: $IPINFO_BODY"
+		fi
+		VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+	fi
 	# shellcheck disable=SC2034
 	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
 	if [ "$DEBUG" = "true" ]; then
@@ -76,6 +102,7 @@ elif [ "$GEOLOCATION_SERVICE" = "ip-api.com" ]; then
 	log_info "config" "🌐 Geolocation service: forced to ip-api.com"
 	# shellcheck disable=SC2034
 	GEOLOCATION_SOURCE="ip-api.com"
+	# Forced ip-api.com mode: direct call
 	VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
 	# shellcheck disable=SC2034
 	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
