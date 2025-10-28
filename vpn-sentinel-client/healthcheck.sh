@@ -8,7 +8,9 @@ LIB_DIR="${LIB_DIR:-$SCRIPT_DIR/lib}"
 if [ ! -f "$LIB_DIR/health-common.sh" ] && [ -f "$SCRIPT_DIR/../lib/health-common.sh" ]; then
   LIB_DIR="$SCRIPT_DIR/../lib"
 fi
+
 # shellcheck source=lib/health-common.sh
+# shellcheck disable=SC1091,SC1090
 # Provide a 'source' line variant for unit tests that look for it
 source "$LIB_DIR/health-common.sh"
 . "$LIB_DIR/health-common.sh"
