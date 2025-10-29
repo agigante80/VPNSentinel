@@ -246,6 +246,8 @@ PY
   fi
   # shellcheck disable=SC2206
   CLIENT_RUN_OPTS=( -d --name "$CLIENT_NAME" -e VPN_SENTINEL_URL="${PROTO}://${SERVER_HOST}:${API_PORT}" -e VPN_SENTINEL_API_PATH=$API_PATH -e VPN_SENTINEL_CLIENT_ID=$CLIENT_ID -e VPN_SENTINEL_API_KEY= -e VPN_SENTINEL_DEBUG=true -e VPN_SENTINEL_INTERVAL=3 -e VPN_SENTINEL_TIMEOUT=3 -e VPN_SENTINEL_HEALTH_MONITOR=true -p ${CLIENT_HEALTH_PORT}:${CLIENT_HEALTH_PORT} )
+  # Expose a predictable pidfile inside the container for smoke/testing
+  CLIENT_RUN_OPTS+=( -e VPN_SENTINEL_HEALTH_PIDFILE=/tmp/vpn-sentinel-health-monitor.pid )
   if [ "$USE_TLS" -eq 1 ]; then
     # allow insecure for test client (self-signed) or you can mount CA instead
   # shellcheck disable=SC2206

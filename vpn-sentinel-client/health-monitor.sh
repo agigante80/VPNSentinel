@@ -204,7 +204,7 @@ is_pid_owned_by_user() {
 stop_stale_monitor() {
   local stale_pid="$1"
   if is_pid_owned_by_user "$stale_pid"; then
-    echo "Stopping stale health monitor pid=$stale_pid" >&2
+    log_info "health" "Stopping stale health monitor pid=$stale_pid"
     kill -TERM "$stale_pid" 2>/dev/null || true
     sleep 1
     if kill -0 "$stale_pid" 2>/dev/null; then
@@ -216,6 +216,7 @@ stop_stale_monitor() {
       local pf
       pf=$(cat "$PIDFILE" 2>/dev/null || true)
       if [ "$pf" = "$stale_pid" ]; then
+        log_info "health" "Removing stale pidfile $PIDFILE pointing to $pf"
         rm -f "$PIDFILE" 2>/dev/null || true
       fi
     fi
@@ -233,6 +234,7 @@ cleanup_stale_monitors() {
     if [ -n "$existing" ]; then
       stop_stale_monitor "$existing" || true
     else
+      log_info "health" "Removing empty pidfile $PIDFILE"
       rm -f "$PIDFILE" 2>/dev/null || true
     fi
   fi
@@ -249,10 +251,12 @@ cleanup_stale_monitors() {
         cmd=$(ps -o cmd= -p "$p" 2>/dev/null || true)
         case "$cmd" in
           *health-monitor*|*health-monitor.py*)
+            log_info "health" "Found user-owned monitor process $p (cmd: $cmd) listening on port $HEALTH_PORT; stopping it"
             stop_stale_monitor "$p" || true
             ;;
           *)
             # do not kill unrelated system services
+            log_info "health" "Ignoring listener pid $p (cmd: $cmd) on port $HEALTH_PORT"
             ;;
         esac
       fi
