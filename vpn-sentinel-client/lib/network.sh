@@ -8,6 +8,25 @@
 get_vpn_info() {
 	log_info "vpn-info" "🔍 Gathering VPN information..."
 
+	# Try Python-based shared geolocation shim first if python3 is available.
+	if command -v python3 >/dev/null 2>&1; then
+		PY_SERVICE="${GEOLOCATION_SERVICE:-auto}"
+		PY_OUTPUT=$(python3 -c 'import json,sys
+from vpn_sentinel_client.lib.geo_client import main as _m
+import vpn_sentinel_client.lib.geo_client as __mod
+sys.argv=["geo","--service",__import__("sys").argv[1] if len(__import__("sys").argv)>1 else "auto"]
+' 2>/dev/null || true)
+		# The above inline call may fail in certain execution contexts; try module runner
+		if [ -z "$PY_OUTPUT" ]; then
+			PY_OUTPUT=$(python3 -m vpn-sentinel-client.lib.geo_client --service "${GEOLOCATION_SERVICE:-auto}" --timeout "$TIMEOUT" 2>/dev/null || true)
+		fi
+		if [ -n "$PY_OUTPUT" ]; then
+			VPN_INFO="$PY_OUTPUT"
+			GEOLOCATION_SOURCE=$(printf '%s' "$VPN_INFO" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d.get("source",""))')
+			[ "${DEBUG_ENABLED:-false}" = "true" ] && log_info "vpn-info" "🔍 (py) Raw VPN_INFO: $VPN_INFO"
+		fi
+	fi
+
 	if [ "${GEOLOCATION_SERVICE:-auto}" = "ipinfo.io" ]; then
 		VPN_INFO=$(curl -s --max-time "$TIMEOUT" https://ipinfo.io/json 2>/dev/null || echo '')
 		GEOLOCATION_SOURCE="ipinfo.io"
