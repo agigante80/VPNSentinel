@@ -22,6 +22,7 @@ Thumbs.db
 test/
 .env-TEST
 compose-TEST.yaml
+temp/
 
 # Backup files
 *.backup
@@ -47,8 +48,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
 parts/
 sdist/
 var/
@@ -89,3 +88,13 @@ certs/
 certs/*.pem
 certs/*.key
 certs/*.csr
+
+# Smoke run logs (workspace-relative)
+scripts/smoke/logs/
+
+# Generated coverage HTML and artifacts
+tests/coverage_html/
+tests/coverage.xml
+
+# Integration test captures
+tests/integration/tmp_keepalive_capture.json.env

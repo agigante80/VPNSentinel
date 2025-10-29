@@ -146,7 +146,7 @@ RUN pip install --no-cache-dir \
 # -----------------------------------------------------------------------------
 # Copy the monitoring server application code
 # The server contains all VPN monitoring and notification logic
-COPY vpn-sentinel-server.py /app/vpn-sentinel-server.py
+COPY vpn-sentinel-server/vpn-sentinel-server.py /app/vpn-sentinel-server.py
 
 # Set proper file permissions and ownership
 RUN chmod +x /app/vpn-sentinel-server.py && \
@@ -172,7 +172,7 @@ USER appuser
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     FLASK_ENV=production \
-    FLASK_APP=vpn-sentinel-server.py
+    FLASK_APP=server.py
 
 # -----------------------------------------------------------------------------
 # Health Check Configuration
@@ -180,7 +180,7 @@ ENV PYTHONUNBUFFERED=1 \
 # Add health check to monitor container status
 # Ensures the Flask server is responding and returns healthy status
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f -s http://localhost:5000/api/v1/health > /dev/null || exit 1
+    CMD curl -f -s http://localhost:8081/health > /dev/null || exit 1
 
 # -----------------------------------------------------------------------------
 # Container Startup Configuration
@@ -194,7 +194,24 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 # 1. Development: CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
 # 2. Production: CMD ["gunicorn", "--bind", "0.0.0.0:5000", "vpn-sentinel-server:app"]
 # 3. Current: Direct Python execution (simple and effective for this use case)
+
 CMD ["python", "vpn-sentinel-server.py"]
+
+# -----------------------------------------------------------------------------
+# Build-time Configuration
+# -----------------------------------------------------------------------------
+# Set version from build arguments (passed by CI/CD pipeline)
+ARG VERSION
+ENV VERSION=${VERSION}
+
+# -----------------------------------------------------------------------------
+# Docker Hub Metadata
+# -----------------------------------------------------------------------------
+LABEL org.opencontainers.image.title="VPN Sentinel Server" \
+      org.opencontainers.image.description="VPN monitoring server with REST API, DNS leak detection, and Telegram notifications. Monitors VPN connections and alerts on failures." \
+      org.opencontainers.image.vendor="VPN Sentinel Project" \
+      org.opencontainers.image.source="https://github.com/agigante80/VPNSentinel" \
+      org.opencontainers.image.licenses="MIT"
 
 # -----------------------------------------------------------------------------
 # Development and Debugging Notes

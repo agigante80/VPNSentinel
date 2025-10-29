@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck shell=bash
 # VPN Sentinel Versioning Demonstration
 # This script shows how automatic versioning works in different scenarios
 
@@ -6,12 +7,12 @@ echo "🔖 VPN Sentinel Automatic Versioning Demo"
 echo "=========================================="
 echo
 
-cd /home/alien/dev/VPNSentinel
+# Script should be run from project root directory
 
 echo "📍 Current Git Status:"
 echo "   Branch: $(git rev-parse --abbrev-ref HEAD)"
 echo "   Latest tag: $(git describe --tags --abbrev=0 2>/dev/null || echo 'none')"
-echo "   Commits ahead: $(git rev-list --count $(git describe --tags --abbrev=0)..HEAD 2>/dev/null || echo 'N/A')"
+echo "   Commits ahead: $(git rev-list --count "$(git describe --tags --abbrev=0)"..HEAD 2>/dev/null || echo 'N/A')"
 echo
 
 echo "🎯 Versioning Logic:"

@@ -43,6 +43,16 @@ jobs:
         run: |
           bash -n vpn-sentinel-client/vpn-sentinel-client.sh
           echo "✅ Shell script syntax check passed"
+      - name: Check shell script formatting (shfmt via Docker)
+        run: |
+          # Collect shell script paths to check (respect .gitignore via git ls-files)
+          files=$(git ls-files "vpn-sentinel-client/**/*.sh" "lib/**/*.sh" "vpn-sentinel-server/**/*.sh" "scripts/**/*.sh" "tests/**/*.sh" "*.sh" 2>/dev/null | tr '\n' ' ')
+          if [ -z "$files" ]; then
+            echo "No shell scripts found to check"
+          else
+            echo "Running shfmt on: $files"
+            docker run --rm -v "$PWD":/workdir -w /workdir mvdan/shfmt:latest -l $files
+          fi
       - name: Python code style check
         run: |
           flake8 vpn-sentinel-server/ --count --select=E9,F63,F7,F82 --show-source --statistics
@@ -57,6 +67,52 @@ jobs:
               echo "✅ $(basename $(dirname $file))/compose.yaml syntax OK"
             fi
           done
+  shellcheck-client:
+    name: ShellCheck - client scripts
+    runs-on: ubuntu-latest
+    needs: syntax-check
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Run ShellCheck (install & run)
+        run: |
+          set -euo pipefail
+          echo "Installing shellcheck..."
+          sudo apt-get update -y
+          sudo apt-get install -y shellcheck
+
+          # Collect shell script paths to check (respect .gitignore via git ls-files)
+          files=$(git ls-files \
+            "vpn-sentinel-client/*.sh" "vpn-sentinel-client/**/*.sh" "vpn-sentinel-client/health-monitor.sh" "vpn-sentinel-client/healthcheck.sh" \
+            "lib/health-common.sh" "lib/*.sh" "lib/**/*.sh" \
+            "vpn-sentinel-server/*.sh" "vpn-sentinel-server/**/*.sh" \
+            "scripts/*.sh" "scripts/**/*.sh" \
+            "tests/**/*.sh" "deployments/**/*.sh" \
+            "vpn-client/*.sh" "*.sh" 2>/dev/null | tr '\n' ' ')
+
+          if [ -z "$files" ]; then
+            echo "No shell scripts found to check"
+          else
+            echo "Running shellcheck on: $files"
+            # Use -x so shellcheck follows sourced files and analyzes them too.
+            # Exclude SC1091/SC1090/SC2317 (non-constant source resolution and
+            # unreachable-command infos) to avoid CI failures for dynamic
+            # 'source' patterns and intentional constructs which are safe at runtime.
+            # Step 1: show warnings (non-fatal)
+            shellcheck -x --severity=warning -e SC1091,SC1090,SC2317 $files || true
+
+            # Step 2: fail only if any errors are present (keep warnings non-fatal)
+            if shellcheck -x --severity=error -e SC1091,SC1090,SC2317 $files >/dev/null; then
+              echo "ShellCheck: no errors (only warnings may be present)"
+            else
+              echo "ShellCheck: errors found"
+              # Re-run to show errors for diagnostics and then exit non-zero
+              shellcheck -x --severity=error -e SC1091,SC1090,SC2317 $files || exit 1
+            fi
+          fi
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -117,12 +173,22 @@ jobs:
       - name: Build and start test environment
         run: |
           docker compose -f tests/docker-compose.test.yaml up -d --build
-          timeout 60s bash -c 'while ! curl -s http://localhost:5000/test/v1/health > /dev/null; do sleep 2; done'
+          # Determine which host port maps to the server container's port 5000
+          HOST_PORT=$(docker compose -f tests/docker-compose.test.yaml port vpn-sentinel-server-test 5000 | sed 's/.*://')
+          if [ -z "$HOST_PORT" ]; then
+            echo "ERROR: could not determine host port for vpn-sentinel-server-test:5000"
+            docker compose -f tests/docker-compose.test.yaml ps
+            exit 1
+          fi
+          echo "Waiting for test server on localhost:$HOST_PORT..."
+          timeout 60s bash -c "until curl -sSf http://localhost:${HOST_PORT}/test/v1/health >/dev/null; do sleep 1; done"
           echo "✅ Test server is ready"
       - name: Run integration tests
         run: |
           cd tests
           export VPN_SENTINEL_URL=http://localhost:5000
+          export VPN_SENTINEL_API_PATH=/test/v1
+          export VPN_SENTINEL_API_KEY=test-api-key-abcdef123456789
           python -m pytest integration/ -v
       - name: Get server logs on failure
         if: failure()
@@ -201,9 +267,10 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      - name: Build Docker image
+      - name: Build Docker image (use repo root as context)
         run: |
-          docker build -t vpn-sentinel-${{ matrix.component }}:test ${{ matrix.component }}/
+          # Build from repository root so Dockerfile can reference project-root paths
+          docker build -t vpn-sentinel-${{ matrix.component }}:test -f ${{ matrix.component }}/Dockerfile .
       - name: Test server container startup
         if: matrix.component == 'vpn-sentinel-server'
         run: |
@@ -314,20 +381,86 @@ jobs:
       - name: Build and push server image
         uses: docker/build-push-action@v5
         with:
-          context: vpn-sentinel-server/
+          # Use repository root as the build context so Dockerfile COPY paths
+          # that reference files under the repo root resolve correctly.
+          context: .
           file: vpn-sentinel-server/Dockerfile
           push: true
           tags: ${{ steps.meta-server.outputs.tags }}
           labels: ${{ steps.meta-server.outputs.labels }}
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
+            COMMIT_HASH=${{ steps.commit-hash.outputs.short_sha }}
       - name: Build and push client image
         uses: docker/build-push-action@v5
         with:
-          context: vpn-sentinel-client/
+          # Use repository root as the build context so Dockerfile COPY paths
+          # that reference files under the repo root resolve correctly.
+          context: .
           file: vpn-sentinel-client/Dockerfile
           push: true
           tags: ${{ steps.meta-client.outputs.tags }}
           labels: ${{ steps.meta-client.outputs.labels }}
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
+            COMMIT_HASH=${{ steps.commit-hash.outputs.short_sha }}
+
+      - name: Push client repository overview to Docker Hub
+        if: github.ref == 'refs/heads/main'
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/update_dockerhub_description.sh
+          ./scripts/update_dockerhub_description.sh "$DOCKERHUB_USERNAME" "$DOCKERHUB_TOKEN" agigante80/vpn-sentinel-client dockerhub/client_docker-repository-overview.md
+
+      - name: Push server repository overview to Docker Hub
+        if: github.ref == 'refs/heads/main'
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/update_dockerhub_description.sh
+          ./scripts/update_dockerhub_description.sh "$DOCKERHUB_USERNAME" "$DOCKERHUB_TOKEN" agigante80/vpn-sentinel-server dockerhub/server_docker-repository-overview.md
+
+  create-tag:
+    name: Create and push tag for release
+    runs-on: ubuntu-latest
+    needs: docker-publish
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          set -euo pipefail
+          echo "version=$(./get_version.sh)" >> $GITHUB_OUTPUT
+
+      - name: Create annotated tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=${{ steps.version.outputs.version }}
+          if [ -z "$VERSION" ]; then
+            echo "No version detected; skipping tag creation"
+            exit 0
+          fi
+          TAG="v${VERSION}"
+          echo "Creating tag $TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "actions@github.com"
+          # Only create the tag if it doesn't already exist
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; skipping"
+            exit 0
+          fi
+          git tag -a "$TAG" -m "Release $TAG"
+          # Push the tag using the GITHUB_TOKEN
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}" "$TAG"

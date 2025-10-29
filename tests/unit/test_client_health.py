@@ -33,21 +33,21 @@ class TestClientHealthCheck(unittest.TestCase):
         with open(self.health_script, 'r') as f:
             content = f.read()
 
-        # Should contain key health check logic
-        self.assertIn('pgrep -f "vpn-sentinel-client.sh"', content)
-        self.assertIn('curl -f -s', content)
+        # Should contain key health check logic - now sourced from common library
+        self.assertIn('source "$LIB_DIR/health-common.sh"', content)
+        self.assertIn('CLIENT_STATUS=$(check_client_process)', content)
+        self.assertIn('NETWORK_STATUS=$(check_network_connectivity)', content)
+        self.assertIn('SERVER_STATUS=$(check_server_connectivity)', content)
         self.assertIn('VPN_SENTINEL_URL', content)
-        self.assertIn('1.1.1.1/cdn-cgi/trace', content)
         self.assertIn('✅ VPN Sentinel client is healthy', content)
         self.assertIn('❌ VPN Sentinel client script is not running', content)
         self.assertIn('❌ Cannot reach Cloudflare', content)
 
     def test_health_script_basic_execution(self):
         """Test that the health check script can be executed (basic smoke test)"""
-        # Test with minimal environment - should fail gracefully when dependencies not met
-        env = {
-            'PATH': '/bin:/usr/bin'  # Minimal PATH
-        }
+        # Use a preserved copy of the current environment so installed tools
+        # (python, pgrep, curl, etc.) remain discoverable in CI/container runs.
+        env = os.environ.copy()
 
         # This should execute but may fail due to missing commands - that's OK for a smoke test
         try:
@@ -76,27 +76,28 @@ class TestClientHealthCheck(unittest.TestCase):
         with open(self.health_script, 'r') as f:
             content = f.read()
 
-        # Should check if main script is running
-        self.assertIn('pgrep', content)
-        self.assertIn('vpn-sentinel-client.sh', content)
+        # Should check if main script is running via common library function
+        self.assertIn('check_client_process', content)
+        self.assertIn('CLIENT_STATUS', content)
 
     def test_script_checks_external_connectivity(self):
         """Test that script checks external connectivity"""
         with open(self.health_script, 'r') as f:
             content = f.read()
 
-        # Should check Cloudflare connectivity for DNS leak detection
-        self.assertIn('1.1.1.1', content)
-        self.assertIn('cdn-cgi/trace', content)
+        # Should check connectivity via common library function
+        self.assertIn('check_network_connectivity', content)
+        self.assertIn('NETWORK_STATUS', content)
 
     def test_script_handles_server_url_optional(self):
         """Test that script handles server URL as optional"""
         with open(self.health_script, 'r') as f:
             content = f.read()
 
-        # Should check if VPN_SENTINEL_URL is set
+        # Should check server connectivity via common library function
+        self.assertIn('check_server_connectivity', content)
+        self.assertIn('SERVER_STATUS', content)
         self.assertIn('VPN_SENTINEL_URL', content)
-        self.assertIn('-n "$VPN_SENTINEL_URL"', content)
 
     def test_script_exit_codes(self):
         """Test that script uses appropriate exit codes"""
@@ -125,9 +126,10 @@ class TestClientHealthCheck(unittest.TestCase):
             content = f.read()
 
         # Should copy the script
-        self.assertIn('COPY healthcheck.sh', content)
-        # Should make it executable
-        self.assertIn('chmod +x /app/healthcheck.sh', content)
+        self.assertIn('COPY vpn-sentinel-client/healthcheck.sh /app/healthcheck.sh', content)
+        # Should make it executable (part of the chmod command)
+        self.assertIn('/app/healthcheck.sh', content)
+        self.assertIn('chmod +x', content)
         # Should use it in HEALTHCHECK
         self.assertIn('CMD /app/healthcheck.sh', content)
 
@@ -145,3 +147,32 @@ class TestClientHealthCheck(unittest.TestCase):
         self.assertIn('--timeout=', content)
         self.assertIn('--start-period=', content)
         self.assertIn('--retries=', content)
+
+    def test_enhanced_health_script_comprehensive_checks(self):
+        """Test that the enhanced health check script performs all expected checks"""
+        with open(self.health_script, 'r') as f:
+            content = f.read()
+
+        # Should contain enhanced health check logic
+        self.assertIn('HEALTH_MONITOR_RUNNING', content)
+        self.assertIn('VPN_SENTINEL_HEALTH_PORT', content)
+        self.assertIn('memory_usage', content)
+        self.assertIn('disk_usage', content)
+        self.assertIn('--json', content)
+        self.assertIn('high_memory_usage', content)
+        self.assertIn('high_disk_usage', content)
+
+    def test_enhanced_health_script_json_output(self):
+        """Test that the enhanced health check script supports JSON output"""
+        # Test with --json flag (would need mock environment)
+        # This is a basic content check for now
+        with open(self.health_script, 'r') as f:
+            content = f.read()
+
+        self.assertIn('"status":', content)
+        self.assertIn('"checks":', content)
+        self.assertIn('"warnings":', content)
+        self.assertIn('client_process', content)
+        self.assertIn('network_connectivity', content)
+        self.assertIn('server_connectivity', content)
+        self.assertIn('health_monitor', content)
