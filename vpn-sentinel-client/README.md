@@ -65,7 +65,10 @@ Below are the variables `vpn-sentinel-client.sh` reads or depends on (required v
 
  - VPN_SENTINEL_GEOLOCATION_SERVICE (optional)
   - Description: Forces which geolocation service to use: `auto`, `ipinfo.io`, `ip-api.com`, or `ipwhois.app`
-  - Default: `auto` (tries `ipinfo.io` then falls back to `ip-api.com`, then `ipwhois.app`)
+  - Default: `auto`
+  - Behavior:
+    - `auto`: the client will try providers in order (ipinfo.io -> ip-api.com -> ipwhois.app). Each provider failure is logged (info/warn). If all providers fail an explicit error is logged indicating geolocation lookup failure.
+    - `<provider>` (e.g., `ipinfo.io`): forces the client to query only that provider. In forced mode the client will not attempt fallbacks; failures are logged explicitly. Use forced mode for deterministic behavior or when you only trust a single provider.
 
 - VPN_SENTINEL_HEALTH_MONITOR (optional)
   - Description: Enable/disable the dedicated health monitor background process

@@ -52,94 +52,115 @@ validate_geolocation_service "$GEOLOCATION_SERVICE"
 if [ "$GEOLOCATION_SERVICE" = "auto" ]; then
 	log_info "config" "🌐 Geolocation service: auto"
 	log_info "config" "will try ipinfo.io first, fallback to ip-api.com then ipwhois.app"
-	# auto mode: try ipinfo.io then ip-api.com
+	# auto mode: try ipinfo.io then ip-api.com then ipwhois.app
 	# shellcheck disable=SC2034
 	GEOLOCATION_SOURCE="auto"
-	# Try ipinfo.io first, fall back to ip-api.com (tests look for exact pattern)
 	# The following literal is intentionally preserved (as a comment) for unit
 	# tests which inspect the script content:
 	# VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '')
-	# Use HTTP-aware checks so we can fall back on non-200 responses (429 rate limit etc)
-	# First, try ipinfo.io and capture HTTP status and body
+	# Try ipinfo.io first and capture HTTP status and body
 	IPINFO_HTTP=$(curl -sS -w "%{http_code}" -o /tmp/vpn_ipinfo_body.$$ https://ipinfo.io/json 2>/dev/null || echo "000")
 	IPINFO_BODY=$(cat /tmp/vpn_ipinfo_body.$$ 2>/dev/null || echo '')
-	# Clean up temp file
 	rm -f /tmp/vpn_ipinfo_body.$$ 2>/dev/null || true
 	if [ "$IPINFO_HTTP" = "200" ] && [ -n "$IPINFO_BODY" ]; then
 		VPN_INFO="$IPINFO_BODY"
 	else
-		# Log the failure and fallback so it's visible in normal logs
-		log_warn "vpn-info" "⚠️ Geolocation provider ipinfo.io returned HTTP $IPINFO_HTTP; falling back to ip-api.com"
+		log_info "vpn-info" "ℹ️ Geolocation provider ipinfo.io failed (HTTP $IPINFO_HTTP); trying ip-api.com"
 		if [ "$DEBUG" = "true" ]; then
 			log_info "debug" "🔍 ipinfo.io response: $IPINFO_BODY"
 		fi
-		# Fall back to ip-api.com and capture body (ip-api returns 200 with JSON or an error object)
+		# Try ip-api.com
 		IPAPI_BODY=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
-		# If ip-api failed or returned an error status, try ipwhois.app as tertiary fallback
-		if [ -z "$IPAPI_BODY" ] || echo "$IPAPI_BODY" | grep -q '"status" *: *"fail"'; then
-			# preserve literal for tests
-			# VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+		if [ -n "$IPAPI_BODY" ] && ! echo "$IPAPI_BODY" | grep -q '"status" *: *"fail"'; then
+			VPN_INFO="$IPAPI_BODY"
+		else
+			log_info "vpn-info" "ℹ️ Geolocation provider ip-api.com failed; trying ipwhois.app"
+			if [ "$DEBUG" = "true" ]; then
+				log_info "debug" "🔍 ip-api.com response: $IPAPI_BODY"
+			fi
+			# Try ipwhois.app
 			IPWHOIS_BODY=$(curl -s https://ipwhois.app/json 2>/dev/null || echo '{}')
-			VPN_INFO="$IPWHOIS_BODY"
+			if [ -n "$IPWHOIS_BODY" ] && ! echo "$IPWHOIS_BODY" | grep -q '"success" *: *false'; then
+				VPN_INFO="$IPWHOIS_BODY"
+			else
+				log_error "vpn-info" "❌ All geolocation providers failed: ipinfo.io, ip-api.com, ipwhois.app"
+				if [ "$DEBUG" = "true" ]; then
+					log_info "debug" "🔍 ipwhois.app response: $IPWHOIS_BODY"
+				fi
+				VPN_INFO='{}'
+			fi
+		fi
+	fi
+	# shellcheck disable=SC2034
+	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
+	if [ "$DEBUG" = "true" ]; then
+		log_info "debug" "🔍 Raw VPN_INFO: $VPN_INFO"
+	fi
+	elif [ "$GEOLOCATION_SERVICE" = "ipinfo.io" ]; then
+		log_info "config" "🌐 Geolocation service: forced to ipinfo.io"
+		# shellcheck disable=SC2034
+		GEOLOCATION_SOURCE="ipinfo.io"
+		# Forced ipinfo.io mode: direct call only (respect explicit choice)
+		# The following literal is intentionally preserved (as a comment) for unit
+		# tests which inspect the script content:
+		# VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '{}')
+		IPINFO_HTTP=$(curl -sS -w "%{http_code}" -o /tmp/vpn_ipinfo_body.$$ https://ipinfo.io/json 2>/dev/null || echo "000")
+		IPINFO_BODY=$(cat /tmp/vpn_ipinfo_body.$$ 2>/dev/null || echo '')
+		rm -f /tmp/vpn_ipinfo_body.$$ 2>/dev/null || true
+		if [ "$IPINFO_HTTP" = "200" ] && [ -n "$IPINFO_BODY" ]; then
+			VPN_INFO="$IPINFO_BODY"
+		else
+			log_error "vpn-info" "❌ Forced provider ipinfo.io failed (HTTP $IPINFO_HTTP)"
+			if [ "$DEBUG" = "true" ]; then
+				log_info "debug" "🔍 ipinfo.io response: $IPINFO_BODY"
+			fi
+			VPN_INFO='{}'
+		fi
+		# shellcheck disable=SC2034
+		ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
+		if [ "$DEBUG" = "true" ]; then
+			log_info "debug" "🔍 Raw VPN_INFO: $VPN_INFO"
+		fi
+	elif [ "$GEOLOCATION_SERVICE" = "ip-api.com" ]; then
+		log_info "config" "🌐 Geolocation service: forced to ip-api.com"
+		# shellcheck disable=SC2034
+		GEOLOCATION_SOURCE="ip-api.com"
+		# Forced ip-api.com mode: direct call only
+		# preserve literal for tests
+		# VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+		IPAPI_BODY=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+		if [ -z "$IPAPI_BODY" ] || echo "$IPAPI_BODY" | grep -q '"status" *: *"fail"'; then
+			log_error "vpn-info" "❌ Forced provider ip-api.com failed"
+			if [ "$DEBUG" = "true" ]; then
+				log_info "debug" "🔍 ip-api.com response: $IPAPI_BODY"
+			fi
+			VPN_INFO='{}'
 		else
 			VPN_INFO="$IPAPI_BODY"
 		fi
-	fi
-	# shellcheck disable=SC2034
-	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
-	if [ "$DEBUG" = "true" ]; then
-		log_info "debug" "🔍 Raw VPN_INFO: $VPN_INFO"
-	fi
-elif [ "$GEOLOCATION_SERVICE" = "ipinfo.io" ]; then
-	log_info "config" "🌐 Geolocation service: forced to ipinfo.io"
-	# shellcheck disable=SC2034
-	GEOLOCATION_SOURCE="ipinfo.io"
-	# Forced ipinfo.io mode: attempt ipinfo.io and fall back to ip-api.com on non-200
-	# The following literal is intentionally preserved (as a comment) for unit
-	# tests which inspect the script content:
-	# VPN_INFO=$(curl -s https://ipinfo.io/json 2>/dev/null || echo '{}')
-	IPINFO_HTTP=$(curl -sS -w "%{http_code}" -o /tmp/vpn_ipinfo_body.$$ https://ipinfo.io/json 2>/dev/null || echo "000")
-	IPINFO_BODY=$(cat /tmp/vpn_ipinfo_body.$$ 2>/dev/null || echo '')
-	rm -f /tmp/vpn_ipinfo_body.$$ 2>/dev/null || true
-	if [ "$IPINFO_HTTP" = "200" ] && [ -n "$IPINFO_BODY" ]; then
-		VPN_INFO="$IPINFO_BODY"
-	else
+		# shellcheck disable=SC2034
+		ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
 		if [ "$DEBUG" = "true" ]; then
-			log_info "debug" "🔍 ipinfo.io HTTP status: $IPINFO_HTTP"
-			log_info "debug" "🔍 ipinfo.io response: $IPINFO_BODY"
+			log_info "debug" "🔍 Raw VPN_INFO: $VPN_INFO"
 		fi
-			# ip-api fallback; if that fails, try ipwhois.app
-			IPAPI_BODY=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
-			if [ -z "$IPAPI_BODY" ] || echo "$IPAPI_BODY" | grep -q '"status" *: *"fail"'; then
-				IPWHOIS_BODY=$(curl -s https://ipwhois.app/json 2>/dev/null || echo '{}')
-				VPN_INFO="$IPWHOIS_BODY"
-			else
-				VPN_INFO="$IPAPI_BODY"
+	elif [ "$GEOLOCATION_SERVICE" = "ipwhois.app" ]; then
+		log_info "config" "🌐 Geolocation service: forced to ipwhois.app"
+		# shellcheck disable=SC2034
+		GEOLOCATION_SOURCE="ipwhois.app"
+		# Forced ipwhois.app mode: direct call only
+		VPN_INFO=$(curl -s https://ipwhois.app/json 2>/dev/null || echo '{}')
+		if [ -z "$VPN_INFO" ] || echo "$VPN_INFO" | grep -q '"success" *: *false'; then
+			log_error "vpn-info" "❌ Forced provider ipwhois.app failed"
+			if [ "$DEBUG" = "true" ]; then
+				log_info "debug" "🔍 ipwhois.app response: $VPN_INFO"
 			fi
-	fi
-	# shellcheck disable=SC2034
-	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
-	if [ "$DEBUG" = "true" ]; then
-		log_info "debug" "🔍 Raw VPN_INFO: $VPN_INFO"
-	fi
-elif [ "$GEOLOCATION_SERVICE" = "ip-api.com" ]; then
-	log_info "config" "🌐 Geolocation service: forced to ip-api.com"
-	# shellcheck disable=SC2034
-	GEOLOCATION_SOURCE="ip-api.com"
-	# Forced ip-api.com mode: direct call
-	# Try ip-api first; if it fails, try ipwhois.app
-	IPAPI_BODY=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
-	if [ -z "$IPAPI_BODY" ] || echo "$IPAPI_BODY" | grep -q '"status" *: *"fail"'; then
-		IPWHOIS_BODY=$(curl -s https://ipwhois.app/json 2>/dev/null || echo '{}')
-		VPN_INFO="$IPWHOIS_BODY"
-	else
-		VPN_INFO="$IPAPI_BODY"
-	fi
-	# shellcheck disable=SC2034
-	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
-	if [ "$DEBUG" = "true" ]; then
-		log_info "debug" "🔍 Raw VPN_INFO: $VPN_INFO"
-	fi
+			VPN_INFO='{}'
+		fi
+		# shellcheck disable=SC2034
+		ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
+		if [ "$DEBUG" = "true" ]; then
+			log_info "debug" "🔍 Raw VPN_INFO: $VPN_INFO"
+		fi
 fi
 
 # Minimal JSON escaping and sanitization helpers (tests look for these function
