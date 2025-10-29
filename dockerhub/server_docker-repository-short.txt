@@ -1,1 +1,1 @@
-VPN monitoring server: collects client keepalives, detects DNS leaks, sends alerts; includes a web dashboard and Telegram notifications.
+Server for VPN monitoring: clients keepalives, detects DNS leaks, Telegram alerts and dashboard
