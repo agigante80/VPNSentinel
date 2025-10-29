@@ -58,8 +58,10 @@ if [ -f "$PIDFILE" ]; then
 fi
 
 echo "Starting command: $CMD"
+# Start the monitor in the background but keep its stdout/stderr attached so
+# Docker container logs will include the monitor output (useful for tests).
 # shellcheck disable=SC2086
-nohup sh -c "$CMD" >/dev/null 2>&1 &
+sh -c "$CMD" &
 PID=$!
 echo "$PID" > "$PIDFILE"
 echo "Started pid $PID (pidfile: $PIDFILE)"
