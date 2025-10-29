@@ -114,6 +114,9 @@ fi
 HEALTH_PORT="${VPN_SENTINEL_HEALTH_PORT:-8082}"
 TZ="${TZ:-UTC}"
 
+# PID file for the health monitor wrapper (can be overridden in tests)
+PIDFILE="${VPN_SENTINEL_HEALTH_PIDFILE:-/tmp/vpn-sentinel-health-monitor.pid}"
+
 # Health check intervals (seconds)
 HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-30}
 
@@ -181,6 +184,80 @@ generate_health_status() {
   },
   "system": $system_info,
   "issues": $issues
+}
+
+# Helper: check if a pid is owned by current user
+is_pid_owned_by_user() {
+  local _pid="$1"
+  if [ -z "$_pid" ]; then
+    return 1
+  fi
+  if ! kill -0 "$_pid" 2>/dev/null; then
+    return 1
+  fi
+  local owner
+  owner=$(ps -o uid= -p "$_pid" 2>/dev/null | tr -d ' \t\n') || true
+  [ "${owner}" = "$(id -u)" ]
+}
+
+# Attempt to stop a stale monitor process (best-effort, user-owned only)
+stop_stale_monitor() {
+  local stale_pid="$1"
+  if is_pid_owned_by_user "$stale_pid"; then
+    echo "Stopping stale health monitor pid=$stale_pid" >&2
+    kill -TERM "$stale_pid" 2>/dev/null || true
+    sleep 1
+    if kill -0 "$stale_pid" 2>/dev/null; then
+      kill -KILL "$stale_pid" 2>/dev/null || true
+      sleep 0.2
+    fi
+    # best-effort removal of pidfile if it points to this pid
+    if [ -f "$PIDFILE" ]; then
+      local pf
+      pf=$(cat "$PIDFILE" 2>/dev/null || true)
+      if [ "$pf" = "$stale_pid" ]; then
+        rm -f "$PIDFILE" 2>/dev/null || true
+      fi
+    fi
+    return 0
+  fi
+  return 1
+}
+
+# Cleanup any stale monitors referenced by pidfile or listening on the health port
+cleanup_stale_monitors() {
+  # If pidfile exists, try to stop the referenced pid (user-owned)
+  if [ -f "$PIDFILE" ]; then
+    local existing
+    existing=$(cat "$PIDFILE" 2>/dev/null || true)
+    if [ -n "$existing" ]; then
+      stop_stale_monitor "$existing" || true
+    else
+      rm -f "$PIDFILE" 2>/dev/null || true
+    fi
+  fi
+
+  # Also inspect processes listening on the health port and stop user-owned monitors
+  if command -v lsof >/dev/null 2>&1; then
+    local pids
+    pids=$(lsof -iTCP:"$HEALTH_PORT" -sTCP:LISTEN -t 2>/dev/null || true)
+    for p in $pids; do
+      # only attempt to stop processes owned by current user
+      if is_pid_owned_by_user "$p"; then
+        # only stop if command looks like our monitor (contains health-monitor)
+        local cmd
+        cmd=$(ps -o cmd= -p "$p" 2>/dev/null || true)
+        case "$cmd" in
+          *health-monitor*|*health-monitor.py*)
+            stop_stale_monitor "$p" || true
+            ;;
+          *)
+            # do not kill unrelated system services
+            ;;
+        esac
+      fi
+    done
+  fi
 }
 EOF
 }
@@ -288,6 +365,14 @@ LOG_PATH="${VPN_SENTINEL_HEALTH_LOG:-/tmp/vpn-sentinel-health-monitor.log}"
 mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
 rm -f "$LOG_PATH" 2>/dev/null || true
 
+# Pre-start: attempt to cleanup stale monitors and pidfiles
+cleanup_stale_monitors || true
+
+# Write wrapper pidfile (shell wrapper). Tests and helpers use this.
+echo "$$" > "$PIDFILE" 2>/dev/null || true
+
+trap 'rc=$?; rm -f "$PIDFILE" 2>/dev/null || true; exit $rc' INT TERM EXIT
+
 log_info "health" "Starting health monitor using $PYTHON_EXE $PY_MODULE (log: $LOG_PATH)"
 "$PYTHON_EXE" "$PY_MODULE" >> "$LOG_PATH" 2>&1 &
 HEALTH_PID=$!
@@ -321,4 +406,6 @@ trap shutdown_handler INT TERM
 wait "$HEALTH_PID"
 EXIT_STATUS=$?
 log_info "health" "Health monitor exited with status $EXIT_STATUS"
+# Cleanup pidfile (trap will also handle it)
+rm -f "$PIDFILE" 2>/dev/null || true
 exit $EXIT_STATUS
