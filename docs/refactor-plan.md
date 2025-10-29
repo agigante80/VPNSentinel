@@ -1,231 +1,160 @@
 ## 🧭 VPNSentinel Refactor Intent & Long-Term Plan
 
-**Repository:** [VPNSentinel](https://github.com/agigante80/VPNSentinel) **Primary branch for
-refactor work:** `refactor/unified-architecture` **Environment:** Visual Studio Code
+**Repository:** [VPNSentinel](https://github.com/agigante80/VPNSentinel)  
+**Primary branch for refactor work:** `refactor/unified-architecture`  
+**Environment:** Visual Studio Code
 
 ---
 
-### 🎯 **Objective**
+### 🎯 Objective
 
-The purpose of this refactor is to **modernize, modularize, and stabilize** the VPNSentinel
-codebase. The main focus is on the **server** (`vpn-sentinel-server/vpn-sentinel-server.py`) —
-introducing a **robust, standardized health-monitor and healthcheck** system, similar in structure
-and reliability to what’s implemented on the **client** (`vpn-sentinel-client/`).
+Modernize, modularize, and stabilize the VPNSentinel codebase. The main goals are:
 
-At the same time, this initiative aims to:
+- Centralize shared logic into `vpn_sentinel_common` (logging, config, geolocation, network, health, monitor).  
+- Modularize the server monolith into `vpn_sentinel_server`.  
+- Gradually migrate high-value shell logic in the client to Python, with thin shims ensuring parity.  
+- Provide consistent health-check schema and monitoring abstractions across client and server.  
+- Preserve runtime stability and backward compatibility during migration.
 
-* **Unify and centralize shared logic** (logging, configuration, geolocation, networking, health). *
-  **Reduce duplication** between the server and client. * **Gradually migrate** high-value shell-
-  based logic to Python. * **Preserve stability** via small, testable, incremental PRs. *
-  **Encourage architectural consistency** across all VPNSentinel components.
-
-Refactoring the **client side** is **welcome and encouraged** whenever it improves shared
-functionality, reduces duplication, or enhances maintainability.
-
-> ✅ You have full freedom to **rename, move, delete, or reorganize files and directories** if it
-> contributes to a cleaner, more maintainable, and future-proof architecture.
+> ✅ Full freedom to rename, move, delete, or reorganize files and directories as long as it improves maintainability.
 
 ---
 
-### 💡 **Context & Current State**
+### 💡 Context & Current State
 
-* The repo mixes **Python (server)** and **shell (client)**. * Client-side code already includes
-  valuable logic (e.g., geolocation, health, network checks) that should be reused. * Shared shell
-  libraries (e.g., `lib/health-common.sh`) overlap with emerging Python modules. * The
-  `vpn_sentinel_common` package has been added under `vpn_sentinel_common/` and already contains:
+- Codebase: server is Python (`vpn-sentinel-server`), client is mostly shell (`vpn-sentinel-client`).  
+- Shared library: `vpn_sentinel_common/` exists with `logging.py`, `geolocation.py`, `health.py`.  
+- Server modularization: `vpn_sentinel_server/` contains `__init__.py`, `validation.py`, `security.py`, `server_info.py`, `telegram.py`, `utils.py`, `logging.py`. Monolith delegates to these modules for backward compatibility.  
+- CI & tests: smoke and full test suite run successfully. 171 tests passed, 41 skipped (Linux dev environment). Smoke runner updated to include new packages in the server Docker image.  
 
-* `logging.py` (logging helpers) and `geolocation.py` (geolocation helper). * A lightweight `vpn-
-  sentinel-server/health-monitor.py` that uses `vpn_sentinel_common.logging` for consistent logs. *
-  Tests and smoke scripts that exercise the health monitor and server behavior (see `tests/` and
-  `scripts/smoke/`).
-
-Moving forward, the **active refactor branch is `refactor/unified-architecture`** — use this branch
-for consolidated refactor PRs.
+Active branch for all refactor work: **`refactor/unified-architecture`** — all PRs must target this branch.
 
 ---
 
-### 🧱 **Long-Term Goals**
+### 🧱 Long-Term Goals
 
-1. **Centralize shared logic** in a Python package: `vpn_sentinel_common/` (logging, config,
-geolocation, network, health, monitor, etc.). 2. **Modularize the server** into a structured Python
-package (`vpn_sentinel_server/`). 3. **Refactor the client** as needed to reuse shared Python
-modules. 4. **Standardize health endpoints** for all components:
-
-* `/health` * `/health/ready` * `/health/startup` 5. **Ensure all PRs remain small, safe, and well-
-  tested**. 6. **Maintain backward compatibility** until the Python versions fully replace the shell
-  logic. 7. **Adopt strong CI, linting, and type-checking practices**.
-
----
-
-### ⚙️ **Critical Considerations**
-
-* **Gradual migration:** Port key shell logic to Python in stages — starting with high-value modules
-  like geolocation and health monitoring. * **Robust CI:**
-
-* Use `pip install -e .` for editable installs of `vpn_sentinel_common`. * Keep all tests green in
-  CI. * Introduce integration smoke runs using Docker. * **Consistency in behavior:** Match existing
-  shell logic behavior during migration (write regression tests). * **Freedom to restructure:**
-  Move, rename, or remove files freely to create clean boundaries between modules.
+1. Centralize shared logic in `vpn_sentinel_common/`.  
+2. Modularize the server into `vpn_sentinel_server/`.  
+3. Refactor the client to reuse shared Python modules.  
+4. Standardize health endpoints for all components: `/health`, `/health/ready`, `/health/startup`.  
+5. Keep PRs small, safe, and well-tested.  
+6. Maintain backward compatibility until Python replacements fully replace shell logic.  
+7. Adopt strong CI, linting, and type-checking practices.
 
 ---
 
-### 🪜 **Incremental PR Roadmap**
+### ⚙️ Critical Considerations
 
-All refactor work occurs under the **`refactor/unified-architecture`** branch, in small, reviewable
-steps.
-
-| PR     | Focus                 | Description
-| | ------ | --------------------- | ---------------------------------------------------------------
-----------------------------------------------------------------------------------------------------
----- | | **1**  | ✅ Done                | Added `vpn_sentinel_common/logging`, initial `vpn-
-sentinel-server/health-monitor.py`, and client-side shim `vpn-sentinel-client/lib/geo_client.py`.
-Basic smoke tests exercise these components. | | **2**  | In progress           | Packaging: create
-`pyproject.toml` / `setup.cfg` to make `vpn_sentinel_common` installable as an editable package.
-(NOT YET PRESENT in repo).                            | | **3**  | ✅ Done                |
-Geolocation: `vpn_sentinel_common/geolocation.py` implemented and consumed by `vpn-sentinel-client`
-shim.                                                                | | **4**  | Not started
-| Shared health: design and add `vpn_sentinel_common/health.py` with a final JSON schema for
-`/health` endpoints and helper functions.                                     | | **5**  | In
-progress           | Server modularization: server remains as `vpn-sentinel-server/vpn-sentinel-
-server.py` (single-file) — plan is to refactor into `vpn_sentinel_server/` package and split
-responsibilities. | | **6**  | Not started           | Shared monitor: consider moving monitor logic
-from `vpn-sentinel-server/health-monitor.py` into `vpn_sentinel_common.monitor` for reuse by client
-and server.           | | **7**  | In progress           | Migrate shell helpers: `vpn-sentinel-
-client/lib/geo_client.py` shows a small shim; `lib/health-common.sh` still exists and should be
-ported gradually.                     | | **8**  | Not started           | Typing & Linting: CI
-already runs `flake8`/`black` checks and unit tests; add `mypy` and `ruff` gradually and enforce in
-CI.                                                | | **9**  | ✅ Done                | Integration
-CI: GitHub Actions already runs unit and integration flows, Docker build tests, and docker-compose-
-based integration smoke tests (see `.github/workflows/ci-cd.yml`). | | **10** | Ongoing
-| Cleanup & Docs: update README, tests, and developer docs as components migrate; only remove shell
-scripts after Python replacements are validated by tests and smoke runs.    |
+- **Gradual migration:** Start with high-value modules (geolocation, health).  
+- **Robust CI:**  
+  - Use `pip install -e .` for editable installs of `vpn_sentinel_common`.  
+  - Keep all tests green in CI.  
+  - Introduce integration smoke runs using Docker.  
+- **Consistency in behavior:** Ensure Python replacements match legacy shell logic; write regression tests.  
+- **Freedom to restructure:** Move, rename, or remove files to create clear module boundaries.
 
 ---
 
-### 🧩 **Target Architecture**
+### 🪜 Incremental PR Roadmap
+
+All PRs must target **`refactor/unified-architecture`**.
+
+| PR | Focus | Description |
+|----|-------|-------------|
+| 1  | ✅ Done | Added `vpn_sentinel_common/logging`, initial server `health-monitor.py`, client shim `vpn-sentinel-client/lib/geo_client.py`. Basic smoke tests executed. |
+| 2  | In progress — pyproject.toml added | Server modularization: validation and security helpers moved into `vpn_sentinel_server/`. Monolith delegates for backward compatibility. |
+| 3  | ✅ Done | Docker images updated to include `vpn_sentinel_server` and `vpn_sentinel_common`. Smoke and integration tests updated. |
+| 4  | In progress | Shared health: `vpn_sentinel_common/health.py` implemented. JSON schema under review. Integration with server health endpoints ongoing. |
+| 5  | In progress | Server modularization: splitting `vpn-sentinel-server/vpn-sentinel-server.py` into `vpn_sentinel_server/` modules; tests added to preserve behavior. |
+| 6  | Not started | Shared monitor: move monitor loop into `vpn_sentinel_common/monitor.py` and provide thin wrappers in server/client. |
+| 7  | In progress | Migrate shell helpers: `lib/health-common.sh` and `vpn-sentinel-client/lib/*.sh` gradually ported to Python with shims maintained until parity confirmed. |
+| 8  | Not started | Typing & linting: CI runs `flake8`/`black`; plan to add `mypy` and `ruff` behind feature flags. |
+| 9  | ✅ Done | Integration CI: GitHub Actions runs unit and integration flows; Docker-based smoke tests in CI (`.github/workflows/ci-cd.yml`). |
+| 10 | Ongoing | Cleanup & Docs: update README and developer docs; remove shell code only after Python replacements pass CI and smoke tests. |
+
+---
+
+### 🧩 Target Architecture
 
 ```
+
 vpn_sentinel_common/
- ├── __init__.py
- ├── logging.py        # implemented
- ├── geolocation.py    # implemented
- ├── (planned)
- ├── config.py         # future
- ├── health.py         # future (shared health schema)
- ├── network.py        # future
- ├── monitor.py        # future (shared monitor)
- ├── pidfile.py        # future
- └── types.py          # future
+├── **init**.py
+├── logging.py
+├── geolocation.py
+├── health.py        # in progress
+├── config.py        # planned
+├── network.py       # planned
+├── monitor.py       # planned
+├── pidfile.py       # planned
+└── types.py         # planned
 
 vpn_sentinel_server/
- ├── __init__.py
- ├── api.py
- ├── health.py
- ├── dashboard.py
- ├── telegram.py
- ├── config.py
- └── main.py
+├── **init**.py
+├── api.py
+├── health.py
+├── dashboard.py
+├── telegram.py
+├── config.py
+└── main.py
 
 vpn_sentinel_client/
- ├── vpn-sentinel-client.sh      # thin wrapper (legacy)
- ├── lib/
- │    ├── geo_client.py           # shim that imports vpn_sentinel_common.geolocation
- │    ├── (other legacy shell helpers — gradually ported)
- └── (client should progressively import `vpn_sentinel_common` for shared logic)
+├── vpn-sentinel-client.sh
+├── lib/
+│    ├── geo_client.py
+│    ├── config.sh
+│    ├── network.sh
+│    ├── payload.sh
+│    ├── log.sh
+│    └── utils.sh
+└── progressively import `vpn_sentinel_common` for shared logic
+
 ```
 
 ---
 
-### 🧠 **Decision Points**
+### 🧠 Contracts / Standards
 
-* Confirm that **`feature/server-refactor`** is now the main long-term branch (replacing
-  `refactor/vpn-sentinel-common`). * Decide the **next actionable step**:
+**`vpn_sentinel_common.health`**
+- Returns JSON with keys: `status` (string: `ok`/`warn`/`fail`), `components` (dict with component statuses).  
+- Inputs: optional override parameters for individual checks.  
+- Output format stable across client and server.  
 
-* **PR 2** → Packaging (`vpn_sentinel_common` installable, editable CI) * **PR 3** → Geolocation
-  extraction (client/server reuse) * Establish the **final JSON schema** for `/health` endpoints
-  before shared implementation. * As code evolves, make structural changes (file renames, folder
-  moves, or deletions) freely — clarity and maintainability come first.
-
----
-
-### ✅ **Summary**
-
-> The VPNSentinel refactor will unify server and client around a shared Python foundation
-> (`vpn_sentinel_common`), improving health monitoring, observability, and maintainability. > > All
-> work proceeds under the `feature/server-refactor` branch. > > The developer has **full freedom**
-> to **rename, move, delete, or restructure files** wherever it leads to a cleaner, more robust
-> architecture. > > Refactoring the **client side** is fully encouraged whenever it strengthens
-> shared logic or reduces duplication.
+**`vpn_sentinel_common.monitor`**
+- Start/stop interface.  
+- Heartbeat interval configurable.  
+- Outputs standardized JSON or log lines.  
+- Reusable in both server and client.
 
 ---
 
-## Contributing: branch & PR conventions
+### 🛡️ Branch & PR Enforcement
 
-This file is the single source-of-truth for the refactor. Any change of direction should update it
-first.
+- All refactor PRs must **target `refactor/unified-architecture`**.  
+- Use branch protection rules or CI checks to reject PRs targeting other branches.  
+- Delete old topic branches after merge.  
+- Topic branch naming: `refactor/<area>-<short-desc>` or `feature/<short-desc>`.
 
-- Active refactor branch: `refactor/unified-architecture`. Create topic branches off this branch and
-  target PRs against it. - Topic branch naming: `refactor/<area>-<short-desc>` or `feature/<short-
-  desc>` for small improvements. Examples: - `refactor/server-modularization` - `refactor/packaging-
-  vpn-sentinel-common` - `feature/geolocation-mocks` - Keep PRs small and focused: aim for 200–500
-  lines of change when possible.
+---
 
-### PR checklist (must pass before merge into `refactor/unified-architecture`)
+### ✅ Summary
 
-1. Run the smoke test locally (quick, pre-merge verification):
+VPNSentinel is being unified around `vpn_sentinel_common`. This improves health monitoring, observability, and maintainability. All work occurs under `refactor/unified-architecture`. Client refactoring is encouraged only if it strengthens shared logic or reduces duplication. Developers have full freedom to rename, move, delete, or restructure files for maintainability.
 
-```bash
-bash scripts/smoke/run_local_smoke.sh
-```
+---
 
-- The smoke script runs the project in a lightweight environment and validates basic endpoints
-  (dashboard, health endpoints). Run it on your machine before raising a PR to catch obvious
-  regressions.
+### Immediate Next Steps
 
-2. Run the full test suite locally, including ALL integration tests (including those that require
-Docker):
+1. Finalize `/health` JSON schema in `vpn_sentinel_common/health.py`.  
+2. Split `vpn-sentinel-server/vpn-sentinel-server.py` into `vpn_sentinel_server/` modules.  
+3. Consolidate monitor code into `vpn_sentinel_common/monitor.py`.  
+4. Incrementally port shell helpers (`lib/health-common.sh`, `vpn-sentinel-client/lib/*.sh`) to Python.  
+5. Ensure CI runs `pip install -e .` for `vpn_sentinel_common` and passes smoke/integration tests.
 
-```bash
-# Ensure Docker is running for integration tests that require containers
-./tests/run_tests.sh --all
-```
+---
 
-- Some server-dependent integration tests are skipped by default and require setting
-  `VPN_SENTINEL_SERVER_TESTS=1` in the environment (see `tests/integration_server/` README). When
-  running `--all`, ensure Docker is available and that you enable server-dependent tests if you
-  intend to validate the full server stack.
+### Maintenance Notes
 
-3. All unit tests pass locally and in CI. Use `./tests/run_tests.sh --unit`. 4. If touching runtime
-code, add or update unit tests and integration smoke tests as appropriate. 5. Linting: fix
-`flake8`/`black` issues. New style checks (e.g., `ruff`, `mypy`) should be added behind a follow-up
-PR. 6. CI configuration: ensure `.github/workflows/ci-cd.yml` still runs without errors for the PR.
-7. Documentation: update `docs/refactor-plan.md`, `README.md` or deployment `README` if behavior or
-configuration changes. 8. No secrets or credentials in commits.
-
-### Naming and package conventions
-
-- Python packages use snake_case directories (e.g., `vpn_sentinel_common`, `vpn_sentinel_server`). -
-  Public functions/classes should be typed (gradual typing is ok) and documented with a one-line
-  docstring. - Environment variables use UPPER_SNAKE_CASE and begin with `VPN_SENTINEL_`. -
-  CLI/script entrypoints should live in component folders and remain runnable without installing the
-  package (tests rely on this behaviour).
-
-## Immediate next steps (short-term roadmap)
-
-1. Add `pyproject.toml` for `vpn_sentinel_common` (editable install). This should be a small PR that
-only adds packaging metadata and CI install step. 2. Implement `vpn_sentinel_common/health.py` and
-finalise `/health` JSON schema. Add unit tests validating schema shape and endpoints. 3. Split `vpn-
-sentinel-server/vpn-sentinel-server.py` into `vpn_sentinel_server/` package (API, health, dashboard,
-config, main). Keep behaviour identical and add tests during the split. 4. Consolidate monitor code
-into `vpn_sentinel_common.monitor` or keep the server monitor as a thin wrapper that imports shared
-monitor code. 5. Begin incremental port of `lib/health-common.sh` and other shell helpers to Python,
-keeping thin shell wrappers until parity is verified.
-
-## Maintenance notes
-
-- Keep `docs/refactor-plan.md` up to date. Any change in architecture, branch naming, or major
-  decision must be recorded here. - When a component is fully ported to Python and validated by CI,
-  remove its shell counterparts in a separate cleanup PR. - Prefer small, reversible PRs. If a PR
-  becomes large, split it into a behavior-preserving first PR and follow-up refactors that change
-  structure.
-
+- Keep `docs/refactor-plan.md` up to date; any architectural, branch, or major decision change must be recorded.  
+- Remove shell counterparts only after Python replacements pass tests and smoke runs.  
+- Prefer small, reversible PRs; split large PRs into behavior-preserving first and structural refactors later.  
