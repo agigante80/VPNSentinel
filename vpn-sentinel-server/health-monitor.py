@@ -21,21 +21,20 @@ import sys
 import threading
 import time
 from datetime import datetime
+from pathlib import Path
+
+# When this script is executed directly in tests, the repository root may not be
+# on sys.path. Ensure the repo root is first so relative imports like
+# `vpn_sentinel_common` work without installing the package.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+
+from vpn_sentinel_common.logging import log_info, log_warn, log_error
 
 
 SHUTDOWN = threading.Event()
-
-
-def log_info(component: str, msg: str) -> None:
-    logging.info(f"{component} | {msg}")
-
-
-def log_warn(component: str, msg: str) -> None:
-    logging.warning(f"{component} | {msg}")
-
-
-def log_error(component: str, msg: str) -> None:
-    logging.error(f"{component} | {msg}")
 
 
 def handle_signal(signum, frame):
