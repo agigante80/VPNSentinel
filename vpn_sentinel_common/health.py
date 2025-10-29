@@ -21,6 +21,19 @@ from __future__ import annotations
 import time
 from datetime import datetime, timezone
 from typing import Dict, Any, Tuple, List, Optional
+import os
+import subprocess
+import shutil
+
+try:
+    import psutil
+except Exception:
+    psutil = None
+
+try:
+    import requests
+except Exception:
+    requests = None
 
 
 ALLOWED_STATUSES = {"ok", "degraded", "fail"}
@@ -130,3 +143,162 @@ def sample_health_ok(version: Optional[str] = None) -> Dict[str, Any]:
 
 # Optional module-level startup timestamp used in sample helpers during tests
 STARTUP_AT = time.time()
+
+
+# ------------------------------------------------------------------
+# Runtime health helpers (Python equivalents of lib/health-common.sh)
+# ------------------------------------------------------------------
+
+
+def _http_get(url: str, timeout: int = 5) -> Optional[str]:
+    """Tiny HTTP GET helper: uses requests if available, else urllib."""
+    try:
+        if requests:
+            r = requests.get(url, timeout=timeout)
+            if r.status_code in (200, 204, 301, 302):
+                return r.text
+            return None
+        # fallback to urllib
+        from urllib.request import urlopen
+
+        with urlopen(url, timeout=timeout) as fh:
+            return fh.read().decode("utf-8")
+    except Exception:
+        return None
+
+
+def log_info(component: str, msg: str) -> None:
+    try:
+        from .logging import log_info as _log_info
+
+        _log_info(component, msg)
+    except Exception:
+        # best-effort fallback
+        print(f"INFO [{component}] {msg}")
+
+
+def log_warn(component: str, msg: str) -> None:
+    try:
+        from .logging import log_warn as _log_warn
+
+        _log_warn(component, msg)
+    except Exception:
+        print(f"WARN [{component}] {msg}")
+
+
+def log_error(component: str, msg: str) -> None:
+    try:
+        from .logging import log_error as _log_error
+
+        _log_error(component, msg)
+    except Exception:
+        print(f"ERROR [{component}] {msg}")
+
+
+def check_client_process(process_name: str = "vpn-sentinel-client.sh") -> str:
+    """Return 'healthy' if process is running, 'not_running' otherwise.
+
+    Tries psutil first, then falls back to `pgrep -f` on POSIX systems.
+    """
+    try:
+        if psutil:
+            for p in psutil.process_iter(attrs=["cmdline", "name"]):
+                try:
+                    cmd = " ".join(p.info.get("cmdline") or [])
+                except Exception:
+                    cmd = ""
+                if process_name in cmd or process_name == p.info.get("name"):
+                    return "healthy"
+        # fallback to pgrep
+        res = subprocess.run(["pgrep", "-f", process_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if res.returncode == 0:
+            return "healthy"
+    except Exception:
+        pass
+    return "not_running"
+
+
+def check_network_connectivity(timeout: int = 5) -> str:
+    """Check external connectivity using Cloudflare endpoint.
+
+    Returns 'healthy' or 'unreachable'.
+    """
+    url = "https://1.1.1.1/cdn-cgi/trace"
+    body = _http_get(url, timeout=timeout)
+    return "healthy" if body else "unreachable"
+
+
+def check_server_connectivity(server_url: Optional[str] = None, timeout: int = 10) -> str:
+    """Check connectivity to the configured VPN Sentinel server.
+
+    Returns 'not_configured' if no server URL provided, 'healthy' or 'unreachable'.
+    """
+    server = server_url or os.getenv("VPN_SENTINEL_URL", "")
+    if not server:
+        return "not_configured"
+    # Perform a simple HEAD/GET to determine reachability
+    try:
+        # prefer HEAD if requests is available
+        if requests:
+            r = requests.head(server, timeout=timeout)
+            if r.status_code >= 200 and r.status_code < 400:
+                return "healthy"
+            # try GET as a fallback
+            r = requests.get(server, timeout=timeout)
+            return "healthy" if r.status_code < 400 else "unreachable"
+        # urllib fallback: do a GET
+        body = _http_get(server, timeout=timeout)
+        return "healthy" if body is not None else "unreachable"
+    except Exception:
+        return "unreachable"
+
+
+def check_dns_leak_detection(timeout: int = 5) -> str:
+    """Basic check for DNS lookup availability (uses ipinfo.io)."""
+    url = "https://ipinfo.io/json"
+    body = _http_get(url, timeout=timeout)
+    return "healthy" if body else "unavailable"
+
+
+def get_system_info() -> Dict[str, str]:
+    """Return a small dict with memory_percent and disk_percent (strings).
+
+    Tries psutil if available, otherwise falls back to `free`/`df` parsing.
+    """
+    memory_percent = "unknown"
+    disk_percent = "unknown"
+    try:
+        if psutil:
+            mem = psutil.virtual_memory()
+            memory_percent = f"{mem.percent:.1f}"
+        else:
+            # try parsing /proc/meminfo
+            if os.path.exists("/proc/meminfo"):
+                with open("/proc/meminfo") as fh:
+                    data = fh.read()
+                # best-effort: not exact but ok for small utility
+                lines = {l.split(":")[0]: l.split(":")[1].strip() for l in data.splitlines() if ":" in l}
+                mem_total = int(lines.get("MemTotal", "0 kB").split()[0])
+                mem_free = int(lines.get("MemFree", "0 kB").split()[0])
+                if mem_total > 0:
+                    used = mem_total - mem_free
+                    memory_percent = f"{(used / mem_total) * 100:.1f}"
+        # disk usage for /
+        if psutil:
+            disk = psutil.disk_usage("/")
+            disk_percent = f"{disk.percent:.1f}"
+        else:
+            # fallback to df
+            try:
+                out = subprocess.check_output(["df", "/", "--output=pcent"], text=True)
+                # skip header line
+                lines = out.strip().splitlines()
+                if len(lines) >= 2:
+                    val = lines[1].strip().strip("%")
+                    disk_percent = val
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    return {"memory_percent": str(memory_percent), "disk_percent": str(disk_percent)}
