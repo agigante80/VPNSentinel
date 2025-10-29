@@ -151,10 +151,14 @@ RUN pip install --no-cache-dir \
 COPY vpn-sentinel-server/vpn-sentinel-server.py /app/vpn-sentinel-server.py
 COPY vpn-sentinel-server/health-monitor.py /app/health-monitor.py
 COPY vpn-sentinel-server/health-monitor-wrapper.sh /app/health-monitor-wrapper.sh
+# Copy extracted python packages created during refactor so the monolith
+# can import them inside the container at runtime.
+COPY vpn_sentinel_server /app/vpn_sentinel_server
+COPY vpn_sentinel_common /app/vpn_sentinel_common
 
 # Set proper file permissions and ownership
 RUN chmod +x /app/vpn-sentinel-server.py /app/health-monitor.py /app/health-monitor-wrapper.sh && \
-    chown appuser:appgroup /app/vpn-sentinel-server.py /app/health-monitor.py /app/health-monitor-wrapper.sh && \
+    chown -R appuser:appgroup /app && \
     echo "✅ Application code installed and configured" && \
     ls -la /app/
 
