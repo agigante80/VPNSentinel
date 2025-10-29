@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vpn-sentinel-common"
+version = "0.0.0"
+description = "Shared helpers for VPNSentinel (vpn_sentinel_common)"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [ { name = "agigante80" } ]
+license = { text = "MIT" }
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["vpn_sentinel_common*"]
