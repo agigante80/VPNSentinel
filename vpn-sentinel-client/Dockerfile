@@ -62,30 +62,58 @@ FROM alpine:latest
 # Accept version information
 ARG VERSION
 ENV VERSION=${VERSION}
+ARG COMMIT_HASH
+ENV COMMIT_HASH=${COMMIT_HASH}
 
 # -----------------------------------------------------------------------------
 # Package Installation
 # -----------------------------------------------------------------------------
 # Install curl for HTTP requests to monitoring APIs and server endpoints
+# Install python3 and pip for health monitor functionality
 # --no-cache: Don't store package index locally to reduce image size
 # curl: Essential for communicating with ipinfo.io, Cloudflare, and monitoring server
-RUN apk add --no-cache curl \
+# python3: Required for Flask-based health monitor
+# jq: Required for JSON processing in health monitor
+RUN apk add --no-cache curl python3 py3-pip bash jq \
     && echo "✅ Package installation completed" \
-    && echo "📦 Installed packages: curl" \
-    && curl --version
+    && echo "📦 Installed packages: curl, python3, py3-pip, bash, jq" \
+    && curl --version \
+    && python3 --version \
+    && bash --version \
+    && jq --version
+
+# Install Flask for health monitor
+RUN python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir flask \
+    && echo "✅ Python packages installed: flask"
+
+# Make sure virtual environment is in PATH
+ENV PATH="/opt/venv/bin:$PATH"
 
 # -----------------------------------------------------------------------------
 # Script Installation and Configuration
 # -----------------------------------------------------------------------------
-# Copy the keepalive monitoring script from local directory to container
-# The script contains all the VPN monitoring and DNS leak detection logic
-COPY vpn-sentinel-client.sh /app/vpn-sentinel-client.sh
+# -----------------------------------------------------------------------------
+# VPN Sentinel Client Script
+# -----------------------------------------------------------------------------
+# Copy the main VPN Sentinel client script
 
-# Make the script executable and set proper ownership
-# Ensures the script can be executed by the container runtime
-RUN chmod +x /app/vpn-sentinel-client.sh \
+# Copy the entire vpn-sentinel-client directory into the image so runtime
+# scripts and the full lib/ are included. This avoids a mismatch where the
+# top-level repo `lib/` differs from the client-specific `vpn-sentinel-client/lib/`.
+COPY vpn-sentinel-client/ /app/
+
+# Include repository-level shared lib (health-common) so the health-monitor
+# script can find ../lib/health-common.sh at runtime when running from /app
+COPY lib/health-common.sh /app/lib/health-common.sh
+# Ensure healthcheck script is explicitly copied for tests that inspect the Dockerfile
+COPY vpn-sentinel-client/healthcheck.sh /app/healthcheck.sh
+
+# Make the scripts executable and set proper ownership
+# Ensures the scripts can be executed by the container runtime
+RUN chmod +x /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/healthcheck.sh \
     && echo "VPN Sentinel client container built successfully" \
-    && ls -la /app/vpn-sentinel-client.sh
+    && ls -la /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/healthcheck.sh
 
 # -----------------------------------------------------------------------------
 # Working Directory and User Setup
@@ -99,15 +127,6 @@ WORKDIR /app
 # USER keepalive
 
 # -----------------------------------------------------------------------------
-# Health Check Script
-# -----------------------------------------------------------------------------
-# Copy the health check script
-COPY healthcheck.sh /app/healthcheck.sh
-
-# Make the health check script executable
-RUN chmod +x /app/healthcheck.sh
-
-# -----------------------------------------------------------------------------
 # Container Startup Configuration  
 # -----------------------------------------------------------------------------
 # Define the default command to execute when container starts
@@ -116,11 +135,22 @@ RUN chmod +x /app/healthcheck.sh
 # This approach allows the script to handle its own timing, error recovery,
 # and provides better logging than external loop management
 #
+# Multi-process mode: If VPN_SENTINEL_HEALTH_MONITOR=true, both processes run
+# Main client: VPN monitoring and keepalive
+# Health monitor: Dedicated health status server (port 8082)
+#
 # Alternative approaches:
 # 1. External loop: CMD ["sh", "-c", "while true; do /app/vpn-sentinel-client.sh; sleep 300; done"]
 # 2. Cron-based: Install crond and use crontab (more complex, less real-time feedback)
 # 3. Script-managed: Let vpn-sentinel-client.sh handle its own loop (current approach - recommended)
 CMD ["/app/vpn-sentinel-client.sh"]
+
+# -----------------------------------------------------------------------------
+# Build-time Configuration
+# -----------------------------------------------------------------------------
+# Set version from build arguments (passed by CI/CD pipeline)
+ARG VERSION
+ENV VERSION=${VERSION}
 
 # -----------------------------------------------------------------------------
 # Container Metadata
@@ -131,13 +161,19 @@ LABEL maintainer="VPN Sentinel Project" \
       version="1.0" \
       license="MIT" \
       purpose="vpn-monitoring" \
-      usage="docker run --network=container:your-vpn-container vpn-sentinel/client"
+      usage="docker run --network=container:your-vpn-container vpn-sentinel/client" \
+      org.opencontainers.image.title="VPN Sentinel Client" \
+      org.opencontainers.image.description="VPN monitoring client that runs inside VPN containers to detect DNS leaks and monitor connection health. Sends status updates to VPN Sentinel Server." \
+      org.opencontainers.image.vendor="VPN Sentinel Project" \
+      org.opencontainers.image.source="https://github.com/agigante80/VPNSentinel" \
+      org.opencontainers.image.licenses="MIT"
 
 # -----------------------------------------------------------------------------
 # Health Check Configuration
 # -----------------------------------------------------------------------------
 # Add comprehensive health check for the VPN Sentinel client
-# Verifies process status, server connectivity, and external service reachability
+# Verifies process status, server connectivity, external service reachability,
+# and optional health monitor status
 HEALTHCHECK --interval=60s --timeout=15s --start-period=30s --retries=3 \
     CMD /app/healthcheck.sh
 

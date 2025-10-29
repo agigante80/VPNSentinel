@@ -1,6 +1,8 @@
 services:
   vpn-sentinel-client:
-    image: agigante80/vpn-sentinel-client:latest
+    build:
+      context: ../..
+      dockerfile: vpn-sentinel-client/Dockerfile
     container_name: vpn-sentinel-client
     volumes:
       - ./certs:/certs:ro
@@ -13,4 +15,8 @@ services:
       - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH}
       - VPN_SENTINEL_DEBUG=${VPN_SENTINEL_DEBUG}
       - VPN_SENTINEL_GEOLOCATION_SERVICE=${VPN_SENTINEL_GEOLOCATION_SERVICE}
+      - VPN_SENTINEL_HEALTH_MONITOR=${VPN_SENTINEL_HEALTH_MONITOR:-false}
+      - VPN_SENTINEL_HEALTH_PORT=${VPN_SENTINEL_HEALTH_PORT:-8082}
+    ports:
+      - "8082:8082"  # Health monitor port
     restart: unless-stopped

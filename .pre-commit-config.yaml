@@ -1,0 +1,14 @@
+repos:
+  - repo: https://github.com/mvdan/pre-commit-shfmt
+    rev: v0.10.0
+    hooks:
+      - id: shfmt
+        name: shfmt
+        entry: shfmt -i 2 -ci
+        language: system
+        types: [shell]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer

@@ -1,0 +1,84 @@
+name: PR CI — tests & smoke
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  checks-and-tests:
+    name: Syntax, Unit & Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:24.0.5
+        options: --privileged
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Make repository path safe for git
+        if: env.GITHUB_WORKSPACE != ''
+        run: |
+          # Some CI runners mount the repository with a different UID which
+          # causes `git` to refuse operations with 'detected dubious ownership'.
+          # Configure git to treat the workspace as safe so scripts like
+          # get_version.sh can run inside the job.
+          git config --global --add safe.directory "${GITHUB_WORKSPACE:-$(pwd)}"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f tests/requirements.txt ]; then pip install -r tests/requirements.txt; fi
+
+      - name: Quick syntax checks
+        run: |
+          python -m py_compile vpn-sentinel-server/vpn-sentinel-server.py
+          bash -n vpn-sentinel-client/vpn-sentinel-client.sh || true
+
+      - name: Run unit tests
+        run: |
+          cd tests
+          python -m pytest unit/ -q
+
+      - name: Start integration environment
+        run: |
+          docker compose -f tests/docker-compose.test.yaml up -d --build
+          timeout 60s bash -c 'while ! curl -s http://localhost:5000/test/v1/health > /dev/null; do sleep 2; done'
+
+      - name: Run integration tests
+        run: |
+          cd tests
+          export VPN_SENTINEL_URL=http://localhost:5000
+          export VPN_SENTINEL_API_PATH=/test/v1
+          export VPN_SENTINEL_API_KEY=test-api-key
+          python -m pytest integration/ -q
+
+      - name: Run smoke script
+        run: |
+          # Use a predictable pidfile path so the smoke script and health monitor
+          # are deterministic in CI and can be cleaned up by the job.
+          export VPN_SENTINEL_HEALTH_PIDFILE=/tmp/vpn-sentinel-health-monitor.pid
+          mkdir -p .github/workflows/smoke-logs
+          # The smoke script writes logs into scripts/smoke/logs/ by default; copy
+          # them into the job workspace location so they can be uploaded.
+          bash scripts/smoke/run_local_smoke.sh || true
+          cp -a scripts/smoke/logs .github/workflows/smoke-logs || true
+
+      - name: Upload smoke logs (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-logs
+          path: .github/workflows/smoke-logs
+
+      - name: Teardown integration environment
+        if: always()
+        run: |
+          docker compose -f tests/docker-compose.test.yaml down -v

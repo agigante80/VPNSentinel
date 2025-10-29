@@ -1,0 +1,88 @@
+services:
+  # vpn-client:
+  #   image: qmcgaw/gluetun
+  #   container_name: vpn-client
+  #   cap_add:
+  #     - NET_ADMIN        
+  #   devices:
+  #     - /dev/net/tun:/dev/net/tun  
+  #   ports: []
+  #   volumes:
+  #     - ./vpn-client:/gluetun  
+  #   environment:
+  #     - UPDATER_PERIOD=${UPDATER_PERIOD:-24h}              
+  #     - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}       
+  #     - SERVER_COUNTRIES=${SERVER_COUNTRIES}               
+  #     - OPENVPN_USER=${VPN_USER}                           
+  #     - OPENVPN_PASSWORD=${VPN_PASSWORD}                   
+  #     - FIREWALL_OUTBOUND_SUBNETS=172.28.0.0/16  
+  #   restart: always  
+  vpn-sentinel-client:
+    image: vpn-sentinel-client:latest
+    container_name: vpn-sentinel-client
+    volumes:
+      - ./certs:/certs:ro
+    ports:
+      - "18082:8082"  # Health monitor port
+    environment:
+      - VPN_SENTINEL_URL=http://vpn-sentinel-server:5000
+      - VPN_SENTINEL_API_PATH=/api/v1
+      - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-main}
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
+      - TZ=${TZ:-UTC}
+      - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH}
+      - VPN_SENTINEL_DEBUG=${VPN_SENTINEL_DEBUG:-false}
+      - VPN_SENTINEL_GEOLOCATION_SERVICE=${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}
+      - VPN_SENTINEL_HEALTH_MONITOR=true
+      - VPN_SENTINEL_HEALTH_PORT=8082
+    # network_mode: service:vpn-client  # Removed for no-VPN mode
+    restart: always
+    # depends_on:
+    #   - vpn-client  # Removed for no-VPN mode
+    depends_on:
+      - vpn-sentinel-server
+  vpn-sentinel-server:
+    image: vpn-sentinel-server:latest
+    container_name: vpn-sentinel-server
+    volumes:
+      - ./certs:/certs:ro
+    ports:
+      - "15000:5000"  # API port (using 15000 to avoid conflicts)
+      - "18080:8080"  # Dashboard port (using 18080 to avoid conflicts)
+    environment:
+      - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - VPN_SENTINEL_API_PATH=${VPN_SENTINEL_API_PATH:-/api/v1}
+      - VPN_SENTINEL_SERVER_ALLOWED_IPS=${VPN_SENTINEL_SERVER_ALLOWED_IPS}
+      - VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS=${VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS:-30}
+      - VPN_SENTINEL_SERVER_ALERT_THRESHOLD_MINUTES=${VPN_SENTINEL_SERVER_ALERT_THRESHOLD_MINUTES:-15}
+      - VPN_SENTINEL_SERVER_CHECK_INTERVAL_MINUTES=${VPN_SENTINEL_SERVER_CHECK_INTERVAL_MINUTES:-5}
+      - VPN_SENTINEL_SERVER_API_PORT=${VPN_SENTINEL_SERVER_API_PORT:-5000}
+      - VPN_SENTINEL_SERVER_DASHBOARD_PORT=${VPN_SENTINEL_SERVER_DASHBOARD_PORT:-8080}
+      - VPN_SENTINEL_SERVER_DASHBOARD_ENABLED=${VPN_SENTINEL_SERVER_DASHBOARD_ENABLED:-true}
+      - TZ=${TZ:-UTC}
+      - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH}
+      - VPN_SENTINEL_TLS_KEY_PATH=${VPN_SENTINEL_TLS_KEY_PATH}
+    restart: always  
+networks:
+  vpn-sentinel-internal:
+    driver: bridge
+    name: vpn-sentinel-internal
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16    
+    labels:
+      - "vpn-sentinel.network.type=internal"
+      - "vpn-sentinel.network.purpose=vpn-communication"
+      - "vpn-sentinel.network.security=isolated"
+  vpn-sentinel-server:
+    driver: bridge
+    name: vpn-sentinel-server
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16    
+    labels:
+      - "vpn-sentinel.network.type=server"
+      - "vpn-sentinel.network.purpose=telegram-notifications"
+      - "vpn-sentinel.network.security=external-access"
