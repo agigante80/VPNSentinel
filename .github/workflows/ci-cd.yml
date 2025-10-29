@@ -435,6 +435,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Do NOT persist the GITHUB_TOKEN credentials in this job. Persisting
+          # would add an http.extraheader that forces the runner to use the
+          # GITHUB_TOKEN (github-actions[bot]) when pushing, which may be
+          # permission-limited. We want to push with the PAT provided in
+          # ACTIONS_PUSH_TOKEN instead.
+          persist-credentials: false
 
       - name: Determine version
         id: version
