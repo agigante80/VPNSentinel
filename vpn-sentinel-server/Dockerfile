@@ -109,7 +109,7 @@ RUN addgroup -g 1001 -S appgroup && \
 # System Dependencies Installation
 # -----------------------------------------------------------------------------
 # Install curl and build tools for psutil compilation
-RUN apk add --no-cache curl gcc python3-dev musl-dev linux-headers \
+RUN apk add --no-cache curl bash gcc python3-dev musl-dev linux-headers \
     && echo "✅ System dependencies installed successfully" \
     && curl --version
 
@@ -146,11 +146,15 @@ RUN pip install --no-cache-dir \
 # -----------------------------------------------------------------------------
 # Copy the monitoring server application code
 # The server contains all VPN monitoring and notification logic
+
+# Copy server code and helper scripts
 COPY vpn-sentinel-server/vpn-sentinel-server.py /app/vpn-sentinel-server.py
+COPY vpn-sentinel-server/health-monitor.py /app/health-monitor.py
+COPY vpn-sentinel-server/health-monitor-wrapper.sh /app/health-monitor-wrapper.sh
 
 # Set proper file permissions and ownership
-RUN chmod +x /app/vpn-sentinel-server.py && \
-    chown appuser:appgroup /app/vpn-sentinel-server.py && \
+RUN chmod +x /app/vpn-sentinel-server.py /app/health-monitor.py /app/health-monitor-wrapper.sh && \
+    chown appuser:appgroup /app/vpn-sentinel-server.py /app/health-monitor.py /app/health-monitor-wrapper.sh && \
     echo "✅ Application code installed and configured" && \
     ls -la /app/
 
@@ -195,7 +199,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 # 2. Production: CMD ["gunicorn", "--bind", "0.0.0.0:5000", "vpn-sentinel-server:app"]
 # 3. Current: Direct Python execution (simple and effective for this use case)
 
-CMD ["python", "vpn-sentinel-server.py"]
+CMD ["bash", "-lc", "/app/health-monitor-wrapper.sh && exec python /app/vpn-sentinel-server.py"]
 
 # -----------------------------------------------------------------------------
 # Build-time Configuration
