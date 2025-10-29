@@ -31,6 +31,32 @@ def kill_health_monitor_processes():
     except Exception:
         pass
 
+    # Also attempt to kill python-based monitors and any process listening on
+    # the health port. Limit actions to processes owned by current user to
+    # avoid interfering with unrelated system services.
+    try:
+        # Kill the python monitor module if present
+        subprocess.run(['pkill', '-f', 'health-monitor.py'], capture_output=True)
+    except Exception:
+        pass
+
+    try:
+        # Check port from env if provided, otherwise default 8082
+        port = os.environ.get('VPN_SENTINEL_HEALTH_PORT', '8082')
+        # Find pids listening on the port (user-owned) and kill them
+        p = subprocess.run(['lsof', '-iTCP:%s' % port, '-sTCP:LISTEN', '-t'], capture_output=True, text=True)
+        if p.returncode == 0 and p.stdout:
+            for pid in p.stdout.split():
+                # ensure process belongs to current user
+                try:
+                    owner = subprocess.run(['ps', '-o', 'uid=', '-p', pid], capture_output=True, text=True)
+                    if owner.returncode == 0 and owner.stdout.strip() == str(os.getuid()):
+                        subprocess.run(['kill', pid], capture_output=True)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
 
 def start_client_with_monitor(client_script, port, client_id='test-helper', extra_env=None, wait=4):
     """Start the vpn-sentinel-client script with a health monitor on the specified port.
