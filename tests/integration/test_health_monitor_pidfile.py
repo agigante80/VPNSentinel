@@ -26,7 +26,12 @@ def test_pidfile_cleanup_for_stale_pid(tmp_path):
         'VPN_SENTINEL_HEALTH_PIDFILE': pidfile,
     })
 
-    proc = start_client_with_monitor('./vpn-sentinel-client/vpn-sentinel-client.sh', 0, client_id='test-pidfile-stale', extra_env=env, wait=4)
+    # Resolve client script path relative to repo root so tests work when
+    # running from the tests directory or from the repo root (CI may cd into
+    # different directories).
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    client_script = os.path.join(repo_root, 'vpn-sentinel-client', 'vpn-sentinel-client.sh')
+    proc = start_client_with_monitor(client_script, 0, client_id='test-pidfile-stale', extra_env=env, wait=4)
     try:
         # Wait briefly for pidfile to be (re)created by the wrapper
         time.sleep(1)
@@ -59,7 +64,9 @@ def test_pidfile_cleanup_for_live_user_owned_process(tmp_path):
             'VPN_SENTINEL_HEALTH_PIDFILE': pidfile,
         })
 
-        proc = start_client_with_monitor('./vpn-sentinel-client/vpn-sentinel-client.sh', 0, client_id='test-pidfile-live', extra_env=env, wait=4)
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+        client_script = os.path.join(repo_root, 'vpn-sentinel-client', 'vpn-sentinel-client.sh')
+        proc = start_client_with_monitor(client_script, 0, client_id='test-pidfile-live', extra_env=env, wait=4)
         try:
             # Give the wrapper a moment to detect and stop the stale monitor
             time.sleep(2)
