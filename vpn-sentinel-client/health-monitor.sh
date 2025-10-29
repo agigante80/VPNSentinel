@@ -253,7 +253,7 @@ cleanup_stale_monitors() {
         local cmd
         cmd=$(ps -o cmd= -p "$p" 2>/dev/null || true)
         case "$cmd" in
-          *health-monitor*|*health-monitor.py*)
+          *health-monitor*)
             log_info "health" "Found user-owned monitor process $p (cmd: $cmd) listening on port $HEALTH_PORT; stopping it"
             stop_stale_monitor "$p" || true
             ;;
@@ -293,7 +293,7 @@ stop_monitor_cli() {
   local cmd
   cmd=$(ps -o cmd= -p "$target" 2>/dev/null || true)
   case "$cmd" in
-    *health-monitor*|*health-monitor.py*|*dummy-health-monitor*)
+    *health-monitor*)
       log_info "health" "Stopping monitor pid=$target (cmd: $cmd) as requested"
       kill -TERM "$target" 2>/dev/null || true
       sleep 1
