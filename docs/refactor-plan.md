@@ -66,7 +66,7 @@ All PRs must target **`refactor/unified-architecture`**.
 | 3  | ✅ Done | Docker images updated to include `vpn_sentinel_server` and `vpn_sentinel_common`. Smoke and integration tests updated. |
 | 4  | In progress | Shared health: `vpn_sentinel_common/health.py` implemented. JSON schema under review. Integration with server health endpoints ongoing. |
 | 5  | In progress | Server modularization: splitting `vpn-sentinel-server/vpn-sentinel-server.py` into `vpn_sentinel_server/` modules; tests added to preserve behavior. |
-| 6  | Not started | Shared monitor: move monitor loop into `vpn_sentinel_common/monitor.py` and provide thin wrappers in server/client. |
+| 6  | ✅ Done | Shared monitor: `vpn_sentinel_common/monitor.py` implemented and unit-tested (see `tests/unit/test_monitor.py`). |
 | 7  | In progress | Migrate shell helpers: `lib/health-common.sh` and `vpn-sentinel-client/lib/*.sh` gradually ported to Python with shims maintained until parity confirmed. |
 | 8  | Not started | Typing & linting: CI runs `flake8`/`black`; plan to add `mypy` and `ruff` behind feature flags. |
 | 9  | ✅ Done | Integration CI: GitHub Actions runs unit and integration flows; Docker-based smoke tests in CI (`.github/workflows/ci-cd.yml`). |
@@ -116,15 +116,58 @@ vpn_sentinel_client/
 ### 🧠 Contracts / Standards
 
 **`vpn_sentinel_common.health`**
-- Returns JSON with keys: `status` (string: `ok`/`warn`/`fail`), `components` (dict with component statuses).  
+- Returns JSON with keys: `status` (string: `ok`/`degraded`/`fail`), `components` (dict with component statuses).  
 - Inputs: optional override parameters for individual checks.  
 - Output format stable across client and server.  
+
+Note: historically the docs mentioned a `warn` status; the canonical implementation uses `degraded`. Either term may be considered equivalent for human readers, but the canonical allowed values are `ok`, `degraded`, and `fail`. If you need `warn` for compatibility, consider accepting it as an alias in `vpn_sentinel_common.health` or normalizing inputs at the caller.
 
 **`vpn_sentinel_common.monitor`**
 - Start/stop interface.  
 - Heartbeat interval configurable.  
 - Outputs standardized JSON or log lines.  
 - Reusable in both server and client.
+
+Example usage (python):
+
+```python
+from vpn_sentinel_common.monitor import Monitor
+
+def print_hb(hb):
+    print(hb)
+
+m = Monitor(component="server", interval=10.0, on_heartbeat=print_hb)
+m.start()
+# ... run for a while
+m.stop()
+```
+
+Example heartbeat JSON (canonical shape):
+
+```json
+{
+  "ts": 1690000000.0,
+  "component": "server",
+  "status": "ok",
+  "info": {}
+}
+```
+
+---
+
+### Migration checklist (partial)
+
+Track migration of shell helpers to Python. Add rows as work progresses.
+
+| Path | Purpose | Migrated? | Target module | Notes |
+|------|---------|----------:|---------------|-------|
+| `vpn-sentinel-client/lib/geo_client.py` | geolocation shim | ✅ | `vpn_sentinel_common.geolocation` | shim imports common geolocation helper |
+| `vpn-sentinel-client/health-monitor.py` | client health server | ✅ | `vpn_sentinel_common.monitor` (future) | Python health monitor present |
+| `lib/health-common.sh` | shared shell health helpers | ❌ | `vpn_sentinel_common.health` | planned port; keep shell shim until parity |
+| `vpn-sentinel-client/lib/config.sh` | client config parsing | ❌ | `vpn_sentinel_client.config` (planned) | planned gradual port |
+| `vpn-sentinel-client/lib/network.sh` | network helpers | ❌ | `vpn_sentinel_client.network` (planned) | planned gradual port |
+
+Add more rows as you port files and link PRs in the Notes column.
 
 ---
 
