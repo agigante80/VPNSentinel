@@ -101,6 +101,12 @@ if os.path.isfile(short_path):
     short_desc = s.read().strip()
 payload = {'full_description': full}
 if short_desc:
+  # Docker Hub enforces a ~100 character limit for short descriptions. Validate and fail if necessary.
+  short_desc = short_desc.strip()
+  if len(short_desc) > 100:
+    import sys
+    sys.stderr.write(f"ERROR: short description exceeds 100 characters ({len(short_desc)}). Aborting.\n")
+    sys.exit(2)
   # Docker Hub API accepts 'description' as the short description field
   payload['description'] = short_desc
 print(json.dumps(payload))
