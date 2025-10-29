@@ -1,1 +1,1 @@
-VPN monitoring client: DNS-leak detection, health endpoint and periodic keepalives.
+VPN monitoring client: DNS-leak detection, geolocation lookups, health endpoint and periodic keepalives.
