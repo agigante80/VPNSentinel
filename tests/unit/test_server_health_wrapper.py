@@ -18,8 +18,15 @@ def test_wrapper_start_stop_creates_and_removes_pidfile(tmp_path):
     # build command to run wrapper start
     env = os.environ.copy()
     env['VPN_SENTINEL_SERVER_HEALTH_PIDFILE'] = str(pidfile)
-    # point wrapper to the dummy server via env var
-    env['VPN_SENTINEL_SERVER_DUMMY_CMD'] = f"{PYTHON} {DUMMY} 9999"
+    # point wrapper to the dummy server via env var using an ephemeral free port
+    # bind to port 0 on localhost to get a free port, then release it and use that
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(('127.0.0.1', 0))
+        free_port = sock.getsockname()[1]
+
+    env['VPN_SENTINEL_SERVER_DUMMY_CMD'] = f"{PYTHON} {DUMMY} {free_port}"
 
     # start wrapper in background
     p = subprocess.Popen(['bash', str(WRAPPER)], env=env)
