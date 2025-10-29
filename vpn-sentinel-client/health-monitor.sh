@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-# shellcheck disable=SC2317,SC1091,SC1090,SC2034,SC2001,SC2206
+# shellcheck disable=SC2317,SC1091,SC1090,SC2034,SC2001,SC2206,SC2154
 # VPN Sentinel Client Health Monitor
 # Dedicated health monitoring process that runs independently from the main client
 # Provides health status information similar to server health endpoints
@@ -185,6 +185,9 @@ generate_health_status() {
   "system": $system_info,
   "issues": $issues
 }
+# End of JSON heredoc for generate_health_status
+EOF
+}
 
 # Helper: check if a pid is owned by current user
 is_pid_owned_by_user() {
@@ -263,8 +266,65 @@ cleanup_stale_monitors() {
     done
   fi
 }
-EOF
+
+# -----------------------------------------------------------------------------
+# CLI helpers
+# -----------------------------------------------------------------------------
+stop_monitor_cli() {
+  # Attempt to stop the monitor referenced by the pidfile in a safe way.
+  if [ ! -f "$PIDFILE" ]; then
+    log_info "health" "No pidfile found at $PIDFILE"
+    return 2
+  fi
+
+  local target
+  target=$(cat "$PIDFILE" 2>/dev/null || true)
+  if [ -z "$target" ]; then
+    log_info "health" "Pidfile $PIDFILE is empty; removing"
+    rm -f "$PIDFILE" 2>/dev/null || true
+    return 2
+  fi
+
+  if ! is_pid_owned_by_user "$target"; then
+    log_error "health" "Pid $target from $PIDFILE is not owned by current user; refusing to stop"
+    return 3
+  fi
+
+  local cmd
+  cmd=$(ps -o cmd= -p "$target" 2>/dev/null || true)
+  case "$cmd" in
+    *health-monitor*|*health-monitor.py*|*dummy-health-monitor*)
+      log_info "health" "Stopping monitor pid=$target (cmd: $cmd) as requested"
+      kill -TERM "$target" 2>/dev/null || true
+      sleep 1
+      if kill -0 "$target" 2>/dev/null; then
+        kill -KILL "$target" 2>/dev/null || true
+        sleep 0.2
+      fi
+      # remove pidfile if it still points to this pid
+      if [ -f "$PIDFILE" ]; then
+        local pf
+        pf=$(cat "$PIDFILE" 2>/dev/null || true)
+        if [ "$pf" = "$target" ]; then
+          rm -f "$PIDFILE" 2>/dev/null || true
+        fi
+      fi
+      return 0
+      ;;
+    *)
+      log_error "health" "Refusing to stop pid $target: unexpected command ($cmd)"
+      return 3
+      ;;
+  esac
 }
+
+# If invoked with --stop, perform the stop operation and exit immediately.
+if [ "${1:-}" = "--stop" ]; then
+  # Allow using a custom PIDFILE via env (tests/CI). Keep output useful.
+  stop_monitor_cli
+  rc=$?
+  exit $rc
+fi
 
 generate_readiness_status() {
   local client_status
@@ -321,12 +381,10 @@ EOF
 # CI and constrained environments.
 PYTHON_EXE="${PYTHON_EXE:-}"
 if [ -z "$PYTHON_EXE" ]; then
-  # Try normal PATH lookup first
   PYTHON_EXE=$(command -v python3 2>/dev/null || command -v python 2>/dev/null || true)
 fi
 
 if [ -z "$PYTHON_EXE" ]; then
-  # Try common GitHub Actions / hostedtoolcache locations
   for p in /opt/hostedtoolcache/Python/*/x64/bin/python3 /opt/hostedtoolcache/Python/*/x64/bin/python; do
     if [ -x "$p" ]; then
       PYTHON_EXE="$p"
@@ -335,9 +393,6 @@ if [ -z "$PYTHON_EXE" ]; then
   done
 fi
 
-# Also check common local installation paths that may be present in images
-# (for example /usr/local/bin in many official python images). This covers
-# the case where tests set PATH=/bin:/usr/bin and hide /usr/local/bin.
 if [ -z "$PYTHON_EXE" ]; then
   for p in /usr/local/bin/python3 /usr/local/bin/python /usr/bin/python3 /usr/bin/python; do
     if [ -x "$p" ]; then
