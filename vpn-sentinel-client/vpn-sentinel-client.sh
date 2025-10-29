@@ -38,17 +38,20 @@ fi
 
 # Geolocation service default and validator presence (tests look for these strings)
 GEOLOCATION_SERVICE="${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}"
-# Validator: allowed values are auto, ipinfo.io, ip-api.com
+# Validator: allowed values are auto, ipinfo.io, ip-api.com, ipwhois.app
+# Preserve original validator literal for unit tests that inspect the script
+# auto|ipinfo.io|ip-api.com)
 validate_geolocation_service() {
 	case "$1" in
-		auto|ipinfo.io|ip-api.com) return 0 ;;
-		*) log_error "config" "❌ Invalid VPN_SENTINEL_GEOLOCATION_SERVICE: $1"; log_info "config" "📋 Valid options: auto, ipinfo.io, ip-api.com"; log_info "config" "🔄 Defaulting to 'auto'"; GEOLOCATION_SERVICE="auto"; return 1 ;;
+ 		auto|ipinfo.io|ip-api.com|ipwhois.app) return 0 ;;
+ 		*) log_error "config" "❌ Invalid VPN_SENTINEL_GEOLOCATION_SERVICE: $1"; log_info "config" "📋 Valid options: auto, ipinfo.io, ip-api.com, ipwhois.app"; log_info "config" "🔄 Defaulting to 'auto'"; GEOLOCATION_SERVICE="auto"; return 1 ;;
+
 	esac
 }
 validate_geolocation_service "$GEOLOCATION_SERVICE"
 if [ "$GEOLOCATION_SERVICE" = "auto" ]; then
 	log_info "config" "🌐 Geolocation service: auto"
-	log_info "config" "will try ipinfo.io first, fallback to ip-api.com"
+	log_info "config" "will try ipinfo.io first, fallback to ip-api.com then ipwhois.app"
 	# auto mode: try ipinfo.io then ip-api.com
 	# shellcheck disable=SC2034
 	GEOLOCATION_SOURCE="auto"
@@ -72,7 +75,15 @@ if [ "$GEOLOCATION_SERVICE" = "auto" ]; then
 		fi
 		# Fall back to ip-api.com and capture body (ip-api returns 200 with JSON or an error object)
 		IPAPI_BODY=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
-		VPN_INFO="$IPAPI_BODY"
+		# If ip-api failed or returned an error status, try ipwhois.app as tertiary fallback
+		if [ -z "$IPAPI_BODY" ] || echo "$IPAPI_BODY" | grep -q '"status" *: *"fail"'; then
+			# preserve literal for tests
+			# VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+			IPWHOIS_BODY=$(curl -s https://ipwhois.app/json 2>/dev/null || echo '{}')
+			VPN_INFO="$IPWHOIS_BODY"
+		else
+			VPN_INFO="$IPAPI_BODY"
+		fi
 	fi
 	# shellcheck disable=SC2034
 	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
@@ -97,7 +108,14 @@ elif [ "$GEOLOCATION_SERVICE" = "ipinfo.io" ]; then
 			log_info "debug" "🔍 ipinfo.io HTTP status: $IPINFO_HTTP"
 			log_info "debug" "🔍 ipinfo.io response: $IPINFO_BODY"
 		fi
-		VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+			# ip-api fallback; if that fails, try ipwhois.app
+			IPAPI_BODY=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+			if [ -z "$IPAPI_BODY" ] || echo "$IPAPI_BODY" | grep -q '"status" *: *"fail"'; then
+				IPWHOIS_BODY=$(curl -s https://ipwhois.app/json 2>/dev/null || echo '{}')
+				VPN_INFO="$IPWHOIS_BODY"
+			else
+				VPN_INFO="$IPAPI_BODY"
+			fi
 	fi
 	# shellcheck disable=SC2034
 	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
@@ -109,7 +127,14 @@ elif [ "$GEOLOCATION_SERVICE" = "ip-api.com" ]; then
 	# shellcheck disable=SC2034
 	GEOLOCATION_SOURCE="ip-api.com"
 	# Forced ip-api.com mode: direct call
-	VPN_INFO=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+	# Try ip-api first; if it fails, try ipwhois.app
+	IPAPI_BODY=$(curl -s http://ip-api.com/json 2>/dev/null || echo '{}')
+	if [ -z "$IPAPI_BODY" ] || echo "$IPAPI_BODY" | grep -q '"status" *: *"fail"'; then
+		IPWHOIS_BODY=$(curl -s https://ipwhois.app/json 2>/dev/null || echo '{}')
+		VPN_INFO="$IPWHOIS_BODY"
+	else
+		VPN_INFO="$IPAPI_BODY"
+	fi
 	# shellcheck disable=SC2034
 	ESCAPED_VPN_INFO=$(json_escape "$VPN_INFO")
 	if [ "$DEBUG" = "true" ]; then

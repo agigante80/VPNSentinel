@@ -11,7 +11,7 @@ This folder contains the VPN Sentinel client script `vpn-sentinel-client.sh`: a 
 - Structured, component-prefixed logging for easy filtering
 
 ## How it works (high level)
-- Uses external services to determine VPN exit IP and location (primary: `ipinfo.io`, fallback: `ip-api.com`)
+ - Uses external services to determine VPN exit IP and location (primary: `ipinfo.io`, fallback: `ip-api.com`, tertiary: `ipwhois.app`)
 - Uses Cloudflare trace endpoint (`https://1.1.1.1/cdn-cgi/trace`) to determine DNS resolver location and data center (colo)
 - Builds a JSON payload containing client id, timestamp, public IP, location and dns_test result and POSTs to `${SERVER_URL}/keepalive`
 - Continues running indefinitely; resilient to transient API failures and network errors
@@ -63,9 +63,9 @@ Below are the variables `vpn-sentinel-client.sh` reads or depends on (required v
   - Description: If set to `true`, the script logs raw API responses and enables verbose debug logging
   - Default: `false`
 
-- VPN_SENTINEL_GEOLOCATION_SERVICE (optional)
-  - Description: Forces which geolocation service to use: `auto`, `ipinfo.io`, or `ip-api.com`
-  - Default: `auto` (tries `ipinfo.io` then falls back to `ip-api.com`)
+ - VPN_SENTINEL_GEOLOCATION_SERVICE (optional)
+  - Description: Forces which geolocation service to use: `auto`, `ipinfo.io`, `ip-api.com`, or `ipwhois.app`
+  - Default: `auto` (tries `ipinfo.io` then falls back to `ip-api.com`, then `ipwhois.app`)
 
 - VPN_SENTINEL_HEALTH_MONITOR (optional)
   - Description: Enable/disable the dedicated health monitor background process
