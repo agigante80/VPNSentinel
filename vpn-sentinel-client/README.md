@@ -186,6 +186,16 @@ readinessProbe:
 Notes
 - The health monitor is optional; the primary client remains stateless and continues to send keepalives even if the monitor is disabled. The monitor's checks are intentionally lightweight to avoid impacting container resources.
 
+### Stop helper and PIDFILE
+
+The `health-monitor.sh` wrapper supports a safe `--stop` option which will read the pidfile (see `VPN_SENTINEL_HEALTH_PIDFILE`) and attempt to stop the referenced process only if it is owned by the invoking user and looks like the health monitor. This is useful for operators and CI to reliably stop a previously-started monitor:
+
+```bash
+VPN_SENTINEL_HEALTH_PIDFILE=/tmp/vpn-sentinel-health-monitor.pid ./health-monitor.sh --stop
+```
+
+By default the wrapper uses `/tmp/vpn-sentinel-health-monitor.pid` but you can override this path via the `VPN_SENTINEL_HEALTH_PIDFILE` environment variable (useful in tests and smoke scripts to set a predictable file location).
+
 ## Testing & debugging
 - To simulate a DNS leak for testing, the script includes commented lines in the DNS section where you can force `DNS_LOC` and `DNS_COLO` values — uncomment those during local testing to verify detection and notification workflows.
 - Set `VPN_SENTINEL_DEBUG=true` to log raw API responses and aid troubleshooting.

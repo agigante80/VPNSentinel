@@ -62,7 +62,21 @@ jobs:
 
       - name: Run smoke script
         run: |
-          bash scripts/smoke/run_local_smoke.sh
+          # Use a predictable pidfile path so the smoke script and health monitor
+          # are deterministic in CI and can be cleaned up by the job.
+          export VPN_SENTINEL_HEALTH_PIDFILE=/tmp/vpn-sentinel-health-monitor.pid
+          mkdir -p .github/workflows/smoke-logs
+          # The smoke script writes logs into scripts/smoke/logs/ by default; copy
+          # them into the job workspace location so they can be uploaded.
+          bash scripts/smoke/run_local_smoke.sh || true
+          cp -a scripts/smoke/logs .github/workflows/smoke-logs || true
+
+      - name: Upload smoke logs (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-logs
+          path: .github/workflows/smoke-logs
 
       - name: Teardown integration environment
         if: always()
