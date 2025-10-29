@@ -103,10 +103,10 @@ load_config() {
 validate_geolocation_service() {
 	local service="$1"
 	case "$service" in
-	auto | ipinfo.io | ip-api.com) ;;
+	auto | ipinfo.io | ip-api.com | ipwhois.app) ;;
 	*)
 		log_error "config" "❌ Invalid VPN_SENTINEL_GEOLOCATION_SERVICE: $service"
-		log_info "config" "📋 Valid options: auto, ipinfo.io, ip-api.com"
+		log_info "config" "📋 Valid options: auto, ipinfo.io, ip-api.com, ipwhois.app"
 		log_info "config" "🔄 Defaulting to 'auto'"
 		GEOLOCATION_SERVICE="auto"
 		;;
