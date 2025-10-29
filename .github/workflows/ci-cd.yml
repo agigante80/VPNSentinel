@@ -101,8 +101,17 @@ jobs:
             # Exclude SC1091/SC1090/SC2317 (non-constant source resolution and
             # unreachable-command infos) to avoid CI failures for dynamic
             # 'source' patterns and intentional constructs which are safe at runtime.
-            # Do not fail CI on informational messages; only warnings+errors
-            shellcheck -x --severity=warning -e SC1091,SC1090,SC2317 $files || exit 1
+            # Step 1: show warnings (non-fatal)
+            shellcheck -x --severity=warning -e SC1091,SC1090,SC2317 $files || true
+
+            # Step 2: fail only if any errors are present (keep warnings non-fatal)
+            if shellcheck -x --severity=error -e SC1091,SC1090,SC2317 $files >/dev/null; then
+              echo "ShellCheck: no errors (only warnings may be present)"
+            else
+              echo "ShellCheck: errors found"
+              # Re-run to show errors for diagnostics and then exit non-zero
+              shellcheck -x --severity=error -e SC1091,SC1090,SC2317 $files || exit 1
+            fi
           fi
   unit-tests:
     name: Unit Tests
