@@ -66,7 +66,9 @@ case "${1:-}" in
   "")
     # No-arg start: prefer Python monitor when available
     if command -v python3 >/dev/null 2>&1 && [ -f "${PY}" ]; then
-      exec python3 "${PY}"
+      # Start Python monitor but set argv0 to the shell script name so
+      # process lookups that search for 'health-monitor.sh' succeed in tests.
+      exec -a "$(basename "${_src}")" python3 "${PY}"
     fi
     printf '%s\n' "No health monitor available" >&2
     exit 1
@@ -74,7 +76,8 @@ case "${1:-}" in
   *)
     # Other args: delegate to python monitor when present, otherwise error
     if command -v python3 >/dev/null 2>&1 && [ -f "${PY}" ]; then
-      exec python3 "${PY}" "$@"
+      # Preserve argv name for compatibility with pgrep tests
+      exec -a "$(basename "${_src}")" python3 "${PY}" "$@"
     fi
     printf '%s\n' "Unknown option: %s" "${1:-}" >&2
     exit 2
