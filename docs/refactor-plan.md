@@ -53,6 +53,35 @@ Active branch for all refactor work: **`refactor/unified-architecture`** — all
 - **Consistency in behavior:** Ensure Python replacements match legacy shell logic; write regression tests.  
 - **Freedom to restructure:** Move, rename, or remove files to create clear module boundaries.
 
+### 🔒 Single-source requirement (MANDATORY)
+
+All shared code MUST be provided by `vpn_sentinel_common`. The presence of duplicate or parallel implementations under `vpn-sentinel-client/lib/` is no longer acceptable and those files are officially deprecated. The refactor effort will enforce a single source of truth for shared functionality.
+
+Enforcement rules:
+- New or migrated shared logic must live under `vpn_sentinel_common/` and be consumed by both client and server via imports (or an editable install in Docker/CI).
+- Any file under `vpn-sentinel-client/lib/` that duplicates functionality available in `vpn_sentinel_common/` must be removed once the consumers import the common module and tests are updated.
+- CI will be extended to detect duplicates or shadowed module names and fail the build until the duplication is resolved.
+
+Deprecation timeline (target):
+- Stage 1 (now): Mark `vpn-sentinel-client/lib/*` as deprecated in docs and add mapping PRs to move behavior into `vpn_sentinel_common/` (one small PR per module). Target window: 2 weeks per module depending on review.
+- Stage 2: Update Dockerfiles/CI to install `vpn_sentinel_common` and remove copying of `vpn-sentinel-client/lib/*.py` into images. Target: after first 2–3 modules migrated and CI green.
+- Stage 3: Remove deprecated files and cleanup shims in a small, focused PR once parity and CI are confirmed.
+
+Mapping guidance (examples):
+- `vpn-sentinel-client/lib/config.py` → `vpn_sentinel_common.config`
+- `vpn-sentinel-client/lib/network.py` → `vpn_sentinel_common.network`
+- `vpn-sentinel-client/lib/geo_client.py` → `vpn_sentinel_common.geolocation`
+- `vpn-sentinel-client/lib/health_common.py` → `vpn_sentinel_common.health`
+- `vpn-sentinel-client/lib/log.py` → `vpn_sentinel_common.logging` (or thin wrapper)
+- `vpn-sentinel-client/lib/payload.py` → `vpn_sentinel_common.payload` (new)
+- `vpn-sentinel-client/lib/utils.py` → `vpn_sentinel_common.utils` (new)
+
+The incremental PRs must include:
+- Unit tests for each migrated function (happy path + edge cases).
+- Updates to `vpn-sentinel-client` runtime scripts to import/use `vpn_sentinel_common`.
+- Dockerfile changes to ensure `vpn_sentinel_common` is installed or copied into images.
+- CI changes to detect and block duplicate/shared implementations.
+
 ---
 
 ### 🪜 Incremental PR Roadmap
