@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # shellcheck disable=SC1091,SC2317
 # vpn-sentinel-client entrypoint (cleaned)
 
@@ -8,13 +9,55 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/log.sh
 # shellcheck source=lib/config.sh
 # shellcheck source=lib/utils.sh
-. "$SCRIPT_DIR/lib/log.sh"
-. # The original shell helper `lib/config.sh` has been removed in favor of the
-. # Python shim `lib/config.py`. Keep a shellcheck source comment for tools and
-. # for unit tests that inspect the script content, but do NOT source the
-. # missing shell file at runtime.
+# Prefer Python logging shim at runtime; keep shellcheck source comments so
+# static analysis and unit tests that inspect the script still find the
+# expected literals. If Python is available and the shim exists, define
+# shell wrappers that call it; otherwise fall back to sourcing the legacy
+# `lib/log.sh` so callers get shell functions.
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/log.py" ]; then
+	# Use Python shim for logging. Wrap calls into small shell functions so
+	# existing code calling log_info/log_error/log_warn keeps working.
+	log_message() {
+		# $1 = LEVEL, $2 = COMPONENT, $3.. = MESSAGE
+	    local level="$1" component="$2"
+	    	shift 2
+	    	local message="$*"
+	    	# Use JSON mode for robust argument passing
+	    	# Use portable escaping (sed) instead of bash-only ${var//search/replace}
+	    	local escaped_message
+	    	escaped_message=$(printf '%s' "$message" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g')
+	    	python3 "$SCRIPT_DIR/lib/log.py" --json "{\"level\":\"${level}\",\"component\":\"${component}\",\"message\":\"${escaped_message}\"}" 2>/dev/null || true
+	}
+
+	log_info() {
+		log_message "INFO" "$1" "$2"
+	}
+
+	log_error() {
+		log_message "ERROR" "$1" "$2"
+	}
+
+	log_warn() {
+		log_message "WARN" "$1" "$2"
+	}
+else
+	# shellcheck source=lib/log.sh
+	. "$SCRIPT_DIR/lib/log.sh"
+fi
+
 # shellcheck source=lib/config.sh
-. "$SCRIPT_DIR/lib/utils.sh"
+# Prefer Python utils shim at runtime; fall back to sourcing legacy utils.sh
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/utils.py" ]; then
+	json_escape() {
+		python3 "$SCRIPT_DIR/lib/utils.py" --json-escape "$1" 2>/dev/null || printf '%s' "$1" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g'
+	}
+
+	sanitize_string() {
+		python3 "$SCRIPT_DIR/lib/utils.py" --sanitize "$1" 2>/dev/null || printf '%s' "$1" | tr -d '\\000-\\037' | head -c 100
+	}
+else
+	. "$SCRIPT_DIR/lib/utils.sh"
+fi
 # shellcheck source=lib/network.sh
 # The shell helper `lib/network.sh` has been removed. Runtime now prefers the
 # Python shim `lib/network.py` which exposes parsing helpers. Unit tests that
@@ -314,12 +357,46 @@ graceful_shutdown() {
 }
 trap 'graceful_shutdown' INT TERM
 
-# Start health monitor if enabled
+# Start health monitor if enabled; prefer Python monitor at runtime
 if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
-	MONITOR_PATH="$SCRIPT_DIR/health-monitor.sh"
-	if [ -f "$MONITOR_PATH" ]; then
+	PY_MONITOR="$SCRIPT_DIR/health-monitor.py"
+	SH_MONITOR="$SCRIPT_DIR/health-monitor.sh"
+	MONITOR_PATH=""
+	if command -v python3 >/dev/null 2>&1 && [ -f "$PY_MONITOR" ]; then
+		MONITOR_PATH="$PY_MONITOR"
+		# Handle pidfile (tests may set VPN_SENTINEL_HEALTH_PIDFILE)
+		PIDFILE="${VPN_SENTINEL_HEALTH_PIDFILE:-/tmp/vpn-sentinel-health-monitor.pid}"
+		if [ -f "$PIDFILE" ]; then
+			OLD_PID=$(cat "$PIDFILE" 2>/dev/null || true)
+			if [ -n "$OLD_PID" ]; then
+				# If process exists and is owned by current user, attempt to stop it
+				if kill -0 "$OLD_PID" 2>/dev/null; then
+					OWNER_UID=$(ps -o uid= -p "$OLD_PID" 2>/dev/null | tr -d ' ')
+					if [ "$OWNER_UID" = "$(id -u)" ]; then
+						kill "$OLD_PID" 2>/dev/null || true
+						sleep 0.2
+						if kill -0 "$OLD_PID" 2>/dev/null; then
+							kill -9 "$OLD_PID" 2>/dev/null || true
+						fi
+					fi
+				fi
+			fi
+			rm -f "$PIDFILE" 2>/dev/null || true
+		fi
+
+		python3 "$MONITOR_PATH" &
+		HEALTH_MONITOR_PID=$!
+		# Persist pidfile for other tooling/tests
+		if [ -n "$HEALTH_MONITOR_PID" ]; then
+			echo "$HEALTH_MONITOR_PID" > "$PIDFILE" 2>/dev/null || true
+		fi
+	elif [ -f "$SH_MONITOR" ]; then
+		MONITOR_PATH="$SH_MONITOR"
 		"$MONITOR_PATH" &
 		HEALTH_MONITOR_PID=$!
+	fi
+
+	if [ -n "$MONITOR_PATH" ]; then
 		sleep 1
 		if kill -0 "$HEALTH_MONITOR_PID" 2>/dev/null; then
 			log_info "client" "✅ Health monitor started (PID: $HEALTH_MONITOR_PID)"
@@ -327,7 +404,7 @@ if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
 			log_warn "client" "⚠️ Health monitor failed to start"
 		fi
 	else
-		log_warn "client" "⚠️ Health monitor script not found: $MONITOR_PATH"
+		log_warn "client" "⚠️ Health monitor script not found: $PY_MONITOR or $SH_MONITOR"
 	fi
 fi
 
