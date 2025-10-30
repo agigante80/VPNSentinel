@@ -115,9 +115,11 @@ COPY vpn-sentinel-client/lib/network.py /app/lib/network.py
 
 # Make the scripts executable and set proper ownership
 # Ensures the scripts can be executed by the container runtime
-RUN chmod +x /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/healthcheck.sh \
-    && echo "VPN Sentinel client container built successfully" \
-    && ls -la /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/healthcheck.sh
+RUN for f in /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/healthcheck.sh; do \
+            if [ -f "$f" ]; then chmod +x "$f"; fi; \
+        done \
+        && echo "VPN Sentinel client container built successfully" \
+        && ls -la /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/healthcheck.sh || true
 
 # -----------------------------------------------------------------------------
 # Working Directory and User Setup
