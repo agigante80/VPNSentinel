@@ -38,24 +38,25 @@ fi
 
 # shellcheck source=lib/config.sh
 # Prefer Python utils shim at runtime; fall back to sourcing legacy utils.sh
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/utils.py" ]; then
-	json_escape() {
-		python3 "$SCRIPT_DIR/lib/utils.py" --json-escape "$1" 2>/dev/null || printf '%s' "$1" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g'
-	}
 
-	sanitize_string() {
-		python3 "$SCRIPT_DIR/lib/utils.py" --sanitize "$1" 2>/dev/null || printf '%s' "$1" | tr -d '\\000-\\037' | head -c 100
-	}
+# Load configuration via canonical package if Python available
+if command -v python3 >/dev/null 2>&1; then
+    _CFG_JSON=$(python3 -c 'import json,os; from vpn_sentinel_common.config import load_config; print(json.dumps(load_config(os.environ)))' 2>/dev/null || echo '{}')
+    CLIENT_ID=$(echo "${_CFG_JSON}" | jq -r '.client_id')
+    SERVER_URL=$(echo "${_CFG_JSON}" | jq -r '.server_url')
+    TIMEOUT=$(echo "${_CFG_JSON}" | jq -r '.timeout')
+    INTERVAL=$(echo "${_CFG_JSON}" | jq -r '.interval')
+    TLS_CERT_PATH=$(echo "${_CFG_JSON}" | jq -r '.tls_cert_path')
+    DEBUG=$(echo "${_CFG_JSON}" | jq -r '.debug')
 else
-	. "$SCRIPT_DIR/lib/utils.sh"
+    # fallback: parse config from shell environment
+    CLIENT_ID="${VPN_SENTINEL_CLIENT_ID:-}"
+    SERVER_URL="${VPN_SENTINEL_URL:-http://your-server-url:5000}${VPN_SENTINEL_API_PATH:-/api/v1}"
+    TIMEOUT="${VPN_SENTINEL_TIMEOUT:-30}"
+    INTERVAL="${VPN_SENTINEL_INTERVAL:-300}"
+    TLS_CERT_PATH="${VPN_SENTINEL_TLS_CERT_PATH:-}"
+    DEBUG="${VPN_SENTINEL_DEBUG:-false}"
 fi
-# shellcheck source=lib/network.sh
-# The shell helper `lib/network.sh` has been removed. Runtime now prefers the
-# Python shim `lib/network.py` which exposes parsing helpers. Unit tests that
-# inspect the script contents still find the shellcheck comment above.
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/network.py" ]; then
-	# Define shell functions that call the Python shim where needed
-	get_vpn_info() {
 		# Expect stdin to be provided by callers (some callers call curl first).
 		# For backward compatibility this wrapper attempts to fetch via curl if
 		# no stdin provided.
