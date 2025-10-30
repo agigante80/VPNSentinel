@@ -53,8 +53,15 @@ def load_config(env: Dict[str, str]) -> Dict[str, Any]:
 
     is_https = api_base.startswith("https://")
 
-    timeout = int(env.get("VPN_SENTINEL_TIMEOUT", env.get("TIMEOUT", 30)))
-    interval = int(env.get("VPN_SENTINEL_INTERVAL", env.get("INTERVAL", 300)))
+    # Safely parse numeric values with sensible defaults if parsing fails
+    def _safe_int(val, default):
+        try:
+            return int(val)
+        except Exception:
+            return default
+
+    timeout = _safe_int(env.get("VPN_SENTINEL_TIMEOUT", env.get("TIMEOUT", 30)), 30)
+    interval = _safe_int(env.get("VPN_SENTINEL_INTERVAL", env.get("INTERVAL", 300)), 300)
 
     client_id = generate_client_id(env)
 

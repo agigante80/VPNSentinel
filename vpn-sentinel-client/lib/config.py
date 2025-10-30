@@ -8,6 +8,7 @@ fallbacks to preserve compatibility.
 from __future__ import annotations
 
 from typing import Dict, Any
+import os
 
 try:  # prefer canonical shared module
     from vpn_sentinel_common.config import load_config, generate_client_id  # type: ignore
@@ -76,3 +77,21 @@ except Exception:  # pragma: no cover - fallback for test harnesses
             "allow_insecure": allow_insecure,
             "debug": debug,
         }
+
+
+def _cli_print_json() -> None:
+    """Print a JSON representation of load_config(os.environ) for shell callers."""
+    import json
+
+    cfg = load_config(dict(os.environ))
+    print(json.dumps(cfg))
+
+
+if __name__ == "__main__":
+    import sys
+
+    if "--print-json" in sys.argv:
+        _cli_print_json()
+    else:
+        # default: no-op when invoked directly without args
+        print("{}")
