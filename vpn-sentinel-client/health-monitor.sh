@@ -127,15 +127,33 @@ if [ -x "$PY_HEALTH_CLI" ] || [ -f "$PY_HEALTH_CLI" ]; then
   # shellcheck source=lib/health-common.sh
   source "$COMP_HEALTH_COMMON" 2>/dev/null || true
   . "$COMP_HEALTH_COMMON" 2>/dev/null || true
-elif [ -f "$REPO_HEALTH_COMMON" ]; then
-  # shellcheck source=../lib/health-common.sh
-  # shellcheck disable=SC1090,SC1091
-  source "$REPO_HEALTH_COMMON"
-  . "$REPO_HEALTH_COMMON"
 else
-  log_error "health" "health-common.sh not found in expected locations"
-  exit 1
+  # Prefer python-based config/network shims at runtime when available
+  PY_CONFIG="$SCRIPT_DIR/lib/config.py"
+  PY_NETWORK="$SCRIPT_DIR/lib/network.py"
+  if command -v python3 >/dev/null 2>&1 && ([ -f "$PY_CONFIG" ] || [ -f "$PY_NETWORK" ]); then
+    # wrapper that proxies to python shims where possible
+    get_vpn_info() {
+      python3 - <<'PY'
+import json,sys
+from vpn_sentinel_client.lib import network as _net
+data=sys.stdin.read()
+print(json.dumps(_net.parse_geolocation(data)))
+PY
+    }
+  fi
+
+  if [ -f "$REPO_HEALTH_COMMON" ]; then
+    # shell fallback to repo health-common
+    # shellcheck source=../lib/health-common.sh
+    source "$REPO_HEALTH_COMMON"
+    . "$REPO_HEALTH_COMMON"
+  else
+    log_error "health" "health-common.sh not found in expected locations"
+    exit 1
+  fi
 fi
+ 
 
 # -----------------------------------------------------------------------------
 # Configuration and Constants
