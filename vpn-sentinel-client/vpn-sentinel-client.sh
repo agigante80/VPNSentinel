@@ -353,12 +353,22 @@ graceful_shutdown() {
 }
 trap 'graceful_shutdown' INT TERM
 
-# Start health monitor if enabled
+# Start health monitor if enabled; prefer Python monitor at runtime
 if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
-	MONITOR_PATH="$SCRIPT_DIR/health-monitor.sh"
-	if [ -f "$MONITOR_PATH" ]; then
+	PY_MONITOR="$SCRIPT_DIR/health-monitor.py"
+	SH_MONITOR="$SCRIPT_DIR/health-monitor.sh"
+	MONITOR_PATH=""
+	if command -v python3 >/dev/null 2>&1 && [ -f "$PY_MONITOR" ]; then
+		MONITOR_PATH="$PY_MONITOR"
+		python3 "$MONITOR_PATH" &
+		HEALTH_MONITOR_PID=$!
+	elif [ -f "$SH_MONITOR" ]; then
+		MONITOR_PATH="$SH_MONITOR"
 		"$MONITOR_PATH" &
 		HEALTH_MONITOR_PID=$!
+	fi
+
+	if [ -n "$MONITOR_PATH" ]; then
 		sleep 1
 		if kill -0 "$HEALTH_MONITOR_PID" 2>/dev/null; then
 			log_info "client" "✅ Health monitor started (PID: $HEALTH_MONITOR_PID)"
@@ -366,7 +376,7 @@ if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
 			log_warn "client" "⚠️ Health monitor failed to start"
 		fi
 	else
-		log_warn "client" "⚠️ Health monitor script not found: $MONITOR_PATH"
+		log_warn "client" "⚠️ Health monitor script not found: $PY_MONITOR or $SH_MONITOR"
 	fi
 fi
 
