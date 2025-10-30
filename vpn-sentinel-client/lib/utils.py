@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
-"""Small utils shim for vpn-sentinel-client to replace utils.sh at runtime.
+"""Thin delegating shim for utils helpers.
 
-Provides `json_escape` and `sanitize_string` via a CLI so shell callers can
-invoke it when Python is preferred.
+Prefer the canonical implementation `vpn_sentinel_common.utils`. When the
+canonical package isn't available (local dev/test), provide a lightweight
+fallback to keep runtime behavior stable.
+
+This file exposes a small CLI used by the shell wrapper and unit tests.
 """
 from __future__ import annotations
 
 import sys
 import json
-import re
 from typing import Callable
 
 _USING_CANONICAL = False
 _json_escape: Callable[[str], str]
 _sanitize_string: Callable[[str], str]
 try:
-    # If the canonical helpers exist, prefer them.
     from vpn_sentinel_common.utils import json_escape as _je, sanitize_string as _ss  # type: ignore
     _json_escape = _je
     _sanitize_string = _ss
@@ -27,13 +28,15 @@ except Exception:
 def json_escape(s: str) -> str:
     if _USING_CANONICAL:
         return _json_escape(s)
-    return s.replace('\\', '\\\\').replace('"', '\\"')
+    return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def sanitize_string(s: str) -> str:
     if _USING_CANONICAL:
         return _sanitize_string(s)
-    # remove control chars and limit to 100 chars
+    # simple fallback: remove control chars and limit to 100 chars
+    import re
+
     s = re.sub(r"[\x00-\x1f]+", "", s)
     return s[:100]
 
@@ -50,7 +53,6 @@ def main(argv: list[str] | None = None) -> int:
         print(sanitize_string(argv[1]))
         return 0
     if argv[0] == "--json" and len(argv) >= 2:
-        # Accept a json payload like {"op":"sanitize","value":"..."}
         try:
             payload = json.loads(argv[1])
             op = payload.get("op")
