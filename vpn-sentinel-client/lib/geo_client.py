@@ -1,38 +1,11 @@
-"""Small client-side shim to call vpn_sentinel_common.geolocation from shell.
+"""Thin CLI shim that delegates to vpn_sentinel_common.geolocation.get_geolocation.
 
-This script is intended to be invoked as:
-  python3 -m vpn-sentinel-client.lib.geo_client --service auto --timeout 5
-and will print a JSON object to stdout with the same keys as
-`vpn_sentinel_common.geolocation.get_geolocation`.
+Remains for compatibility while callers migrate to import the shared module
+or prefer `python -m vpn_sentinel_common.geolocation` if a CLI entrypoint is
+added there.
 """
 from __future__ import annotations
 
-import argparse
-import json
-import sys
+from vpn_sentinel_common.geolocation import get_geolocation  # type: ignore
 
-
-def main(argv=None):
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--service", default="auto")
-    parser.add_argument("--timeout", type=int, default=5)
-    args = parser.parse_args(argv)
-
-    try:
-        # Import from local package path if available
-        from vpn_sentinel_common.geolocation import get_geolocation
-    except Exception:
-        # try relative import for older layouts
-        try:
-            from vpn_sentinel_common.geolocation import get_geolocation
-        except Exception as exc:
-            print(json.dumps({}), end="")
-            return 2
-
-    result = get_geolocation(service=args.service, timeout=args.timeout)
-    print(json.dumps(result))
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+__all__ = ["get_geolocation"]
