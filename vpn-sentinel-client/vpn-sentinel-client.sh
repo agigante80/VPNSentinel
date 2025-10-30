@@ -384,8 +384,11 @@ if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
 			rm -f "$PIDFILE" 2>/dev/null || true
 		fi
 
-		python3 "$MONITOR_PATH" &
-		HEALTH_MONITOR_PID=$!
+	# Start the Python monitor but set argv0 to the shell script name so
+	# process lookups that search for 'health-monitor.sh' match the
+	# running process. Use exec -a which is supported in bash.
+	exec -a "$(basename "$SH_MONITOR")" python3 "$MONITOR_PATH" &
+	HEALTH_MONITOR_PID=$!
 		# Persist pidfile for other tooling/tests
 		if [ -n "$HEALTH_MONITOR_PID" ]; then
 			echo "$HEALTH_MONITOR_PID" > "$PIDFILE" 2>/dev/null || true
