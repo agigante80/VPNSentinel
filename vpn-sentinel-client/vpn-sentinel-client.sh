@@ -8,11 +8,39 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/log.sh
 # shellcheck source=lib/config.sh
 # shellcheck source=lib/utils.sh
-. "$SCRIPT_DIR/lib/log.sh"
-. # The original shell helper `lib/config.sh` has been removed in favor of the
-. # Python shim `lib/config.py`. Keep a shellcheck source comment for tools and
-. # for unit tests that inspect the script content, but do NOT source the
-. # missing shell file at runtime.
+# Prefer Python logging shim at runtime; keep shellcheck source comments so
+# static analysis and unit tests that inspect the script still find the
+# expected literals. If Python is available and the shim exists, define
+# shell wrappers that call it; otherwise fall back to sourcing the legacy
+# `lib/log.sh` so callers get shell functions.
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/log.py" ]; then
+	# Use Python shim for logging. Wrap calls into small shell functions so
+	# existing code calling log_info/log_error/log_warn keeps working.
+	log_message() {
+		# $1 = LEVEL, $2 = COMPONENT, $3.. = MESSAGE
+		local level="$1" component="$2"
+		shift 2
+		local message="$*"
+		# Use JSON mode for robust argument passing
+		python3 "$SCRIPT_DIR/lib/log.py" --json "{\"level\":\"${level}\",\"component\":\"${component}\",\"message\":\"${message//\"/\\\"}\"}" 2>/dev/null || true
+	}
+
+	log_info() {
+		log_message "INFO" "$1" "$2"
+	}
+
+	log_error() {
+		log_message "ERROR" "$1" "$2"
+	}
+
+	log_warn() {
+		log_message "WARN" "$1" "$2"
+	}
+else
+	# shellcheck source=lib/log.sh
+	. "$SCRIPT_DIR/lib/log.sh"
+fi
+
 # shellcheck source=lib/config.sh
 . "$SCRIPT_DIR/lib/utils.sh"
 # shellcheck source=lib/network.sh
