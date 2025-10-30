@@ -42,7 +42,18 @@ else
 fi
 
 # shellcheck source=lib/config.sh
-. "$SCRIPT_DIR/lib/utils.sh"
+# Prefer Python utils shim at runtime; fall back to sourcing legacy utils.sh
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/utils.py" ]; then
+	json_escape() {
+		python3 "$SCRIPT_DIR/lib/utils.py" --json-escape "$1" 2>/dev/null || printf '%s' "${1//\\/\\\\}" | sed 's/"/\\\"/g'
+	}
+
+	sanitize_string() {
+		python3 "$SCRIPT_DIR/lib/utils.py" --sanitize "$1" 2>/dev/null || printf '%s' "$1" | tr -d '\\000-\\037' | head -c 100
+	}
+else
+	. "$SCRIPT_DIR/lib/utils.sh"
+fi
 # shellcheck source=lib/network.sh
 # The shell helper `lib/network.sh` has been removed. Runtime now prefers the
 # Python shim `lib/network.py` which exposes parsing helpers. Unit tests that
