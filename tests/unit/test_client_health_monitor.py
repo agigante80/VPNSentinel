@@ -112,8 +112,8 @@ class TestClientHealthMonitor(unittest.TestCase):
             with open(self.health_monitor_script, 'r') as f:
                 content = f.read()
 
-            # Should source health check functions from common library
-            self.assertIn('source "$LIB_DIR/health-common.sh"', content)
+            # Should source health check functions from common library or prefer Python shim at runtime
+            self.assertTrue(('source "$LIB_DIR/health-common.sh"' in content) or ('health_common.py' in content))
             self.assertIn('check_client_process', content)
             self.assertIn('check_network_connectivity', content)
             self.assertIn('check_dns_leak_detection', content)
