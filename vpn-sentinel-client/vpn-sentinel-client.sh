@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # shellcheck disable=SC1091,SC2317
 # vpn-sentinel-client entrypoint (cleaned)
 
@@ -18,11 +19,14 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/log.py" ]; then
 	# existing code calling log_info/log_error/log_warn keeps working.
 	log_message() {
 		# $1 = LEVEL, $2 = COMPONENT, $3.. = MESSAGE
-		local level="$1" component="$2"
-		shift 2
-		local message="$*"
-		# Use JSON mode for robust argument passing
-		python3 "$SCRIPT_DIR/lib/log.py" --json "{\"level\":\"${level}\",\"component\":\"${component}\",\"message\":\"${message//\"/\\\"}\"}" 2>/dev/null || true
+	    local level="$1" component="$2"
+	    	shift 2
+	    	local message="$*"
+	    	# Use JSON mode for robust argument passing
+	    	# Use portable escaping (sed) instead of bash-only ${var//search/replace}
+	    	local escaped_message
+	    	escaped_message=$(printf '%s' "$message" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g')
+	    	python3 "$SCRIPT_DIR/lib/log.py" --json "{\"level\":\"${level}\",\"component\":\"${component}\",\"message\":\"${escaped_message}\"}" 2>/dev/null || true
 	}
 
 	log_info() {
@@ -45,7 +49,7 @@ fi
 # Prefer Python utils shim at runtime; fall back to sourcing legacy utils.sh
 if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/utils.py" ]; then
 	json_escape() {
-		python3 "$SCRIPT_DIR/lib/utils.py" --json-escape "$1" 2>/dev/null || printf '%s' "${1//\\/\\\\}" | sed 's/"/\\\"/g'
+		python3 "$SCRIPT_DIR/lib/utils.py" --json-escape "$1" 2>/dev/null || printf '%s' "$1" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g'
 	}
 
 	sanitize_string() {
@@ -360,8 +364,32 @@ if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
 	MONITOR_PATH=""
 	if command -v python3 >/dev/null 2>&1 && [ -f "$PY_MONITOR" ]; then
 		MONITOR_PATH="$PY_MONITOR"
+		# Handle pidfile (tests may set VPN_SENTINEL_HEALTH_PIDFILE)
+		PIDFILE="${VPN_SENTINEL_HEALTH_PIDFILE:-/tmp/vpn-sentinel-health-monitor.pid}"
+		if [ -f "$PIDFILE" ]; then
+			OLD_PID=$(cat "$PIDFILE" 2>/dev/null || true)
+			if [ -n "$OLD_PID" ]; then
+				# If process exists and is owned by current user, attempt to stop it
+				if kill -0 "$OLD_PID" 2>/dev/null; then
+					OWNER_UID=$(ps -o uid= -p "$OLD_PID" 2>/dev/null | tr -d ' ')
+					if [ "$OWNER_UID" = "$(id -u)" ]; then
+						kill "$OLD_PID" 2>/dev/null || true
+						sleep 0.2
+						if kill -0 "$OLD_PID" 2>/dev/null; then
+							kill -9 "$OLD_PID" 2>/dev/null || true
+						fi
+					fi
+				fi
+			fi
+			rm -f "$PIDFILE" 2>/dev/null || true
+		fi
+
 		python3 "$MONITOR_PATH" &
 		HEALTH_MONITOR_PID=$!
+		# Persist pidfile for other tooling/tests
+		if [ -n "$HEALTH_MONITOR_PID" ]; then
+			echo "$HEALTH_MONITOR_PID" > "$PIDFILE" 2>/dev/null || true
+		fi
 	elif [ -f "$SH_MONITOR" ]; then
 		MONITOR_PATH="$SH_MONITOR"
 		"$MONITOR_PATH" &
