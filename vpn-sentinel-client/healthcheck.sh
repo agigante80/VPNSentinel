@@ -11,11 +11,9 @@ fi
 
 # Prefer Python health CLI if present, fallback to sourcing shell library for
 # test compatibility
-PY_HEALTH_CLI="$SCRIPT_DIR/lib/health_common.py"
-PY_CONFIG="$SCRIPT_DIR/lib/config.py"
-PY_NETWORK="$SCRIPT_DIR/lib/network.py"
-if command -v python3 >/dev/null 2>&1 && ([ -x "$PY_HEALTH_CLI" ] || [ -f "$PY_HEALTH_CLI" ]); then
-  # runtime: prefer python shims
+PY_HEALTH_CLI="$SCRIPT_DIR/lib/healthcheck.py"
+# Prefer Python healthcheck shim at runtime; fallback to shell library for tests
+if command -v python3 >/dev/null 2>&1 && [ -f "$PY_HEALTH_CLI" ]; then
   check_client_process() { python3 "$PY_HEALTH_CLI" check_client_process 2>/dev/null || echo "not_running"; }
   check_network_connectivity() { python3 "$PY_HEALTH_CLI" check_network_connectivity 2>/dev/null || echo "unreachable"; }
   check_server_connectivity() { python3 "$PY_HEALTH_CLI" check_server_connectivity 2>/dev/null || echo "not_configured"; }
