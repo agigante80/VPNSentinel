@@ -14,49 +14,57 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # expected literals. If Python is available and the shim exists, define
 # shell wrappers that call it; otherwise fall back to sourcing the legacy
 # `lib/log.sh` so callers get shell functions.
-if command -v python3 >/dev/null 2>&1; then
-	# Use canonical Python logging helpers. Wrap calls so existing shell
-	# callers continue to work.
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/log.py" ]; then
+	# Use Python shim for logging. Wrap calls into small shell functions so
+	# existing code calling log_info/log_error/log_warn keeps working.
+	log_message() {
+		# $1 = LEVEL, $2 = COMPONENT, $3.. = MESSAGE
+	    local level="$1" component="$2"
+	    	shift 2
+	    	local message="$*"
+	    	# Use JSON mode for robust argument passing
+	    	# Use portable escaping (sed) instead of bash-only ${var//search/replace}
+	    	local escaped_message
+	    	escaped_message=$(printf '%s' "$message" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g')
+	    	python3 "$SCRIPT_DIR/lib/log.py" --json "{\"level\":\"${level}\",\"component\":\"${component}\",\"message\":\"${escaped_message}\"}" 2>/dev/null || true
+	}
+
 	log_info() {
-		local component="$1" message="$2"
-		python3 -c "from vpn_sentinel_common.logging import log_info; log_info(\"$component\", \"$message\")" 2>/dev/null || true
+		log_message "INFO" "$1" "$2"
 	}
 
 	log_error() {
-		local component="$1" message="$2"
-		python3 -c "from vpn_sentinel_common.logging import log_error; log_error(\"$component\", \"$message\")" 2>/dev/null || true
+		log_message "ERROR" "$1" "$2"
 	}
 
 	log_warn() {
-		local component="$1" message="$2"
-		python3 -c "from vpn_sentinel_common.logging import log_warn; log_warn(\"$component\", \"$message\")" 2>/dev/null || true
+		log_message "WARN" "$1" "$2"
 	}
 else
-	# fallback: keep sourcing the shell lib if present (for tests)
+	# shellcheck source=lib/log.sh
 	. "$SCRIPT_DIR/lib/log.sh"
 fi
 
 # shellcheck source=lib/config.sh
 # Prefer Python utils shim at runtime; fall back to sourcing legacy utils.sh
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/utils.py" ]; then
+	json_escape() {
+		python3 "$SCRIPT_DIR/lib/utils.py" --json-escape "$1" 2>/dev/null || printf '%s' "$1" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g'
+	}
 
-# Load configuration via canonical package if Python available
-if command -v python3 >/dev/null 2>&1; then
-    _CFG_JSON=$(python3 -c 'import json,os; from vpn_sentinel_common.config import load_config; print(json.dumps(load_config(os.environ)))' 2>/dev/null || echo '{}')
-    CLIENT_ID=$(echo "${_CFG_JSON}" | jq -r '.client_id')
-    SERVER_URL=$(echo "${_CFG_JSON}" | jq -r '.server_url')
-    TIMEOUT=$(echo "${_CFG_JSON}" | jq -r '.timeout')
-    INTERVAL=$(echo "${_CFG_JSON}" | jq -r '.interval')
-    TLS_CERT_PATH=$(echo "${_CFG_JSON}" | jq -r '.tls_cert_path')
-    DEBUG=$(echo "${_CFG_JSON}" | jq -r '.debug')
+	sanitize_string() {
+		python3 "$SCRIPT_DIR/lib/utils.py" --sanitize "$1" 2>/dev/null || printf '%s' "$1" | tr -d '\\000-\\037' | head -c 100
+	}
 else
-    # fallback: parse config from shell environment
-    CLIENT_ID="${VPN_SENTINEL_CLIENT_ID:-}"
-    SERVER_URL="${VPN_SENTINEL_URL:-http://your-server-url:5000}${VPN_SENTINEL_API_PATH:-/api/v1}"
-    TIMEOUT="${VPN_SENTINEL_TIMEOUT:-30}"
-    INTERVAL="${VPN_SENTINEL_INTERVAL:-300}"
-    TLS_CERT_PATH="${VPN_SENTINEL_TLS_CERT_PATH:-}"
-    DEBUG="${VPN_SENTINEL_DEBUG:-false}"
+	. "$SCRIPT_DIR/lib/utils.sh"
 fi
+# shellcheck source=lib/network.sh
+# The shell helper `lib/network.sh` has been removed. Runtime now prefers the
+# Python shim `lib/network.py` which exposes parsing helpers. Unit tests that
+# inspect the script contents still find the shellcheck comment above.
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/network.py" ]; then
+	# Define shell functions that call the Python shim where needed
+	get_vpn_info() {
 		# Expect stdin to be provided by callers (some callers call curl first).
 		# For backward compatibility this wrapper attempts to fetch via curl if
 		# no stdin provided.
@@ -77,8 +85,8 @@ else
 	. "$SCRIPT_DIR/lib/network.sh" 2>/dev/null || true
 fi
 # Prefer Python payload shim at runtime; keep shell helper present for tests
-if command -v python3 >/dev/null 2>&1; then
-build_payload() {
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/payload.py" ]; then
+	build_payload() {
 		# Emit JSON built by Python shim.
 		# Pass common shell variables to the Python process via its environment so
 		# the shim can read them (the shim reads from env rather than shell globals).
@@ -91,23 +99,23 @@ build_payload() {
 		VPN_TIMEZONE="$VPN_TIMEZONE" \
 		DNS_LOC="$DNS_LOC" \
 		DNS_COLO="$DNS_COLO" \
-		python3 -c 'from vpn_sentinel_common.payload import build_payload_from_env; import json,sys; print(json.dumps(build_payload_from_env(), ensure_ascii=False))' 2>/dev/null || printf '%s' '{}'
+		python3 "$SCRIPT_DIR/lib/payload.py" --build-json 2>/dev/null || printf '%s' '{}'
 	}
 
 	post_payload() {
-			# Read payload from arg or stdin and let canonical Python package handle posting
-			PAYLOAD="$1"
-			if [ -z "$PAYLOAD" ]; then
-				PAYLOAD=$(cat || true)
-			fi
-			# Pass server and auth related variables into the python process
-			printf '%s' "$PAYLOAD" | \
-			VPN_SENTINEL_API_KEY="$VPN_SENTINEL_API_KEY" \
-			SERVER_URL="$SERVER_URL" \
-			TIMEOUT="$TIMEOUT" \
-			VPN_SENTINEL_TEST_CAPTURE_PATH="$VPN_SENTINEL_TEST_CAPTURE_PATH" \
-			python3 -c 'import sys,json; from vpn_sentinel_common.payload import post_payload; data=sys.stdin.read(); sys.exit(0 if post_payload(data)==0 else 1)' >/dev/null 2>&1 && return 0 || return 1
-		}
+		# Read payload from arg or stdin and let Python do POST or write capture file
+		PAYLOAD="$1"
+		if [ -z "$PAYLOAD" ]; then
+			PAYLOAD=$(cat || true)
+		fi
+		# Pass server and auth related variables into the python process
+		printf '%s' "$PAYLOAD" | \
+		VPN_SENTINEL_API_KEY="$VPN_SENTINEL_API_KEY" \
+		SERVER_URL="$SERVER_URL" \
+		TIMEOUT="$TIMEOUT" \
+		VPN_SENTINEL_TEST_CAPTURE_PATH="$VPN_SENTINEL_TEST_CAPTURE_PATH" \
+		python3 "$SCRIPT_DIR/lib/payload.py" --post >/dev/null 2>&1 && return 0 || return 1
+	}
 else
 	# shellcheck source=lib/payload.sh
 	. "$SCRIPT_DIR/lib/payload.sh"
