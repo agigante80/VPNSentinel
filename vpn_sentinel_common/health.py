@@ -37,6 +37,8 @@ except Exception:
 
 
 ALLOWED_STATUSES = {"ok", "degraded", "fail"}
+# accept 'warn' as a historical alias for 'degraded'
+ALIAS_MAP = {"warn": "degraded"}
 
 
 def _now_iso() -> str:
@@ -60,7 +62,11 @@ def make_health(
     Returns:
         dict with canonical health keys
     """
-    if status not in ALLOWED_STATUSES:
+    # normalize overall status (allow alias like 'warn')
+    status_norm = (status or "").lower()
+    if status_norm in ALIAS_MAP:
+        status_norm = ALIAS_MAP[status_norm]
+    if status_norm not in ALLOWED_STATUSES:
         raise ValueError(f"invalid status: {status}")
 
     # normalize components
@@ -68,9 +74,13 @@ def make_health(
     for name, info in components.items():
         comp_status = info.get("status") if isinstance(info, dict) else None
         comp_details = info.get("details") if isinstance(info, dict) else {}
-        if not comp_status or comp_status not in ALLOWED_STATUSES:
+        # normalize component status (case-insensitive, alias-aware)
+        comp_status_norm = (comp_status or "").lower()
+        if comp_status_norm in ALIAS_MAP:
+            comp_status_norm = ALIAS_MAP[comp_status_norm]
+        if not comp_status_norm or comp_status_norm not in ALLOWED_STATUSES:
             raise ValueError(f"invalid component status for {name}: {comp_status}")
-        normalized[name] = {"status": comp_status, "details": comp_details}
+        normalized[name] = {"status": comp_status_norm, "details": comp_details}
 
     return {
         "status": status,
@@ -98,8 +108,12 @@ def validate_health(obj: Any) -> Tuple[bool, List[str]]:
             errors.append(f"missing key: {key}")
 
     # status
+    # normalize and validate status (accept alias like 'warn')
     status = obj.get("status")
-    if status not in ALLOWED_STATUSES:
+    status_norm = (status or "").lower()
+    if status_norm in ALIAS_MAP:
+        status_norm = ALIAS_MAP[status_norm]
+    if status_norm not in ALLOWED_STATUSES:
         errors.append(f"invalid status: {status}")
 
     # uptime_seconds
@@ -128,7 +142,10 @@ def validate_health(obj: Any) -> Tuple[bool, List[str]]:
                 errors.append(f"component {name} info must be a dict")
                 continue
             comp_status = info.get("status")
-            if comp_status not in ALLOWED_STATUSES:
+            comp_status_norm = (comp_status or "").lower()
+            if comp_status_norm in ALIAS_MAP:
+                comp_status_norm = ALIAS_MAP[comp_status_norm]
+            if comp_status_norm not in ALLOWED_STATUSES:
                 errors.append(f"component {name} has invalid status: {comp_status}")
 
     return (len(errors) == 0, errors)
