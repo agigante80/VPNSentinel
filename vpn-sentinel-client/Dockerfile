@@ -118,8 +118,10 @@ RUN python3 -m pip install --no-cache-dir -e /app
 
 # Ensure healthcheck script is explicitly copied for tests that inspect the Dockerfile
 COPY vpn-sentinel-client/healthcheck.sh /app/healthcheck.sh
-# Keep health_common.py shim for immediate compatibility (will be removed after migration)
-COPY vpn-sentinel-client/lib/health_common.py /app/lib/health_common.py
+# NOTE: the legacy `health_common.py` shim has been migrated to the canonical
+# `vpn_sentinel_common` package and is no longer copied into the image. The
+# editable install (`pip install -e /app`) installs the canonical package so
+# runtime falls back to that implementation instead of the old local shim.
 
 # Make the scripts executable and set proper ownership
 # Ensures the scripts can be executed by the container runtime

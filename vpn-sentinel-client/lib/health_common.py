@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#!/usr/bin/env python3
 """Small, deterministic health_common shim used by tests.
 
 Tries to delegate to vpn_sentinel_common.health_common when importable,
@@ -13,7 +14,8 @@ import subprocess
 import time
 from typing import Dict
 
-_USING_CANONICAL = False
+# Prefer the canonical implementation when available (installed in CI),
+# otherwise use deterministic local fallbacks for tests/development.
 try:
     from vpn_sentinel_common.health_common import (
         check_client_process as _check_client_process,
@@ -39,14 +41,22 @@ def _run(cmd):
 def check_client_process() -> str:
     if _USING_CANONICAL:
         return _check_client_process()
-    out, _ = _run(["sh", "-c", "pgrep -f 'vpn-sentinel-client.sh' >/dev/null 2>&1 && echo healthy || echo not_running"])
+    out, _ = _run([
+        "sh",
+        "-c",
+        "pgrep -f 'vpn-sentinel-client.sh' >/dev/null 2>&1 && echo healthy || echo not_running",
+    ])
     return out or "not_running"
 
 
 def check_network_connectivity() -> str:
     if _USING_CANONICAL:
         return _check_network_connectivity()
-    out, _ = _run(["sh", "-c", 'curl -f -s --max-time 5 "https://1.1.1.1/cdn-cgi/trace" >/dev/null 2>&1 && echo healthy || echo unreachable'])
+    out, _ = _run([
+        "sh",
+        "-c",
+        'curl -f -s --max-time 5 "https://1.1.1.1/cdn-cgi/trace" >/dev/null 2>&1 && echo healthy || echo unreachable',
+    ])
     return out or "unreachable"
 
 
@@ -59,7 +69,11 @@ def check_server_connectivity() -> str:
 def check_dns_leak_detection() -> str:
     if _USING_CANONICAL:
         return _check_dns_leak_detection()
-    out, _ = _run(["sh", "-c", 'curl -f -s --max-time 5 "https://ipinfo.io/json" >/dev/null 2>&1 && echo healthy || echo unavailable'])
+    out, _ = _run([
+        "sh",
+        "-c",
+        'curl -f -s --max-time 5 "https://ipinfo.io/json" >/dev/null 2>&1 && echo healthy || echo unavailable',
+    ])
     return out or "unavailable"
 
 
@@ -87,14 +101,17 @@ def generate_health_status() -> Dict:
 
 def cli() -> None:
     p = argparse.ArgumentParser(prog="health_common")
-    p.add_argument("command", choices=[
-        "check_client_process",
-        "check_network_connectivity",
-        "check_server_connectivity",
-        "check_dns_leak_detection",
-        "get_system_info",
-        "generate_health_status",
-    ])
+    p.add_argument(
+        "command",
+        choices=[
+            "check_client_process",
+            "check_network_connectivity",
+            "check_server_connectivity",
+            "check_dns_leak_detection",
+            "get_system_info",
+            "generate_health_status",
+        ],
+    )
     p.add_argument("--json", action="store_true")
     args = p.parse_args()
 
@@ -114,3 +131,4 @@ def cli() -> None:
 
 if __name__ == "__main__":
     cli()
+
