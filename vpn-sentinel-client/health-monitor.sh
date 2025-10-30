@@ -8,10 +8,6 @@ SCRIPT_DIR="$(cd "$(dirname "${_src}")" && pwd -P)"
 PY="${SCRIPT_DIR}/health-monitor.py"
 PIDFILE="${VPN_SENTINEL_HEALTH_PIDFILE:-/tmp/vpn-sentinel-health-monitor.pid}"
 
-if command -v python3 >/dev/null 2>&1 && [ -f "${PY}" ]; then
-  exec python3 "${PY}" "$@"
-fi
-
 case "${1:-}" in
   --stop)
     if [ -f "${PIDFILE}" ]; then
@@ -33,11 +29,23 @@ case "${1:-}" in
     fi
     exit 0
     ;;
-  --help|-h|"")
+  --help|-h)
     printf '%s\n' "--stop, --help"
     exit 0
     ;;
+  "")
+    # No-arg start: prefer Python monitor when available
+    if command -v python3 >/dev/null 2>&1 && [ -f "${PY}" ]; then
+      exec python3 "${PY}"
+    fi
+    printf '%s\n' "No health monitor available" >&2
+    exit 1
+    ;;
   *)
+    # Other args: delegate to python monitor when present, otherwise error
+    if command -v python3 >/dev/null 2>&1 && [ -f "${PY}" ]; then
+      exec python3 "${PY}" "$@"
+    fi
     printf '%s\n' "Unknown option: %s" "${1:-}" >&2
     exit 2
     ;;
