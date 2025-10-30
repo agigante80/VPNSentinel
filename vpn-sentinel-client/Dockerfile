@@ -110,6 +110,8 @@ COPY vpn-sentinel-client/ /app/
 # Ensure healthcheck script is explicitly copied for tests that inspect the Dockerfile
 COPY vpn-sentinel-client/healthcheck.sh /app/healthcheck.sh
 COPY vpn-sentinel-client/lib/health_common.py /app/lib/health_common.py
+COPY vpn-sentinel-client/lib/config.py /app/lib/config.py
+COPY vpn-sentinel-client/lib/network.py /app/lib/network.py
 
 # Make the scripts executable and set proper ownership
 # Ensures the scripts can be executed by the container runtime
