@@ -103,15 +103,14 @@ ENV PATH="/opt/venv/bin:$PATH"
 # top-level repo `lib/` differs from the client-specific `vpn-sentinel-client/lib/`.
 COPY vpn-sentinel-client/ /app/
 
-# Include repository-level shared lib (health-common) so the health-monitor
-# script can find ../lib/health-common.sh at runtime when running from /app
-# The shell-only helper was removed in favor of the Python shim; keep compatibility by copying the Python shim
-# (the health-common.sh used to be copied here but has been deprecated)
+# Install shared python package so client and server import the same codebase.
+# Using editable install keeps the code in-sync during development and CI.
+RUN python3 -m pip install --no-cache-dir -e /app
+
 # Ensure healthcheck script is explicitly copied for tests that inspect the Dockerfile
 COPY vpn-sentinel-client/healthcheck.sh /app/healthcheck.sh
+# Keep health_common.py shim for immediate compatibility (will be removed after migration)
 COPY vpn-sentinel-client/lib/health_common.py /app/lib/health_common.py
-COPY vpn-sentinel-client/lib/config.py /app/lib/config.py
-COPY vpn-sentinel-client/lib/network.py /app/lib/network.py
 
 # Make the scripts executable and set proper ownership
 # Ensures the scripts can be executed by the container runtime
