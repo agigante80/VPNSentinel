@@ -14,34 +14,25 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # expected literals. If Python is available and the shim exists, define
 # shell wrappers that call it; otherwise fall back to sourcing the legacy
 # `lib/log.sh` so callers get shell functions.
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/log.py" ]; then
-	# Use Python shim for logging. Wrap calls into small shell functions so
-	# existing code calling log_info/log_error/log_warn keeps working.
-	log_message() {
-		# $1 = LEVEL, $2 = COMPONENT, $3.. = MESSAGE
-	    local level="$1" component="$2"
-	    	shift 2
-	    	local message="$*"
-	    	# Use JSON mode for robust argument passing
-	    	# Use portable escaping (sed) instead of bash-only ${var//search/replace}
-	    	local escaped_message
-	    	escaped_message=$(printf '%s' "$message" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g')
-	    	python3 "$SCRIPT_DIR/lib/log.py" --json "{\"level\":\"${level}\",\"component\":\"${component}\",\"message\":\"${escaped_message}\"}" 2>/dev/null || true
-	}
-
+if command -v python3 >/dev/null 2>&1; then
+	# Use canonical Python logging helpers. Wrap calls so existing shell
+	# callers continue to work.
 	log_info() {
-		log_message "INFO" "$1" "$2"
+		local component="$1" message="$2"
+		python3 -c "from vpn_sentinel_common.logging import log_info; log_info(\"$component\", \"$message\")" 2>/dev/null || true
 	}
 
 	log_error() {
-		log_message "ERROR" "$1" "$2"
+		local component="$1" message="$2"
+		python3 -c "from vpn_sentinel_common.logging import log_error; log_error(\"$component\", \"$message\")" 2>/dev/null || true
 	}
 
 	log_warn() {
-		log_message "WARN" "$1" "$2"
+		local component="$1" message="$2"
+		python3 -c "from vpn_sentinel_common.logging import log_warn; log_warn(\"$component\", \"$message\")" 2>/dev/null || true
 	}
 else
-	# shellcheck source=lib/log.sh
+	# fallback: keep sourcing the shell lib if present (for tests)
 	. "$SCRIPT_DIR/lib/log.sh"
 fi
 
