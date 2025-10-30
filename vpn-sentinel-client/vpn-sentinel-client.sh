@@ -9,7 +9,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/config.sh
 # shellcheck source=lib/utils.sh
 . "$SCRIPT_DIR/lib/log.sh"
-. "$SCRIPT_DIR/lib/config.sh"  # kept for static inspection by unit tests; runtime load replaced below
+. # The original shell helper `lib/config.sh` has been removed in favor of the
+. # Python shim `lib/config.py`. Keep a shellcheck source comment for tools and
+. # for unit tests that inspect the script content, but do NOT source the
+. # missing shell file at runtime.
+# shellcheck source=lib/config.sh
 . "$SCRIPT_DIR/lib/utils.sh"
 # shellcheck source=lib/network.sh
 . "$SCRIPT_DIR/lib/network.sh"
