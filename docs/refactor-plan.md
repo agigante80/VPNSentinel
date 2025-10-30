@@ -163,7 +163,7 @@ Track migration of shell helpers to Python. Add rows as work progresses.
 |------|---------|----------:|---------------|-------|
 | `vpn-sentinel-client/lib/geo_client.py` | geolocation shim | ✅ | `vpn_sentinel_common.geolocation` | shim imports common geolocation helper |
 | `vpn-sentinel-client/health-monitor.py` | client health server | ✅ | `vpn_sentinel_common.monitor` (future) | Python health monitor present |
-| `lib/health-common.sh` | shared shell health helpers | ❌ | `vpn_sentinel_common.health` | planned port; keep shell shim until parity |
+| `lib/health-common.sh` | shared shell health helpers | ✅ Removed | `vpn_sentinel_common.health` | Ported to Python shim; legacy shell file removed. Client now prefers `vpn-sentinel-client/lib/health_common.py`; tests and CI updated. |
 | `vpn-sentinel-client/lib/config.sh` | client config parsing | ❌ | `vpn_sentinel_client.config` (planned) | planned gradual port |
 | `vpn-sentinel-client/lib/network.sh` | network helpers | ❌ | `vpn_sentinel_client.network` (planned) | planned gradual port |
 
@@ -191,8 +191,16 @@ VPNSentinel is being unified around `vpn_sentinel_common`. This improves health 
 1. Finalize `/health` JSON schema in `vpn_sentinel_common/health.py`.  
 2. Split `vpn-sentinel-server/vpn-sentinel-server.py` into `vpn_sentinel_server/` modules.  
 3. Consolidate monitor code into `vpn_sentinel_common/monitor.py`.  
-4. Incrementally port shell helpers (`lib/health-common.sh`, `vpn-sentinel-client/lib/*.sh`) to Python.  
+4. Incrementally port remaining shell helpers (`vpn-sentinel-client/lib/*.sh`) to Python and remove them when parity is proven. Note: the shared `lib/health-common.sh` was removed and replaced by `vpn-sentinel-client/lib/health_common.py`; tests and CI were updated accordingly.
 5. Ensure CI runs `pip install -e .` for `vpn_sentinel_common` and passes smoke/integration tests.
+
+---
+
+Recent updates
+---------------
+- Removed `lib/health-common.sh` (legacy shell-only shared helper). The client now prefers the Python shim at `vpn-sentinel-client/lib/health_common.py`. PR #10 performed the removal and corresponding test/Dockerfile updates; CI (unit, integration, docker build, coverage, security scan) passed for the merge.
+- Note: `vpn_sentinel_common.health` implements the canonical health JSON with allowed statuses `ok`, `degraded`, `fail`. For backward compatibility, consider accepting `warn` as an alias for `degraded` in callers or normalizing inputs in `vpn_sentinel_common.health`.
+ - Normalized `warn` → `degraded` in `vpn_sentinel_common/health.py` and added tests (`tests/unit/test_health_warn_alias.py`). A local branch `refactor/finalize-health-schema` was created for this work. I ran the smoke script, full unit suite, and integration tests against the docker test stack locally — all relevant tests passed. The change has been merged into `refactor/unified-architecture` and pushed.
 
 ---
 
