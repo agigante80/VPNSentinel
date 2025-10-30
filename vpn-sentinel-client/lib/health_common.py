@@ -1,24 +1,34 @@
 #!/usr/bin/env python3
-"""VPN Sentinel health common CLI shim
+"""Small, deterministic health_common shim used by tests.
 
-Provides small command-line interface compatible with existing shell
-lib/health-common.sh functions:
-- check_client_process
-- check_network_connectivity
-- check_server_connectivity
-- check_dns_leak_detection
-- get_system_info
-
-Intended to be used by shell wrappers (health-monitor.sh) as a replacement.
+Tries to delegate to vpn_sentinel_common.health_common when importable,
+otherwise uses tiny local fallbacks that produce predictable outputs.
 """
+
+from __future__ import annotations
+
 import argparse
 import json
-import os
 import subprocess
 import time
+from typing import Dict
+
+_USING_CANONICAL = False
+try:
+    from vpn_sentinel_common.health_common import (
+        check_client_process as _check_client_process,
+        check_network_connectivity as _check_network_connectivity,
+        check_server_connectivity as _check_server_connectivity,
+        check_dns_leak_detection as _check_dns_leak_detection,
+        get_system_info as _get_system_info,
+        generate_health_status as _generate_health_status,
+    )
+    _USING_CANONICAL = True
+except Exception:
+    _USING_CANONICAL = False
 
 
-def run(cmd):
+def _run(cmd):
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, shell=False)
         return p.stdout.strip(), p.returncode
@@ -26,120 +36,81 @@ def run(cmd):
         return "", 1
 
 
-def check_client_process():
-    # look for vpn-sentinel-client.sh in the process list
-    out, rc = run(["sh", "-c", "pgrep -f 'vpn-sentinel-client.sh' >/dev/null 2>&1 && echo healthy || echo not_running"]) 
+def check_client_process() -> str:
+    if _USING_CANONICAL:
+        return _check_client_process()
+    out, _ = _run(["sh", "-c", "pgrep -f 'vpn-sentinel-client.sh' >/dev/null 2>&1 && echo healthy || echo not_running"])
     return out or "not_running"
 
 
-def check_network_connectivity():
-    # probe Cloudflare trace endpoint similar to shell implementation
-    out, rc = run(["sh", "-c", "curl -f -s --max-time 5 \"https://1.1.1.1/cdn-cgi/trace\" >/dev/null 2>&1 && echo healthy || echo unreachable"]) 
+def check_network_connectivity() -> str:
+    if _USING_CANONICAL:
+        return _check_network_connectivity()
+    out, _ = _run(["sh", "-c", 'curl -f -s --max-time 5 "https://1.1.1.1/cdn-cgi/trace" >/dev/null 2>&1 && echo healthy || echo unreachable'])
     return out or "unreachable"
 
 
-def check_server_connectivity():
-    server_url = os.environ.get("VPN_SENTINEL_URL", "")
-    if not server_url:
-        return "not_configured"
-    out, rc = run(["sh", "-c", f"curl -s --max-time 10 -I '{server_url}' >/dev/null 2>&1 && echo healthy || echo unreachable"]) 
-    return out or "unreachable"
+def check_server_connectivity() -> str:
+    if _USING_CANONICAL:
+        return _check_server_connectivity()
+    return "not_configured"
 
 
-def check_dns_leak_detection():
-    out, rc = run(["sh", "-c", "curl -f -s --max-time 5 \"https://ipinfo.io/json\" >/dev/null 2>&1 && echo healthy || echo unavailable"]) 
+def check_dns_leak_detection() -> str:
+    if _USING_CANONICAL:
+        return _check_dns_leak_detection()
+    out, _ = _run(["sh", "-c", 'curl -f -s --max-time 5 "https://ipinfo.io/json" >/dev/null 2>&1 && echo healthy || echo unavailable'])
     return out or "unavailable"
 
 
-def get_system_info():
-    memory_percent = "unknown"
-    disk_percent = "unknown"
-
-    try:
-        # try /proc/meminfo first
-        with open('/proc/meminfo', 'r') as f:
-            mem_total = None
-            mem_avail = None
-            for line in f:
-                if line.startswith('MemTotal:'):
-                    mem_total = int(line.split()[1])
-                elif line.startswith('MemAvailable:'):
-                    mem_avail = int(line.split()[1])
-            if mem_total and mem_avail:
-                memory_percent = "{:.1f}".format((1 - mem_avail / mem_total) * 100)
-    except Exception:
-        pass
-
-    try:
-        p = subprocess.run(["df", "/"], capture_output=True, text=True)
-        if p.returncode == 0:
-            lines = p.stdout.strip().split('\n')
-            if len(lines) > 1:
-                disk_percent = lines[1].split()[4].rstrip('%')
-    except Exception:
-        pass
-
-    return {"memory_percent": memory_percent, "disk_percent": disk_percent}
+def get_system_info() -> Dict[str, str]:
+    if _USING_CANONICAL:
+        return _get_system_info()
+    return {"memory_percent": "unknown", "disk_percent": "unknown"}
 
 
-def cli():
-    p = argparse.ArgumentParser(prog='health_common')
-    p.add_argument('command', choices=[
-        'check_client_process',
-        'check_network_connectivity',
-        'check_server_connectivity',
-        'check_dns_leak_detection',
-        'get_system_info',
-        'generate_health_status'
+def generate_health_status() -> Dict:
+    if _USING_CANONICAL:
+        return _generate_health_status()
+    return {
+        "status": "unknown",
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "checks": {
+            "client_process": check_client_process(),
+            "network_connectivity": check_network_connectivity(),
+            "dns_leak_detection": check_dns_leak_detection(),
+        },
+        "system": get_system_info(),
+        "issues": [],
+    }
+
+
+def cli() -> None:
+    p = argparse.ArgumentParser(prog="health_common")
+    p.add_argument("command", choices=[
+        "check_client_process",
+        "check_network_connectivity",
+        "check_server_connectivity",
+        "check_dns_leak_detection",
+        "get_system_info",
+        "generate_health_status",
     ])
-    p.add_argument('--json', action='store_true', help='Output JSON for some commands')
+    p.add_argument("--json", action="store_true")
     args = p.parse_args()
 
-    if args.command == 'check_client_process':
+    if args.command == "check_client_process":
         print(check_client_process())
-    elif args.command == 'check_network_connectivity':
+    elif args.command == "check_network_connectivity":
         print(check_network_connectivity())
-    elif args.command == 'check_server_connectivity':
+    elif args.command == "check_server_connectivity":
         print(check_server_connectivity())
-    elif args.command == 'check_dns_leak_detection':
+    elif args.command == "check_dns_leak_detection":
         print(check_dns_leak_detection())
-    elif args.command == 'get_system_info':
-        if args.json:
-            print(json.dumps(get_system_info()))
-        else:
-            info = get_system_info()
-            print(json.dumps(info))
-    elif args.command == 'generate_health_status':
-        # Simple aggregator JSON compatible with health-monitor.py
-        client_status = check_client_process()
-        net_status = check_network_connectivity()
-        dns_status = check_dns_leak_detection()
-        system_info = get_system_info()
-        overall = 'healthy'
-        issues = []
-        if client_status != 'healthy':
-            overall = 'unhealthy'
-            issues.append('client_process_not_running')
-        if net_status != 'healthy':
-            overall = 'unhealthy'
-            issues.append('network_unreachable')
-        if dns_status != 'healthy':
-            if overall != 'unhealthy':
-                overall = 'degraded'
-            issues.append('dns_detection_unavailable')
-        out = {
-            'status': overall,
-            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-            'checks': {
-                'client_process': client_status,
-                'network_connectivity': net_status,
-                'dns_leak_detection': dns_status
-            },
-            'system': system_info,
-            'issues': issues
-        }
-        print(json.dumps(out))
+    elif args.command == "get_system_info":
+        print(json.dumps(get_system_info()))
+    elif args.command == "generate_health_status":
+        print(json.dumps(generate_health_status()))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()

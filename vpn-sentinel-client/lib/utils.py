@@ -9,13 +9,30 @@ from __future__ import annotations
 import sys
 import json
 import re
+from typing import Callable
+
+_USING_CANONICAL = False
+_json_escape: Callable[[str], str]
+_sanitize_string: Callable[[str], str]
+try:
+    # If the canonical helpers exist, prefer them.
+    from vpn_sentinel_common.utils import json_escape as _je, sanitize_string as _ss  # type: ignore
+    _json_escape = _je
+    _sanitize_string = _ss
+    _USING_CANONICAL = True
+except Exception:
+    _USING_CANONICAL = False
 
 
 def json_escape(s: str) -> str:
+    if _USING_CANONICAL:
+        return _json_escape(s)
     return s.replace('\\', '\\\\').replace('"', '\\"')
 
 
 def sanitize_string(s: str) -> str:
+    if _USING_CANONICAL:
+        return _sanitize_string(s)
     # remove control chars and limit to 100 chars
     s = re.sub(r"[\x00-\x1f]+", "", s)
     return s[:100]
