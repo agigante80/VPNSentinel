@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/config.sh
 # shellcheck source=lib/utils.sh
 . "$SCRIPT_DIR/lib/log.sh"
-. "$SCRIPT_DIR/lib/config.sh"
+. "$SCRIPT_DIR/lib/config.sh"  # kept for static inspection by unit tests; runtime load replaced below
 . "$SCRIPT_DIR/lib/utils.sh"
 # shellcheck source=lib/network.sh
 . "$SCRIPT_DIR/lib/network.sh"
@@ -215,7 +215,27 @@ if [ -z "$TLS_CERT_PATH" ]; then
 fi
 
 # Load configuration from environment
-load_config
+# Prefer Python shim at runtime; fall back to shell function if Python not available.
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/config.py" ]; then
+	# Use Python shim to construct config mapping and export key values used by the shell
+	# Read JSON from Python shim and eval into shell variables
+	_CFG_JSON=$(python3 "$SCRIPT_DIR/lib/config.py" --print-json 2>/dev/null || echo '{}')
+	# Simple JSON extraction using sed/grep to avoid jq dependency in shell
+	API_BASE_URL=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"api_base"\s*:\s*"([^"]+)".*/\1/p' || true)
+	API_PATH=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"api_path"\s*:\s*"([^"]+)".*/\1/p' || true)
+	SERVER_URL=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"server_url"\s*:\s*"([^"]+)".*/\1/p' || true)
+	INTERVAL=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"interval"\s*:\s*([0-9]+).*/\1/p' || true)
+	TIMEOUT=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"timeout"\s*:\s*([0-9]+).*/\1/p' || true)
+	CLIENT_ID=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"client_id"\s*:\s*"([^"]+)".*/\1/p' || true)
+	TLS_CERT_PATH=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"tls_cert_path"\s*:\s*"([^"]*)".*/\1/p' || true)
+	if [ -z "$API_BASE_URL" ]; then
+		# Fallback to shell loader for extreme cases (tests or older environments)
+		load_config
+	fi
+else
+	# Fallback to shell loader
+	load_config
+fi
 
 # Ensure geolocation service is valid
 validate_geolocation_service "${GEOLOCATION_SERVICE:-auto}"
