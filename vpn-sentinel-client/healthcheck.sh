@@ -12,13 +12,15 @@ fi
 # Prefer Python health CLI if present, fallback to sourcing shell library for
 # test compatibility
 PY_HEALTH_CLI="$SCRIPT_DIR/lib/health_common.py"
-if [ -x "$PY_HEALTH_CLI" ] || [ -f "$PY_HEALTH_CLI" ]; then
-  # runtime: prefer python shim
-  check_client_process() { "$PY_HEALTH_CLI" check_client_process 2>/dev/null || echo "not_running"; }
-  check_network_connectivity() { "$PY_HEALTH_CLI" check_network_connectivity 2>/dev/null || echo "unreachable"; }
-  check_server_connectivity() { "$PY_HEALTH_CLI" check_server_connectivity 2>/dev/null || echo "not_configured"; }
-  check_dns_leak_detection() { "$PY_HEALTH_CLI" check_dns_leak_detection 2>/dev/null || echo "unavailable"; }
-  get_system_info() { "$PY_HEALTH_CLI" get_system_info --json 2>/dev/null || echo '{"memory_percent":"unknown","disk_percent":"unknown"}'; }
+PY_CONFIG="$SCRIPT_DIR/lib/config.py"
+PY_NETWORK="$SCRIPT_DIR/lib/network.py"
+if command -v python3 >/dev/null 2>&1 && ([ -x "$PY_HEALTH_CLI" ] || [ -f "$PY_HEALTH_CLI" ]); then
+  # runtime: prefer python shims
+  check_client_process() { python3 "$PY_HEALTH_CLI" check_client_process 2>/dev/null || echo "not_running"; }
+  check_network_connectivity() { python3 "$PY_HEALTH_CLI" check_network_connectivity 2>/dev/null || echo "unreachable"; }
+  check_server_connectivity() { python3 "$PY_HEALTH_CLI" check_server_connectivity 2>/dev/null || echo "not_configured"; }
+  check_dns_leak_detection() { python3 "$PY_HEALTH_CLI" check_dns_leak_detection 2>/dev/null || echo "unavailable"; }
+  get_system_info() { python3 "$PY_HEALTH_CLI" get_system_info --json 2>/dev/null || echo '{"memory_percent":"unknown","disk_percent":"unknown"}'; }
   # Keep source lines so unit tests that search the script still find them
   source "$LIB_DIR/health-common.sh" 2>/dev/null || true
   . "$LIB_DIR/health-common.sh" 2>/dev/null || true
