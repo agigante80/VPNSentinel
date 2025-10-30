@@ -194,6 +194,50 @@ VPNSentinel is being unified around `vpn_sentinel_common`. This improves health 
 4. Incrementally port remaining shell helpers (`vpn-sentinel-client/lib/*.sh`) to Python and remove them when parity is proven. Note: the shared `lib/health-common.sh` was removed and replaced by `vpn-sentinel-client/lib/health_common.py`; tests and CI were updated accordingly.
 5. Ensure CI runs `pip install -e .` for `vpn_sentinel_common` and passes smoke/integration tests.
 
+Audit snapshot (2025-10-30)
+---------------------------
+
+- Overall status: Active refactor under `refactor/unified-architecture`. Recent merges include promotion of client config/network helpers into `vpn_sentinel_common` and removal of legacy `lib/health-common.sh`.
+- CI: Latest CI run for `refactor/unified-architecture` (2025-10-30) completed successfully. Jobs that ran: syntax & style, shellcheck, unit tests, docker builds, code coverage and integration tests — all passed. Publish/deploy steps were skipped by workflow rules.
+- Client: Python shims now present for most high-value helpers:
+  - `vpn-sentinel-client/lib/health_common.py` (shim)
+  - `vpn-sentinel-client/lib/geo_client.py` (shim)
+  - `vpn-sentinel-client/lib/config.py` (now prefers `vpn_sentinel_common.config`)
+  - `vpn-sentinel-client/lib/network.py` (now prefers `vpn_sentinel_common.network`)
+  Legacy shell helpers still present for safety: `vpn-sentinel-client/lib/config.sh`, `vpn-sentinel-client/lib/network.sh`, etc.
+- Server: `vpn_sentinel_server/` package contains modular helpers (validation, security, server_info, telegram, utils). The legacy monolith remains but is being retired gradually.
+- Tests: Unit tests: green locally (example: 158 passed, 42 skipped). Integration tests executed successfully against the docker test stack (mapped to host ports in CI and in local runs).
+- Coverage: Coverage report shows low coverage for the legacy monolith; plan to increase coverage as modules are split and tests are added.
+
+Gaps and immediate risks
+------------------------
+
+- `vpn_sentinel_common` still lacks canonical `config.py` and `network.py` until now (PROMOTED). The promoted modules exist and client shims prefer them; next remove duplication by importing from common directly in all consumers.
+- Legacy shell helpers remain a potential source of drift. Remove them only after:
+  1) CI on `refactor/unified-architecture` is consistently green, and
+  2) integration smoke runs confirm runtime behavior (container images include the common modules and the client starts using them).
+- Coverage gaps in `vpn-sentinel-server/vpn-sentinel-server.py` mean regressions there could be missed; add tests targeting new `vpn_sentinel_server` modules as they land.
+
+Next recommended concrete step
+----------------------------
+
+1. Stabilize CI and release a small verification PR that:
+   - Removes or replaces one legacy shell helper (e.g., `vpn-sentinel-client/lib/config.sh`) in a small, reviewable PR that:
+     - Replaces usages to import `vpn_sentinel_common.config` (or the client shim which now delegates to it).
+     - Adds unit tests that assert parity for edge-cases (invalid env values, missing API path, allow_insecure true/false).
+   - Run the full CI (unit + docker build + integration) and let it run on `refactor/unified-architecture`.
+
+2. After the small PR above is validated in CI and smoke runs, schedule batch removal of remaining shell helpers (one-per-PR or grouped by related functionality) and update the Dockerfile and tests to stop copying deprecated files.
+
+Actionable checklist (short-term)
+---------------------------------
+
+- [ ] Create a small PR to remove `config.sh` and replace consumers with `vpn_sentinel_common.config` (or client shim).
+- [ ] Add targeted unit tests for `vpn_sentinel_common/config.py` (edge-cases) and `vpn_sentinel_common/network.py` (malformed input, alternate service shapes).
+- [ ] Add an environment-driven hook in `./tests/run_tests.sh` so integration detection can probe the mapped host port (e.g., honor TEST_SERVER_PORT) to avoid skipped integration runs locally.
+- [ ] Plan and add mypy/ruff to CI on a draft branch to estimate time-to-fix for the codebase.
+
+
 ---
 
 Recent updates
