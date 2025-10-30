@@ -50,7 +50,7 @@ jobs:
       - name: Start integration environment
         run: |
           docker compose -f tests/docker-compose.test.yaml up -d --build
-          timeout 180s bash -c 'while ! curl -s http://localhost:5000/test/v1/health > /dev/null; do sleep 2; done'
+          timeout 300s bash -c 'while ! curl -s http://localhost:5000/test/v1/health > /dev/null; do sleep 2; done'
 
       - name: Run integration tests
         run: |
