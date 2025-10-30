@@ -26,9 +26,12 @@ def test_parse_dns_trace_variants():
 def test_network_cli_geolocation(tmp_path, monkeypatch):
     # run the client shim CLI with sample input
     from subprocess import Popen, PIPE
+    from pathlib import Path
 
     sample = '{"ip":"8.8.8.8","country":"US","city":"Mountain View","region":"CA","org":"Google","timezone":"PST"}'
-    p = Popen(['python3', 'vpn-sentinel-client/lib/network.py'], stdin=PIPE, stdout=PIPE)
+    repo_root = Path(__file__).resolve().parents[2]
+    script = str(repo_root / 'vpn-sentinel-client' / 'lib' / 'network.py')
+    p = Popen(['python3', script], stdin=PIPE, stdout=PIPE)
     out, _ = p.communicate(sample.encode())
     data = json.loads(out.decode())
     assert data['ip'] == '8.8.8.8'
@@ -36,9 +39,12 @@ def test_network_cli_geolocation(tmp_path, monkeypatch):
 
 def test_network_cli_dns(tmp_path):
     from subprocess import Popen, PIPE
+    from pathlib import Path
 
     sample = 'loc=LA\ncolo=la1\n'
-    p = Popen(['python3', 'vpn-sentinel-client/lib/network.py', '--dns'], stdin=PIPE, stdout=PIPE)
+    repo_root = Path(__file__).resolve().parents[2]
+    script = str(repo_root / 'vpn-sentinel-client' / 'lib' / 'network.py')
+    p = Popen(['python3', script, '--dns'], stdin=PIPE, stdout=PIPE)
     out, _ = p.communicate(sample.encode())
     data = json.loads(out.decode())
     assert data['loc'] == 'LA'
