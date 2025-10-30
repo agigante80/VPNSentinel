@@ -44,15 +44,15 @@ except Exception:
 				k, v = line.split('=', 1)
 				out[k.strip()] = v.strip()
 		return out
+if __name__ == "__main__":
+	# Keep a stable CLI that tests call directly. Read stdin and choose
+	# DNS mode when invoked with --dns.
+	import sys
+	import json
 
+	data = sys.stdin.read()
+	if len(sys.argv) > 1 and sys.argv[1] == "--dns":
+		print(json.dumps(parse_dns_trace(data)))
+	else:
+		print(json.dumps(parse_geolocation(data)))
 
-	def _cli_main() -> None:
-		data = sys.stdin.read()
-		if len(sys.argv) > 1 and sys.argv[1] == "--dns":
-			print(json.dumps(parse_dns_trace(data)))
-		else:
-			print(json.dumps(parse_geolocation(data)))
-
-
-	if __name__ == "__main__":
-		_cli_main()
