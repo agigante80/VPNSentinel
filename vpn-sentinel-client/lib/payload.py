@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-"""Payload helper shim for vpn-sentinel-client.
-
-Provides a small CLI used by shell entrypoints to build and post JSON payloads.
-This mirrors the behavior of the legacy `lib/payload.sh` but is implemented in
-Python so callers can prefer the shim and we can remove the bash helper later.
-"""
 from __future__ import annotations
 
 import argparse
@@ -15,7 +9,20 @@ from datetime import datetime
 from typing import Dict, Any
 
 
+_USING_CANONICAL = False
+try:
+    from vpn_sentinel_common.payload import (
+        build_payload_from_env as _build_payload_from_env,
+        post_payload as _post_payload,
+    )
+    _USING_CANONICAL = True
+except Exception:
+    _USING_CANONICAL = False
+
+
 def build_payload_from_env() -> Dict[str, Any]:
+    if _USING_CANONICAL:
+        return _build_payload_from_env()
     ts = datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S%z")
     payload = {
         "client_id": os.environ.get("CLIENT_ID", os.environ.get("VPN_SENTINEL_CLIENT_ID", "")),
@@ -38,6 +45,8 @@ def build_payload_from_env() -> Dict[str, Any]:
 
 
 def post_payload(payload_text: str) -> int:
+    if _USING_CANONICAL:
+        return _post_payload(payload_text)
     # Test capture path takes precedence
     capture = os.environ.get("VPN_SENTINEL_TEST_CAPTURE_PATH")
     if capture:
@@ -69,7 +78,7 @@ def post_payload(payload_text: str) -> int:
     if not server_url:
         base = os.environ.get("VPN_SENTINEL_URL", "http://your-server-url:5000")
         api_path = os.environ.get("VPN_SENTINEL_API_PATH", "/api/v1")
-        server_url = f"{base.rstrip('/')}{api_path.rstrip('/')}/keepalive"
+        server_url = f"{base.rstrip('/')} {api_path.rstrip('/')}/keepalive"
     else:
         server_url = server_url.rstrip("/") + "/keepalive"
 
@@ -109,6 +118,12 @@ def main(argv: list[str] | None = None) -> int:
 
     p.print_help()
     return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+# shim marker
 
 
 if __name__ == "__main__":
