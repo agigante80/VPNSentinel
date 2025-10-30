@@ -33,12 +33,12 @@ Active branch for all refactor work: **`refactor/unified-architecture`** — all
 
 ### 🧱 Long-Term Goals
 
-1. Centralize shared logic in `vpn_sentinel_common/`.  
-2. Modularize the server into `vpn_sentinel_server/`.  
-3. Refactor the client to reuse shared Python modules.  
-4. Standardize health endpoints for all components: `/health`, `/health/ready`, `/health/startup`.  
-5. Keep PRs small, safe, and well-tested.  
-6. Maintain backward compatibility until Python replacements fully replace shell logic.  
+1. Consolidate client library code: prioritize migrating `vpn-sentinel-client/lib/*` into `vpn_sentinel_common/` so the client consistently imports shared Python modules (logging, config, geolocation, network, health). This is the highest-priority objective for the current phase of the refactor.
+2. Centralize shared logic in `vpn_sentinel_common`.
+3. Modularize the server into `vpn_sentinel_server/`.
+4. Standardize health endpoints for all components: `/health`, `/health/ready`, `/health/startup`.
+5. Keep PRs small, safe, and well-tested.
+6. Maintain backward compatibility until Python replacements fully replace shell logic.
 7. Adopt strong CI, linting, and type-checking practices.
 
 ---
