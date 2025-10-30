@@ -41,8 +41,42 @@ else
 	# fallback: keep sourcing the shell lib if present (for tests)
 	. "$SCRIPT_DIR/lib/network.sh" 2>/dev/null || true
 fi
-# shellcheck source=lib/payload.sh
-. "$SCRIPT_DIR/lib/payload.sh"
+# Prefer Python payload shim at runtime; keep shell helper present for tests
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/payload.py" ]; then
+	build_payload() {
+		# Emit JSON built by Python shim.
+		# Pass common shell variables to the Python process via its environment so
+		# the shim can read them (the shim reads from env rather than shell globals).
+		CLIENT_ID="$CLIENT_ID" \
+		PUBLIC_IP="$PUBLIC_IP" \
+		COUNTRY="$COUNTRY" \
+		CITY="$CITY" \
+		REGION="$REGION" \
+		ORG="$ORG" \
+		VPN_TIMEZONE="$VPN_TIMEZONE" \
+		DNS_LOC="$DNS_LOC" \
+		DNS_COLO="$DNS_COLO" \
+		python3 "$SCRIPT_DIR/lib/payload.py" --build-json 2>/dev/null || printf '%s' '{}'
+	}
+
+	post_payload() {
+		# Read payload from arg or stdin and let Python do POST or write capture file
+		PAYLOAD="$1"
+		if [ -z "$PAYLOAD" ]; then
+			PAYLOAD=$(cat || true)
+		fi
+		# Pass server and auth related variables into the python process
+		printf '%s' "$PAYLOAD" | \
+		VPN_SENTINEL_API_KEY="$VPN_SENTINEL_API_KEY" \
+		SERVER_URL="$SERVER_URL" \
+		TIMEOUT="$TIMEOUT" \
+		VPN_SENTINEL_TEST_CAPTURE_PATH="$VPN_SENTINEL_TEST_CAPTURE_PATH" \
+		python3 "$SCRIPT_DIR/lib/payload.py" --post >/dev/null 2>&1 && return 0 || return 1
+	}
+else
+	# shellcheck source=lib/payload.sh
+	. "$SCRIPT_DIR/lib/payload.sh"
+fi
 
 # Inline expected configuration defaults and helpers (kept minimal and consistent
 # with lib/config.sh). These are present for unit tests that read the script
