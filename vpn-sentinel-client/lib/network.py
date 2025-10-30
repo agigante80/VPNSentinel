@@ -50,34 +50,33 @@ except Exception:  # pragma: no cover - fallback used in isolated tests
             elif line.startswith("colo="):
                 out["colo"] = line.split("=", 1)[1]
         return out
-        for line in trace_text.splitlines():
-            if line.startswith("loc="):
-                out["loc"] = line.split("=", 1)[1]
-            elif line.startswith("colo="):
-                out["colo"] = line.split("=", 1)[1]
-        return out
+
+        
+# CLI helper is intentionally defined at module level so the script will
+# emit JSON whether it uses the canonical implementation (imported above)
+# or the fallback versions defined in the except block.
 
 
-    def _cli_print_json() -> None:
-        """Read stdin (geolocation json or dns trace) and print parsed JSON for shell callers.
+def _cli_print_json() -> None:
+    """Read stdin (geolocation json or dns trace) and print parsed JSON for shell callers.
 
-        If invoked with --dns, read a dns trace from stdin and print parsed DNS info.
-        Otherwise read a geolocation JSON blob from stdin and print parsed geolocation.
-        """
-        import json
-        import sys
+    If invoked with --dns, read a dns trace from stdin and print parsed DNS info.
+    Otherwise read a geolocation JSON blob from stdin and print parsed geolocation.
+    """
+    import json
+    import sys
 
-        if "--dns" in sys.argv:
-            data = sys.stdin.read()
-            parsed = parse_dns_trace(data or "")
-            print(json.dumps(parsed))
-            return
-
-        # default: geolocation parse
-        text = sys.stdin.read()
-        parsed = parse_geolocation(text or "")
+    if "--dns" in sys.argv:
+        data = sys.stdin.read()
+        parsed = parse_dns_trace(data or "")
         print(json.dumps(parsed))
+        return
+
+    # default: geolocation parse
+    text = sys.stdin.read()
+    parsed = parse_geolocation(text or "")
+    print(json.dumps(parsed))
 
 
-    if __name__ == "__main__":
-        _cli_print_json()
+if __name__ == "__main__":
+    _cli_print_json()
