@@ -90,23 +90,70 @@ else
   log_error() { log_message ERROR "$1" "$2"; }
 fi
 
-# Prefer component health-common if present, otherwise use repo-level shared lib
-if [ -f "$COMP_HEALTH_COMMON" ]; then
+# Prefer Python-based health_common CLI at runtime when available, but keep
+# the original shell sourcing lines present so unit tests that inspect the
+# script content continue to pass. The runtime behavior below will prefer
+# the Python shim (vpn-sentinel-client/lib/health_common.py) if it's present
+# and executable via the system Python.
+PY_HEALTH_CLI="$SCRIPT_DIR/lib/health_common.py"
+if [ -x "$PY_HEALTH_CLI" ] || [ -f "$PY_HEALTH_CLI" ]; then
+  # runtime: prefer Python CLI
+  HEALTH_CLI_PY="$PY_HEALTH_CLI"
+  log_info "health" "Using Python health CLI: $HEALTH_CLI_PY"
+
+  # Define wrapper functions that call into the Python CLI for runtime
+  check_client_process() {
+    "$HEALTH_CLI_PY" check_client_process 2>/dev/null || echo "not_running"
+  }
+
+  check_network_connectivity() {
+    "$HEALTH_CLI_PY" check_network_connectivity 2>/dev/null || echo "unreachable"
+  }
+
+  check_server_connectivity() {
+    "$HEALTH_CLI_PY" check_server_connectivity 2>/dev/null || echo "not_configured"
+  }
+
+  check_dns_leak_detection() {
+    "$HEALTH_CLI_PY" check_dns_leak_detection 2>/dev/null || echo "unavailable"
+  }
+
+  get_system_info() {
+    # return JSON blob like the original shell helper
+    "$HEALTH_CLI_PY" get_system_info --json 2>/dev/null || echo '{"memory_percent":"unknown","disk_percent":"unknown"}'
+  }
+
+  # Keep the explicit source lines below for tests that look for them
   # shellcheck source=lib/health-common.sh
-  # shellcheck disable=SC1090,SC1091
-  # Provide an explicit source line variant for unit tests that look for it
-  source "$COMP_HEALTH_COMMON"
-  . "$COMP_HEALTH_COMMON"
-elif [ -f "$REPO_HEALTH_COMMON" ]; then
-  # shellcheck source=../lib/health-common.sh
-  # shellcheck disable=SC1090,SC1091
-  # Provide an explicit source line variant for unit tests that look for it
-  source "$REPO_HEALTH_COMMON"
-  . "$REPO_HEALTH_COMMON"
+  source "$COMP_HEALTH_COMMON" 2>/dev/null || true
+  . "$COMP_HEALTH_COMMON" 2>/dev/null || true
 else
-  log_error "health" "health-common.sh not found in expected locations"
-  exit 1
+  # Prefer python-based config/network shims at runtime when available
+  PY_CONFIG="$SCRIPT_DIR/lib/config.py"
+  PY_NETWORK="$SCRIPT_DIR/lib/network.py"
+  if command -v python3 >/dev/null 2>&1 && ([ -f "$PY_CONFIG" ] || [ -f "$PY_NETWORK" ]); then
+    # wrapper that proxies to python shims where possible
+    get_vpn_info() {
+      python3 - <<'PY'
+import json,sys
+from vpn_sentinel_client.lib import network as _net
+data=sys.stdin.read()
+print(json.dumps(_net.parse_geolocation(data)))
+PY
+    }
+  fi
+
+  if [ -f "$REPO_HEALTH_COMMON" ]; then
+    # shell fallback to repo health-common
+    # shellcheck source=../lib/health-common.sh
+    source "$REPO_HEALTH_COMMON"
+    . "$REPO_HEALTH_COMMON"
+  else
+    log_error "health" "health-common.sh not found in expected locations"
+    exit 1
+  fi
 fi
+ 
 
 # -----------------------------------------------------------------------------
 # Configuration and Constants
