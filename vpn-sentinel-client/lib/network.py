@@ -44,6 +44,31 @@ except Exception:  # pragma: no cover - fallback used in isolated tests
         out = {"loc": "", "colo": ""}
         if not trace_text:
             return out
+
+
+        def _cli_print_json() -> None:
+            """Read stdin (geolocation json or dns trace) and print parsed JSON for shell callers.
+
+            If invoked with --dns, read a dns trace from stdin and print parsed DNS info.
+            Otherwise read a geolocation JSON blob from stdin and print parsed geolocation.
+            """
+            import json
+            import sys
+
+            if "--dns" in sys.argv:
+                data = sys.stdin.read()
+                parsed = parse_dns_trace(data or "")
+                print(json.dumps(parsed))
+                return
+
+            # default: geolocation parse
+            text = sys.stdin.read()
+            parsed = parse_geolocation(text or "")
+            print(json.dumps(parsed))
+
+
+        if __name__ == "__main__":
+            _cli_print_json()
         for line in trace_text.splitlines():
             if line.startswith("loc="):
                 out["loc"] = line.split("=", 1)[1]
