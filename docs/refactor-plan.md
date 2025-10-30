@@ -164,8 +164,8 @@ Track migration of shell helpers to Python. Add rows as work progresses.
 | `vpn-sentinel-client/lib/geo_client.py` | geolocation shim | ✅ | `vpn_sentinel_common.geolocation` | shim imports common geolocation helper |
 | `vpn-sentinel-client/health-monitor.py` | client health server | ✅ | `vpn_sentinel_common.monitor` (future) | Python health monitor present |
 | `lib/health-common.sh` | shared shell health helpers | ✅ Removed | `vpn_sentinel_common.health` | Ported to Python shim; legacy shell file removed. Client now prefers `vpn-sentinel-client/lib/health_common.py`; tests and CI updated. |
-| `vpn-sentinel-client/lib/config.sh` | client config parsing | ❌ | `vpn_sentinel_client.config` (planned) | planned gradual port |
-| `vpn-sentinel-client/lib/network.sh` | network helpers | ❌ | `vpn_sentinel_client.network` (planned) | planned gradual port |
+| `vpn-sentinel-client/lib/config.sh` | client config parsing | ✅ | `vpn-sentinel-client/lib/config.py` → `vpn_sentinel_common.config` (shim) | Ported to Python shim `vpn-sentinel-client/lib/config.py`; updated `health-monitor.sh`/`healthcheck.sh` to prefer shim; Dockerfile updated to COPY shims; unit tests added (`tests/unit/test_client_config_network_shims.py`). |
+| `vpn-sentinel-client/lib/network.sh` | network helpers | ✅ | `vpn-sentinel-client/lib/network.py` → `vpn_sentinel_common.network` (shim) | Ported to Python shim `vpn-sentinel-client/lib/network.py`; updated `health-monitor.sh`/`healthcheck.sh` to prefer shim; Dockerfile updated to COPY shims; unit tests added (`tests/unit/test_client_config_network_shims.py`). |
 
 Add more rows as you port files and link PRs in the Notes column.
 
@@ -199,8 +199,22 @@ VPNSentinel is being unified around `vpn_sentinel_common`. This improves health 
 Recent updates
 ---------------
 - Removed `lib/health-common.sh` (legacy shell-only shared helper). The client now prefers the Python shim at `vpn-sentinel-client/lib/health_common.py`. PR #10 performed the removal and corresponding test/Dockerfile updates; CI (unit, integration, docker build, coverage, security scan) passed for the merge.
-- Note: `vpn_sentinel_common.health` implements the canonical health JSON with allowed statuses `ok`, `degraded`, `fail`. For backward compatibility, consider accepting `warn` as an alias for `degraded` in callers or normalizing inputs in `vpn_sentinel_common.health`.
- - Normalized `warn` → `degraded` in `vpn_sentinel_common/health.py` and added tests (`tests/unit/test_health_warn_alias.py`). A local branch `refactor/finalize-health-schema` was created for this work. I ran the smoke script, full unit suite, and integration tests against the docker test stack locally — all relevant tests passed. The change has been merged into `refactor/unified-architecture` and pushed.
+ - Note: `vpn_sentinel_common.health` implements the canonical health JSON with allowed statuses `ok`, `degraded`, `fail`. For backward compatibility, `warn` is accepted as an alias for `degraded` and inputs are normalized by `vpn_sentinel_common.health`.
+ - Normalized `warn` → `degraded` in `vpn_sentinel_common/health.py` and added tests (`tests/unit/test_health_warn_alias.py`). A local branch `refactor/finalize-health-schema` was created for this work; the change was merged into `refactor/unified-architecture`.
+
+Recent porting & merge
+----------------------
+- Ported `vpn-sentinel-client/lib/config.sh` and `vpn-sentinel-client/lib/network.sh` to Python shims:
+  - `vpn-sentinel-client/lib/config.py` — load_config and generate_client_id helpers.
+  - `vpn-sentinel-client/lib/network.py` — parse_geolocation and parse_dns_trace helpers.
+  - Added unit tests: `tests/unit/test_client_config_network_shims.py` (imports shims by path to avoid package resolution issues in test runner).
+  - Updated runtime scripts (`vpn-sentinel-client/health-monitor.sh`, `vpn-sentinel-client/healthcheck.sh`) to prefer the Python shims when `python3` is available, with a shell fallback to preserve compatibility for CI and older environments.
+  - Updated `vpn-sentinel-client/Dockerfile` to COPY the `vpn-sentinel-client/lib/*.py` shims into the image and fixed a previous incorrect COPY path.
+
+- Branching & merge:
+  - Work for these shims was committed on branch `refactor/port-config-network-shims`.
+  - The branch `refactor/port-config-network-shims` has been merged into `refactor/unified-architecture` and pushed to the remote repository.
+
 
 ---
 
