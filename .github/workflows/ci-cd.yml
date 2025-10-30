@@ -213,7 +213,7 @@ jobs:
             exit 1
           fi
           echo "Waiting for test server on localhost:$HOST_PORT..."
-          timeout 60s bash -c "until curl -sSf http://localhost:${HOST_PORT}/test/v1/health >/dev/null; do sleep 1; done"
+          timeout 300s bash -c "until curl -sSf http://localhost:${HOST_PORT}/test/v1/health >/dev/null; do sleep 1; done"
           echo "✅ Test server is ready"
       - name: Run integration tests
         run: |
