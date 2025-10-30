@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """Compatibility shim for payload: delegate to vpn_sentinel_common.payload when available.
 
-This file keeps the same CLI contract expected by tests and legacy callers while the
+This keeps the same CLI contract expected by tests and legacy callers while the
 canonical implementation lives in `vpn_sentinel_common.payload`.
 """
 from __future__ import annotations
 
-import sys
-import json
 import argparse
+import json
+import sys
 from typing import Dict, Any
 
 
 _USING_CANONICAL = False
 try:
-    from vpn_sentinel_common.payload import build_payload_from_env as _build_payload_from_env, post_payload as _post_payload  # type: ignore
+    from vpn_sentinel_common.payload import (
+        build_payload_from_env as _build_payload_from_env,
+        post_payload as _post_payload,
+    )
     _USING_CANONICAL = True
 except Exception:
     _USING_CANONICAL = False
@@ -23,9 +26,10 @@ except Exception:
 def build_payload_from_env() -> Dict[str, Any]:
     if _USING_CANONICAL:
         return _build_payload_from_env()
-    # Fallback: minimal local build (should be rare in tests since common is present)
+    # Minimal local fallback (rare in tests because common is present)
     import os
     from datetime import datetime
+
     ts = datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S%z")
     payload = {
         "client_id": os.environ.get("CLIENT_ID", os.environ.get("VPN_SENTINEL_CLIENT_ID", "")),
@@ -50,8 +54,9 @@ def build_payload_from_env() -> Dict[str, Any]:
 def post_payload(payload_text: str) -> int:
     if _USING_CANONICAL:
         return _post_payload(payload_text)
-    # Fallback: attempt to write to capture path or return failure
-    import os, json, urllib.request
+    # Fallback: write to capture path if set
+    import os
+
     capture = os.environ.get("VPN_SENTINEL_TEST_CAPTURE_PATH")
     if capture:
         try:
