@@ -29,8 +29,15 @@ def test_network_cli_geolocation(tmp_path, monkeypatch):
     from pathlib import Path
 
     sample = '{"ip":"8.8.8.8","country":"US","city":"Mountain View","region":"CA","org":"Google","timezone":"PST"}'
-    repo_root = Path(__file__).resolve().parents[2]
-    script = str(repo_root / 'vpn-sentinel-client' / 'lib' / 'network.py')
+    # Find vpn-sentinel-client/lib/network.py by walking up parent directories
+    p = Path(__file__).resolve()
+    script = None
+    for parent in [p] + list(p.parents):
+        candidate = parent / 'vpn-sentinel-client' / 'lib' / 'network.py'
+        if candidate.exists():
+            script = str(candidate)
+            break
+    assert script is not None, 'Could not find vpn-sentinel-client/lib/network.py from test location'
     p = Popen(['python3', script], stdin=PIPE, stdout=PIPE)
     out, _ = p.communicate(sample.encode())
     data = json.loads(out.decode())
@@ -42,8 +49,14 @@ def test_network_cli_dns(tmp_path):
     from pathlib import Path
 
     sample = 'loc=LA\ncolo=la1\n'
-    repo_root = Path(__file__).resolve().parents[2]
-    script = str(repo_root / 'vpn-sentinel-client' / 'lib' / 'network.py')
+    p = Path(__file__).resolve()
+    script = None
+    for parent in [p] + list(p.parents):
+        candidate = parent / 'vpn-sentinel-client' / 'lib' / 'network.py'
+        if candidate.exists():
+            script = str(candidate)
+            break
+    assert script is not None, 'Could not find vpn-sentinel-client/lib/network.py from test location'
     p = Popen(['python3', script, '--dns'], stdin=PIPE, stdout=PIPE)
     out, _ = p.communicate(sample.encode())
     data = json.loads(out.decode())
