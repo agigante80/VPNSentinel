@@ -43,9 +43,11 @@ if [[ $GIT_DESCRIBE =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(.*)$ ]]; then
     COMMIT_HASH=$(git rev-parse --short HEAD)
     VERSION="${BASE_VERSION}-dev-${COMMIT_HASH}"
   else
-    # Other branches - use branch name with commit hash
+    # Other branches - use sanitized branch name with commit hash
+    # Replace characters invalid for semver branch suffixes (slashes, spaces) with '-'
+    SAN_BRANCH=$(echo "$BRANCH" | sed 's#[/ ]#-#g' | sed 's/[^A-Za-z0-9._-]/-/g')
     COMMIT_HASH=$(git rev-parse --short HEAD)
-    VERSION="${BASE_VERSION}-${BRANCH}-${COMMIT_HASH}"
+    VERSION="${BASE_VERSION}-${SAN_BRANCH}-${COMMIT_HASH}"
   fi
 else
   # Fallback if git describe fails

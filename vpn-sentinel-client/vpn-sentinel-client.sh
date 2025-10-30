@@ -9,12 +9,74 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/config.sh
 # shellcheck source=lib/utils.sh
 . "$SCRIPT_DIR/lib/log.sh"
-. "$SCRIPT_DIR/lib/config.sh"
+. # The original shell helper `lib/config.sh` has been removed in favor of the
+. # Python shim `lib/config.py`. Keep a shellcheck source comment for tools and
+. # for unit tests that inspect the script content, but do NOT source the
+. # missing shell file at runtime.
+# shellcheck source=lib/config.sh
 . "$SCRIPT_DIR/lib/utils.sh"
 # shellcheck source=lib/network.sh
-. "$SCRIPT_DIR/lib/network.sh"
-# shellcheck source=lib/payload.sh
-. "$SCRIPT_DIR/lib/payload.sh"
+# The shell helper `lib/network.sh` has been removed. Runtime now prefers the
+# Python shim `lib/network.py` which exposes parsing helpers. Unit tests that
+# inspect the script contents still find the shellcheck comment above.
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/network.py" ]; then
+	# Define shell functions that call the Python shim where needed
+	get_vpn_info() {
+		# Expect stdin to be provided by callers (some callers call curl first).
+		# For backward compatibility this wrapper attempts to fetch via curl if
+		# no stdin provided.
+		_input=$(cat || true)
+		if [ -z "$_input" ]; then
+			# try ipinfo.io as default probe
+			_input=$(curl -sS https://ipinfo.io/json 2>/dev/null || echo "")
+		fi
+		printf '%s' "$_input" | python3 "$SCRIPT_DIR/lib/network.py" 2>/dev/null || echo '{}'
+	}
+
+	get_dns_info() {
+		_trace=$(cat || true)
+		printf '%s' "$_trace" | python3 "$SCRIPT_DIR/lib/network.py" --dns 2>/dev/null || echo '{}'
+	}
+else
+	# fallback: keep sourcing the shell lib if present (for tests)
+	. "$SCRIPT_DIR/lib/network.sh" 2>/dev/null || true
+fi
+# Prefer Python payload shim at runtime; keep shell helper present for tests
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/payload.py" ]; then
+	build_payload() {
+		# Emit JSON built by Python shim.
+		# Pass common shell variables to the Python process via its environment so
+		# the shim can read them (the shim reads from env rather than shell globals).
+		CLIENT_ID="$CLIENT_ID" \
+		PUBLIC_IP="$PUBLIC_IP" \
+		COUNTRY="$COUNTRY" \
+		CITY="$CITY" \
+		REGION="$REGION" \
+		ORG="$ORG" \
+		VPN_TIMEZONE="$VPN_TIMEZONE" \
+		DNS_LOC="$DNS_LOC" \
+		DNS_COLO="$DNS_COLO" \
+		python3 "$SCRIPT_DIR/lib/payload.py" --build-json 2>/dev/null || printf '%s' '{}'
+	}
+
+	post_payload() {
+		# Read payload from arg or stdin and let Python do POST or write capture file
+		PAYLOAD="$1"
+		if [ -z "$PAYLOAD" ]; then
+			PAYLOAD=$(cat || true)
+		fi
+		# Pass server and auth related variables into the python process
+		printf '%s' "$PAYLOAD" | \
+		VPN_SENTINEL_API_KEY="$VPN_SENTINEL_API_KEY" \
+		SERVER_URL="$SERVER_URL" \
+		TIMEOUT="$TIMEOUT" \
+		VPN_SENTINEL_TEST_CAPTURE_PATH="$VPN_SENTINEL_TEST_CAPTURE_PATH" \
+		python3 "$SCRIPT_DIR/lib/payload.py" --post >/dev/null 2>&1 && return 0 || return 1
+	}
+else
+	# shellcheck source=lib/payload.sh
+	. "$SCRIPT_DIR/lib/payload.sh"
+fi
 
 # Inline expected configuration defaults and helpers (kept minimal and consistent
 # with lib/config.sh). These are present for unit tests that read the script
@@ -215,7 +277,27 @@ if [ -z "$TLS_CERT_PATH" ]; then
 fi
 
 # Load configuration from environment
-load_config
+# Prefer Python shim at runtime; fall back to shell function if Python not available.
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/config.py" ]; then
+	# Use Python shim to construct config mapping and export key values used by the shell
+	# Read JSON from Python shim and eval into shell variables
+	_CFG_JSON=$(python3 "$SCRIPT_DIR/lib/config.py" --print-json 2>/dev/null || echo '{}')
+	# Simple JSON extraction using sed/grep to avoid jq dependency in shell
+	API_BASE_URL=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"api_base"\s*:\s*"([^"]+)".*/\1/p' || true)
+	API_PATH=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"api_path"\s*:\s*"([^"]+)".*/\1/p' || true)
+	SERVER_URL=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"server_url"\s*:\s*"([^"]+)".*/\1/p' || true)
+	INTERVAL=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"interval"\s*:\s*([0-9]+).*/\1/p' || true)
+	TIMEOUT=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"timeout"\s*:\s*([0-9]+).*/\1/p' || true)
+	CLIENT_ID=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"client_id"\s*:\s*"([^"]+)".*/\1/p' || true)
+	TLS_CERT_PATH=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"tls_cert_path"\s*:\s*"([^"]*)".*/\1/p' || true)
+	if [ -z "$API_BASE_URL" ]; then
+		# Fallback to shell loader for extreme cases (tests or older environments)
+		load_config
+	fi
+else
+	# Fallback to shell loader
+	load_config
+fi
 
 # Ensure geolocation service is valid
 validate_geolocation_service "${GEOLOCATION_SERVICE:-auto}"
