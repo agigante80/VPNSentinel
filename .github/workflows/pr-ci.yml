@@ -50,7 +50,16 @@ jobs:
       - name: Start integration environment
         run: |
           docker compose -f tests/docker-compose.test.yaml up -d --build
-          timeout 60s bash -c 'while ! curl -s http://localhost:5000/test/v1/health > /dev/null; do sleep 2; done'
+          # Resolve host port mapped to the server container's port 5000
+          HOST_PORT=$(docker compose -f tests/docker-compose.test.yaml port vpn-sentinel-server-test 5000 | sed 's/.*://')
+          if [ -z "$HOST_PORT" ]; then
+            echo "ERROR: could not determine host port for vpn-sentinel-server-test:5000"
+            docker compose -f tests/docker-compose.test.yaml ps
+            exit 1
+          fi
+          echo "Waiting for test server on localhost:$HOST_PORT..."
+          timeout 300s bash -c "until curl -sSf http://localhost:${HOST_PORT}/test/v1/health >/dev/null; do sleep 1; done"
+          echo "\u2705 Test server is ready"
 
       - name: Run integration tests
         run: |
