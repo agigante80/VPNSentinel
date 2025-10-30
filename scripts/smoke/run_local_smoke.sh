@@ -245,7 +245,7 @@ PY
     fi
   fi
   # shellcheck disable=SC2206
-  CLIENT_RUN_OPTS=( -d --name "$CLIENT_NAME" -e VPN_SENTINEL_URL="${PROTO}://${SERVER_HOST}:${API_PORT}" -e VPN_SENTINEL_API_PATH=$API_PATH -e VPN_SENTINEL_CLIENT_ID=$CLIENT_ID -e VPN_SENTINEL_API_KEY= -e VPN_SENTINEL_DEBUG=true -e VPN_SENTINEL_INTERVAL=3 -e VPN_SENTINEL_TIMEOUT=3 -e VPN_SENTINEL_HEALTH_MONITOR=true -p ${CLIENT_HEALTH_PORT}:${CLIENT_HEALTH_PORT} )
+  CLIENT_RUN_OPTS=( -d --name "$CLIENT_NAME" -e VPN_SENTINEL_URL="${PROTO}://${SERVER_HOST}:${API_PORT}" -e VPN_SENTINEL_API_PATH=$API_PATH -e VPN_SENTINEL_CLIENT_ID=$CLIENT_ID -e VPN_SENTINEL_API_KEY= -e VPN_SENTINEL_DEBUG=true -e VPN_SENTINEL_INTERVAL=3 -e VPN_SENTINEL_TIMEOUT=3 -e VPN_SENTINEL_HEALTH_MONITOR=true -e VPN_SENTINEL_HEALTH_PORT=${CLIENT_HEALTH_PORT} -p ${CLIENT_HEALTH_PORT}:${CLIENT_HEALTH_PORT} )
   # Expose a predictable pidfile inside the container for smoke/testing
   CLIENT_RUN_OPTS+=( -e VPN_SENTINEL_HEALTH_PIDFILE=/tmp/vpn-sentinel-health-monitor.pid )
   if [ "$USE_TLS" -eq 1 ]; then
@@ -319,10 +319,11 @@ PY
   CLIENT_HEALTH_BASE="http://localhost:${CLIENT_HEALTH_PORT}/client"
 
   # Wait for client health base to become available (health monitor can be slow to bind)
-  info "Waiting up to 10s for client health endpoint to respond"
+  # Increase timeout to reduce flakiness on slower machines
+  info "Waiting up to 30s for client health endpoint to respond"
   client_health_ready=1
   # shellcheck disable=SC2034
-  for i in $(seq 1 10); do
+  for i in $(seq 1 30); do
     if curl ${CURL_OPTS} -s -f "${CLIENT_HEALTH_BASE}/health" >/dev/null 2>&1; then
       client_health_ready=0
       break
