@@ -101,7 +101,16 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy the entire vpn-sentinel-client directory into the image so runtime
 # scripts and the full lib/ are included. This avoids a mismatch where the
 # top-level repo `lib/` differs from the client-specific `vpn-sentinel-client/lib/`.
+# Copy the client sources into the image
 COPY vpn-sentinel-client/ /app/
+
+# Copy repository metadata and the shared package so an editable install works
+# `pip install -e /app` requires a Python project file (pyproject.toml or setup.py)
+# and the package sources to be present in the target directory. The project
+# root contains `pyproject.toml` and the `vpn_sentinel_common/` package, so
+# copy them into /app before running the editable install.
+COPY pyproject.toml /app/pyproject.toml
+COPY vpn_sentinel_common/ /app/vpn_sentinel_common/
 
 # Install shared python package so client and server import the same codebase.
 # Using editable install keeps the code in-sync during development and CI.
