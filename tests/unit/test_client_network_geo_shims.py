@@ -12,8 +12,8 @@ def _load_module_from(path: str, name: str):
     return mod
 
 
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-client_net = _load_module_from(str(REPO_ROOT / "vpn-sentinel-client" / "lib" / "network.py"), "client_network")
+client_net = None
+from vpn_sentinel_common import network as client_net
 
 
 def test_client_network_shim_parse_geolocation_ipinfo():
