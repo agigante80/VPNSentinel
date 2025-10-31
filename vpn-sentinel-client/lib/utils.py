@@ -12,7 +12,6 @@ from __future__ import annotations
 import sys
 import json
 from typing import Callable
-
 # This shim now assumes the canonical package is available in CI and
 # builds. Import directly and let import errors surface during dev if
 # the package isn't installed (developer should use editable install).
