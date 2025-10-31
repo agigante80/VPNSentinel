@@ -13,32 +13,18 @@ import sys
 import json
 from typing import Callable
 
-_USING_CANONICAL = False
-_json_escape: Callable[[str], str]
-_sanitize_string: Callable[[str], str]
-try:
-    from vpn_sentinel_common.utils import json_escape as _je, sanitize_string as _ss  # type: ignore
-    _json_escape = _je
-    _sanitize_string = _ss
-    _USING_CANONICAL = True
-except Exception:
-    _USING_CANONICAL = False
+# This shim now assumes the canonical package is available in CI and
+# builds. Import directly and let import errors surface during dev if
+# the package isn't installed (developer should use editable install).
+from vpn_sentinel_common.utils import json_escape as _json_escape, sanitize_string as _sanitize_string  # type: ignore
 
 
 def json_escape(s: str) -> str:
-    if _USING_CANONICAL:
-        return _json_escape(s)
-    return s.replace("\\", "\\\\").replace('"', '\\"')
+    return _json_escape(s)
 
 
 def sanitize_string(s: str) -> str:
-    if _USING_CANONICAL:
-        return _sanitize_string(s)
-    # simple fallback: remove control chars and limit to 100 chars
-    import re
-
-    s = re.sub(r"[\x00-\x1f]+", "", s)
-    return s[:100]
+    return _sanitize_string(s)
 
 
 def main(argv: list[str] | None = None) -> int:
