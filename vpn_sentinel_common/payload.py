@@ -83,7 +83,22 @@ def post_payload(payload_text: str) -> int:
         req.add_header("Authorization", f"Bearer {api_key}")
 
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        # Respect TLS configuration: allow insecure or provide a CA bundle
+        import ssl
+
+        allow_insecure = os.environ.get("VPN_SENTINEL_ALLOW_INSECURE", "false").lower() == "true"
+        tls_cert = os.environ.get("VPN_SENTINEL_TLS_CERT_PATH", "")
+        ctx = None
+        if allow_insecure:
+            ctx = ssl._create_unverified_context()
+        elif tls_cert:
+            try:
+                ctx = ssl.create_default_context(cafile=tls_cert)
+            except Exception:
+                # fallback to default context if loading CA failed
+                ctx = ssl.create_default_context()
+
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
             code = resp.getcode()
             if 200 <= code < 300:
                 return 0

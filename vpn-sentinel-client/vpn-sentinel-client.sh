@@ -377,8 +377,13 @@ if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
 
 	# Start the Python monitor but set argv0 to the shell script name so
 	# process lookups that search for 'health-monitor.sh' match the
-	# running process. Use exec -a which is supported in bash.
-	exec -a "$(basename "$SH_MONITOR")" python3 "$MONITOR_PATH" &
+	# running process. Prefer the virtualenv python if present.
+	VENV_PY="/opt/venv/bin/python3"
+	if [ -x "${VENV_PY}" ]; then
+		exec -a "$(basename "$SH_MONITOR")" "${VENV_PY}" "$MONITOR_PATH" &
+	else
+		exec -a "$(basename "$SH_MONITOR")" python3 "$MONITOR_PATH" &
+	fi
 	HEALTH_MONITOR_PID=$!
 		# Persist pidfile for other tooling/tests
 		if [ -n "$HEALTH_MONITOR_PID" ]; then
