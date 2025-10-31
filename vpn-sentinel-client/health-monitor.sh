@@ -65,6 +65,11 @@ case "${1:-}" in
     ;;
   "")
     # No-arg start: prefer Python monitor when available
+    # Prefer running the monitor using the virtualenv python if present
+    VENV_PY="/opt/venv/bin/python3"
+    if [ -x "${VENV_PY}" ] && [ -f "${PY}" ]; then
+      exec -a "$(basename "${_src}")" "${VENV_PY}" "${PY}"
+    fi
     if command -v python3 >/dev/null 2>&1 && [ -f "${PY}" ]; then
       # Start Python monitor but set argv0 to the shell script name so
       # process lookups that search for 'health-monitor.sh' succeed in tests.
@@ -75,8 +80,12 @@ case "${1:-}" in
     ;;
   *)
     # Other args: delegate to python monitor when present, otherwise error
+    # Preserve argv name for compatibility with pgrep tests. Prefer venv python.
+    VENV_PY="/opt/venv/bin/python3"
+    if [ -x "${VENV_PY}" ] && [ -f "${PY}" ]; then
+      exec -a "$(basename "${_src}")" "${VENV_PY}" "${PY}" "$@"
+    fi
     if command -v python3 >/dev/null 2>&1 && [ -f "${PY}" ]; then
-      # Preserve argv name for compatibility with pgrep tests
       exec -a "$(basename "${_src}")" python3 "${PY}" "$@"
     fi
     printf '%s\n' "Unknown option: %s" "${1:-}" >&2
