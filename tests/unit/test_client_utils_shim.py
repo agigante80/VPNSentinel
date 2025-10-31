@@ -1,25 +1,15 @@
-import subprocess
-import sys
-from pathlib import Path
+from vpn_sentinel_common.utils import sanitize_string, json_escape
 
 
 def test_utils_shim_cli_sanitize():
-    script = Path(__file__).resolve().parents[1] / 'vpn-sentinel-client' / 'lib' / 'utils.py'
-    assert script.exists(), f"Could not find {script}"
-    # Avoid NUL (\x00) in argv — some platforms disallow it. Use 0x1f control
-    # character which is safe to pass and still validates stripping of control
-    # characters.
-    p = subprocess.run([sys.executable, str(script), '--sanitize', 'a\x1fb'], capture_output=True, text=True)
-    assert p.returncode == 0
-    assert p.stdout.strip() == 'ab'
+    # Directly call the canonical helper instead of invoking a wrapper script.
+    # Avoid NUL (\x00) in argv — use 0x1f control char which is safe and verifies
+    # stripping of control characters.
+    result = sanitize_string('a\x1fb')
+    assert result == 'ab'
 
 
 def test_utils_shim_cli_escape():
-    script = Path(__file__).resolve().parents[1] / 'vpn-sentinel-client' / 'lib' / 'utils.py'
     raw = 'a"b\\c'
-    p = subprocess.run([sys.executable, str(script), '--json-escape', raw], capture_output=True, text=True)
-    assert p.returncode == 0
-    # Compute expected using the same escaping logic used by the shim to avoid
-    # literal escaping pitfalls in test source.
     expected = raw.replace('\\', '\\\\').replace('"', '\\"')
-    assert p.stdout.strip() == expected
+    assert json_escape(raw) == expected
