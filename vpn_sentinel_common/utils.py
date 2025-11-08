@@ -1,22 +1,45 @@
 """Utility helpers shared across the project.
 
-Provide a minimal, dependency-free implementation for escaping JSON strings
-and sanitizing user-provided text. Kept intentionally small for tests and CI.
+Provide a minimal, dependency-free implementation for small helpers used by
+client shims and tests: time/log delegations (thin), JSON escaping and
+sanitization helpers.
 """
 from __future__ import annotations
 
+from typing import Any
 import json
 import re
+
+from .logging import get_current_time as _get_current_time
+from .logging import log_info as _log_info, log_warn as _log_warn, log_error as _log_error
+
+
+def get_current_time() -> Any:
+    """Return the current timezone-aware datetime.
+
+    Delegates to the canonical logging/time helper.
+    """
+    return _get_current_time()
+
+
+def log_info(component: str, message: str) -> None:
+    _log_info(component, message)
+
+
+def log_warn(component: str, message: str) -> None:
+    _log_warn(component, message)
+
+
+def log_error(component: str, message: str) -> None:
+    _log_error(component, message)
 
 
 def json_escape(s: str) -> str:
     """Return a JSON-escaped string suitable for embedding inside JSON literals.
 
-    This mirrors the simple behavior expected by the client shim: ensure
-    backslashes and double quotes are escaped. We use json.dumps and strip the
-    surrounding quotes to be robust and correct for all control characters.
+    We use json.dumps and strip the surrounding quotes to be robust for all
+    control characters.
     """
-    # json.dumps handles escaping reliably; strip the surrounding quotes
     return json.dumps(s)[1:-1]
 
 
@@ -25,11 +48,7 @@ _CTRL_RE = re.compile(r"[\x00-\x1F]")
 
 
 def sanitize_string(s: str, max_len: int = 100) -> str:
-    """Remove C0 control characters and truncate to max_len characters.
-
-    The original shell fallback removed characters in range \x00-\x1F and
-    limited output to 100 bytes. We keep the same behavior here.
-    """
+    """Remove C0 control characters and truncate to max_len characters."""
     if s is None:
         return ""
     cleaned = _CTRL_RE.sub("", s)
@@ -38,4 +57,4 @@ def sanitize_string(s: str, max_len: int = 100) -> str:
     return cleaned
 
 
-__all__ = ["json_escape", "sanitize_string"]
+__all__ = ["get_current_time", "log_info", "log_warn", "log_error", "json_escape", "sanitize_string"]
