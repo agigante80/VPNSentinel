@@ -9,5 +9,7 @@ warnings.warn(
     DeprecationWarning,
 )
 
-# Re-export everything from canonical
-from vpn_sentinel_common.security import *
+import vpn_sentinel_common.security
+import sys
+
+sys.modules[__name__] = vpn_sentinel_common.security
