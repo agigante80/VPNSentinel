@@ -10,9 +10,8 @@ def _load_module_from(path: str, name: str):
     return mod
 
 
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-cfg = _load_module_from(str(REPO_ROOT / "vpn-sentinel-client" / "lib" / "config.py"), "client_config")
-net = _load_module_from(str(REPO_ROOT / "vpn-sentinel-client" / "lib" / "network.py"), "client_network")
+from vpn_sentinel_common import network as net
+from vpn_sentinel_common import config as cfg
 
 
 def test_config_load_defaults():
