@@ -56,3 +56,7 @@ This project is licensed under the MIT License. See the `LICENSE` file in the re
 Maintainer
 ----------
 VPN Sentinel Project — GitHub: `agigante80` — https://github.com/agigante80/VPNSentinel
+
+Docker Hub
+----------
+Server image: https://hub.docker.com/r/agigante80/vpn-sentinel-server

@@ -28,7 +28,10 @@ if [[ $GIT_DESCRIBE =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(.*)$ ]]; then
       VERSION="$BASE_VERSION"
     else
       # Commits ahead on main - use base version with build info
-      COMMITS_AHEAD=$(echo "$SUFFIX" | sed -n 's/-\([0-9]\+\)-.*/\1/p')
+  # Extract number of commits ahead from the full git describe output.
+  # Use the pattern that captures the number immediately before the "-g<hash>" suffix
+  # to avoid confusion when the tag itself contains a '+' (build metadata).
+  COMMITS_AHEAD=$(echo "$GIT_DESCRIBE" | sed -n 's/.*-\([0-9]\+\)-g.*/\1/p')
       if [ -n "$COMMITS_AHEAD" ] && [ "$COMMITS_AHEAD" != "0" ]; then
         VERSION="${BASE_VERSION}+${COMMITS_AHEAD}"
       else
