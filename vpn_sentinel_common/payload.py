@@ -1,18 +1,15 @@
-#!/usr/bin/env python3
-"""Payload helper shim for vpn-sentinel-client.
+"""Canonical payload helpers for vpn_sentinel_common.
 
-Provides a small CLI used by shell entrypoints to build and post JSON payloads.
-This mirrors the behavior of the legacy `lib/payload.sh` but is implemented in
-Python so callers can prefer the shim and we can remove the bash helper later.
+Provides build_payload_from_env() and post_payload() so clients and server
+can import a single source of truth instead of duplicating logic in the
+client shim.
 """
 from __future__ import annotations
 
-import argparse
 import json
 import os
-import sys
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 def build_payload_from_env() -> Dict[str, Any]:
@@ -38,6 +35,11 @@ def build_payload_from_env() -> Dict[str, Any]:
 
 
 def post_payload(payload_text: str) -> int:
+    """Post a payload or write it to a test capture path.
+
+    Returns 0 on success, non-zero on failure. This mirrors the client shim
+    behaviour and intentionally keeps behavior stable for tests.
+    """
     # Test capture path takes precedence
     capture = os.environ.get("VPN_SENTINEL_TEST_CAPTURE_PATH")
     if capture:
@@ -46,14 +48,12 @@ def post_payload(payload_text: str) -> int:
         except Exception:
             pass
         try:
-            # Write compact JSON as a single line
             obj = json.loads(payload_text)
             with open(capture, "a", encoding="utf-8") as f:
                 f.write(json.dumps(obj, separators=(",", ":")))
                 f.write("\n")
             return 0
         except Exception:
-            # fallback: write raw payload condensed
             try:
                 line = " ".join(payload_text.splitlines())
                 with open(capture, "a", encoding="utf-8") as f:
@@ -69,7 +69,7 @@ def post_payload(payload_text: str) -> int:
     if not server_url:
         base = os.environ.get("VPN_SENTINEL_URL", "http://your-server-url:5000")
         api_path = os.environ.get("VPN_SENTINEL_API_PATH", "/api/v1")
-        server_url = f"{base.rstrip('/')}{api_path.rstrip('/')}/keepalive"
+        server_url = f"{base.rstrip('/')}" + f"{api_path.rstrip('/')}/keepalive"
     else:
         server_url = server_url.rstrip("/") + "/keepalive"
 
@@ -83,33 +83,25 @@ def post_payload(payload_text: str) -> int:
         req.add_header("Authorization", f"Bearer {api_key}")
 
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        # Respect TLS configuration: allow insecure or provide a CA bundle
+        import ssl
+
+        allow_insecure = os.environ.get("VPN_SENTINEL_ALLOW_INSECURE", "false").lower() == "true"
+        tls_cert = os.environ.get("VPN_SENTINEL_TLS_CERT_PATH", "")
+        ctx = None
+        if allow_insecure:
+            ctx = ssl._create_unverified_context()
+        elif tls_cert:
+            try:
+                ctx = ssl.create_default_context(cafile=tls_cert)
+            except Exception:
+                # fallback to default context if loading CA failed
+                ctx = ssl.create_default_context()
+
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
             code = resp.getcode()
             if 200 <= code < 300:
                 return 0
             return 1
     except Exception:
         return 1
-
-
-def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="payload.py")
-    p.add_argument("--build-json", action="store_true", help="Build JSON payload from environment and print it")
-    p.add_argument("--post", action="store_true", help="Post a JSON payload read from stdin to the server or test capture path")
-    args = p.parse_args(argv)
-
-    if args.build_json:
-        payload = build_payload_from_env()
-        sys.stdout.write(json.dumps(payload, ensure_ascii=False))
-        return 0
-
-    if args.post:
-        data = sys.stdin.read()
-        return post_payload(data)
-
-    p.print_help()
-    return 2
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

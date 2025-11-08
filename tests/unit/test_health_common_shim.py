@@ -5,6 +5,7 @@ import sys
 
 
 def shim_path():
+    # Point at the canonical client shim (repaired file)
     return os.path.normpath(os.path.join(os.path.dirname(__file__), "../../vpn-sentinel-client/lib/health_common.py"))
 
 

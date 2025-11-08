@@ -13,12 +13,30 @@ import argparse
 from typing import Any
 
 
+_USING_CANONICAL = False
+try:
+    from vpn_sentinel_common.health_common import (
+        check_client_process as _check_client_process,
+        check_network_connectivity as _check_network_connectivity,
+        check_server_connectivity as _check_server_connectivity,
+        check_dns_leak_detection as _check_dns_leak_detection,
+        get_system_info as _get_system_info,
+    )
+    _USING_CANONICAL = True
+except Exception:
+    _USING_CANONICAL = False
+
+
 def check_client_process() -> str:
+    if _USING_CANONICAL:
+        return _check_client_process()
     # Simple heuristic: assume healthy when script is running in test harness
     return "healthy"
 
 
 def check_network_connectivity() -> str:
+    if _USING_CANONICAL:
+        return _check_network_connectivity()
     # Try to perform a quick reachability check to Cloudflare (1.1.1.1)
     try:
         import socket
@@ -29,6 +47,8 @@ def check_network_connectivity() -> str:
 
 
 def check_server_connectivity() -> str:
+    if _USING_CANONICAL:
+        return _check_server_connectivity()
     # Check if VPN_SENTINEL_URL is set and reachable (simple TCP connect)
     import os, socket
     url = os.environ.get("VPN_SENTINEL_URL")
@@ -45,13 +65,17 @@ def check_server_connectivity() -> str:
 
 
 def check_dns_leak_detection() -> str:
+    if _USING_CANONICAL:
+        return _check_dns_leak_detection()
     # Not implemented: return unavailable
     return "unavailable"
 
 
 def get_system_info() -> dict[str, Any]:
-    import shutil, psutil
+    if _USING_CANONICAL:
+        return _get_system_info()
     try:
+        import shutil, psutil
         mem = int(psutil.virtual_memory().percent)
         disk = int(psutil.disk_usage('/').percent)
         return {"memory_percent": mem, "disk_percent": disk}

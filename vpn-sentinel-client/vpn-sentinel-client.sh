@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # shellcheck disable=SC1091,SC2317
 # vpn-sentinel-client entrypoint (cleaned)
 
@@ -13,31 +14,25 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # expected literals. If Python is available and the shim exists, define
 # shell wrappers that call it; otherwise fall back to sourcing the legacy
 # `lib/log.sh` so callers get shell functions.
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/log.py" ]; then
-	# Use Python shim for logging. Wrap calls into small shell functions so
-	# existing code calling log_info/log_error/log_warn keeps working.
-	log_message() {
-		# $1 = LEVEL, $2 = COMPONENT, $3.. = MESSAGE
-		local level="$1" component="$2"
-		shift 2
-		local message="$*"
-		# Use JSON mode for robust argument passing
-		python3 "$SCRIPT_DIR/lib/log.py" --json "{\"level\":\"${level}\",\"component\":\"${component}\",\"message\":\"${message//\"/\\\"}\"}" 2>/dev/null || true
-	}
-
+if command -v python3 >/dev/null 2>&1; then
+	# Use canonical Python logging helpers. Wrap calls so existing shell
+	# callers continue to work.
 	log_info() {
-		log_message "INFO" "$1" "$2"
+		local component="$1" message="$2"
+		python3 -c "from vpn_sentinel_common.logging import log_info; log_info(\"$component\", \"$message\")" 2>/dev/null || true
 	}
 
 	log_error() {
-		log_message "ERROR" "$1" "$2"
+		local component="$1" message="$2"
+		python3 -c "from vpn_sentinel_common.logging import log_error; log_error(\"$component\", \"$message\")" 2>/dev/null || true
 	}
 
 	log_warn() {
-		log_message "WARN" "$1" "$2"
+		local component="$1" message="$2"
+		python3 -c "from vpn_sentinel_common.logging import log_warn; log_warn(\"$component\", \"$message\")" 2>/dev/null || true
 	}
 else
-	# shellcheck source=lib/log.sh
+	# fallback: keep sourcing the shell lib if present (for tests)
 	. "$SCRIPT_DIR/lib/log.sh"
 fi
 
@@ -45,7 +40,7 @@ fi
 # Prefer Python utils shim at runtime; fall back to sourcing legacy utils.sh
 if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/utils.py" ]; then
 	json_escape() {
-		python3 "$SCRIPT_DIR/lib/utils.py" --json-escape "$1" 2>/dev/null || printf '%s' "${1//\\/\\\\}" | sed 's/"/\\\"/g'
+		python3 "$SCRIPT_DIR/lib/utils.py" --json-escape "$1" 2>/dev/null || printf '%s' "$1" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g'
 	}
 
 	sanitize_string() {
@@ -81,8 +76,8 @@ else
 	. "$SCRIPT_DIR/lib/network.sh" 2>/dev/null || true
 fi
 # Prefer Python payload shim at runtime; keep shell helper present for tests
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/payload.py" ]; then
-	build_payload() {
+if command -v python3 >/dev/null 2>&1; then
+build_payload() {
 		# Emit JSON built by Python shim.
 		# Pass common shell variables to the Python process via its environment so
 		# the shim can read them (the shim reads from env rather than shell globals).
@@ -95,23 +90,23 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/payload.py" ]; th
 		VPN_TIMEZONE="$VPN_TIMEZONE" \
 		DNS_LOC="$DNS_LOC" \
 		DNS_COLO="$DNS_COLO" \
-		python3 "$SCRIPT_DIR/lib/payload.py" --build-json 2>/dev/null || printf '%s' '{}'
+		python3 -c 'from vpn_sentinel_common.payload import build_payload_from_env; import json,sys; print(json.dumps(build_payload_from_env(), ensure_ascii=False))' 2>/dev/null || printf '%s' '{}'
 	}
 
 	post_payload() {
-		# Read payload from arg or stdin and let Python do POST or write capture file
-		PAYLOAD="$1"
-		if [ -z "$PAYLOAD" ]; then
-			PAYLOAD=$(cat || true)
-		fi
-		# Pass server and auth related variables into the python process
-		printf '%s' "$PAYLOAD" | \
-		VPN_SENTINEL_API_KEY="$VPN_SENTINEL_API_KEY" \
-		SERVER_URL="$SERVER_URL" \
-		TIMEOUT="$TIMEOUT" \
-		VPN_SENTINEL_TEST_CAPTURE_PATH="$VPN_SENTINEL_TEST_CAPTURE_PATH" \
-		python3 "$SCRIPT_DIR/lib/payload.py" --post >/dev/null 2>&1 && return 0 || return 1
-	}
+			# Read payload from arg or stdin and let canonical Python package handle posting
+			PAYLOAD="$1"
+			if [ -z "$PAYLOAD" ]; then
+				PAYLOAD=$(cat || true)
+			fi
+			# Pass server and auth related variables into the python process
+			printf '%s' "$PAYLOAD" | \
+			VPN_SENTINEL_API_KEY="$VPN_SENTINEL_API_KEY" \
+			SERVER_URL="$SERVER_URL" \
+			TIMEOUT="$TIMEOUT" \
+			VPN_SENTINEL_TEST_CAPTURE_PATH="$VPN_SENTINEL_TEST_CAPTURE_PATH" \
+			python3 -c 'import sys,json; from vpn_sentinel_common.payload import post_payload; data=sys.stdin.read(); sys.exit(0 if post_payload(data)==0 else 1)' >/dev/null 2>&1 && return 0 || return 1
+		}
 else
 	# shellcheck source=lib/payload.sh
 	. "$SCRIPT_DIR/lib/payload.sh"
@@ -316,11 +311,16 @@ if [ -z "$TLS_CERT_PATH" ]; then
 fi
 
 # Load configuration from environment
-# Prefer Python shim at runtime; fall back to shell function if Python not available.
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/config.py" ]; then
-	# Use Python shim to construct config mapping and export key values used by the shell
-	# Read JSON from Python shim and eval into shell variables
-	_CFG_JSON=$(python3 "$SCRIPT_DIR/lib/config.py" --print-json 2>/dev/null || echo '{}')
+# Prefer the canonical python package when available, then the local shim; fall back to shell function.
+if command -v python3 >/dev/null 2>&1; then
+	# If vpn_sentinel_common.config importable, prefer it (it normalizes api_path)
+	if python3 -c 'import vpn_sentinel_common.config' >/dev/null 2>&1; then
+		_CFG_JSON=$(python3 -c 'import json,os; from vpn_sentinel_common.config import load_config; print(json.dumps(load_config(dict(os.environ))))' 2>/dev/null || echo '{}')
+	elif [ -f "$SCRIPT_DIR/lib/config.py" ]; then
+		_CFG_JSON=$(python3 "$SCRIPT_DIR/lib/config.py" --print-json 2>/dev/null || echo '{}')
+	else
+		_CFG_JSON='{}'
+	fi
 	# Simple JSON extraction using sed/grep to avoid jq dependency in shell
 	API_BASE_URL=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"api_base"\s*:\s*"([^"]+)".*/\1/p' || true)
 	API_PATH=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"api_path"\s*:\s*"([^"]+)".*/\1/p' || true)
@@ -328,7 +328,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/config.py" ]; the
 	INTERVAL=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"interval"\s*:\s*([0-9]+).*/\1/p' || true)
 	TIMEOUT=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"timeout"\s*:\s*([0-9]+).*/\1/p' || true)
 	CLIENT_ID=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"client_id"\s*:\s*"([^"]+)".*/\1/p' || true)
-	TLS_CERT_PATH=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"tls_cert_path"\s*:\s*"([^"]*)".*/\1/p' || true)
+	TLS_CERT_PATH=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"tls_cert_path"\s*:\s*"([^\"]*)".*/\1/p' || true)
 	if [ -z "$API_BASE_URL" ]; then
 		# Fallback to shell loader for extreme cases (tests or older environments)
 		load_config
@@ -353,12 +353,54 @@ graceful_shutdown() {
 }
 trap 'graceful_shutdown' INT TERM
 
-# Start health monitor if enabled
+# Start health monitor if enabled; prefer Python monitor at runtime
 if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
-	MONITOR_PATH="$SCRIPT_DIR/health-monitor.sh"
-	if [ -f "$MONITOR_PATH" ]; then
+	PY_MONITOR="$SCRIPT_DIR/health-monitor.py"
+	SH_MONITOR="$SCRIPT_DIR/health-monitor.sh"
+	MONITOR_PATH=""
+	if command -v python3 >/dev/null 2>&1 && [ -f "$PY_MONITOR" ]; then
+		MONITOR_PATH="$PY_MONITOR"
+		# Handle pidfile (tests may set VPN_SENTINEL_HEALTH_PIDFILE)
+		PIDFILE="${VPN_SENTINEL_HEALTH_PIDFILE:-/tmp/vpn-sentinel-health-monitor.pid}"
+		if [ -f "$PIDFILE" ]; then
+			OLD_PID=$(cat "$PIDFILE" 2>/dev/null || true)
+			if [ -n "$OLD_PID" ]; then
+				# If process exists and is owned by current user, attempt to stop it
+				if kill -0 "$OLD_PID" 2>/dev/null; then
+					OWNER_UID=$(ps -o uid= -p "$OLD_PID" 2>/dev/null | tr -d ' ')
+					if [ "$OWNER_UID" = "$(id -u)" ]; then
+						kill "$OLD_PID" 2>/dev/null || true
+						sleep 0.2
+						if kill -0 "$OLD_PID" 2>/dev/null; then
+							kill -9 "$OLD_PID" 2>/dev/null || true
+						fi
+					fi
+				fi
+			fi
+			rm -f "$PIDFILE" 2>/dev/null || true
+		fi
+
+	# Start the Python monitor but set argv0 to the shell script name so
+	# process lookups that search for 'health-monitor.sh' match the
+	# running process. Prefer the virtualenv python if present.
+	VENV_PY="/opt/venv/bin/python3"
+	if [ -x "${VENV_PY}" ]; then
+		exec -a "$(basename "$SH_MONITOR")" "${VENV_PY}" "$MONITOR_PATH" &
+	else
+		exec -a "$(basename "$SH_MONITOR")" python3 "$MONITOR_PATH" &
+	fi
+	HEALTH_MONITOR_PID=$!
+		# Persist pidfile for other tooling/tests
+		if [ -n "$HEALTH_MONITOR_PID" ]; then
+			echo "$HEALTH_MONITOR_PID" > "$PIDFILE" 2>/dev/null || true
+		fi
+	elif [ -f "$SH_MONITOR" ]; then
+		MONITOR_PATH="$SH_MONITOR"
 		"$MONITOR_PATH" &
 		HEALTH_MONITOR_PID=$!
+	fi
+
+	if [ -n "$MONITOR_PATH" ]; then
 		sleep 1
 		if kill -0 "$HEALTH_MONITOR_PID" 2>/dev/null; then
 			log_info "client" "✅ Health monitor started (PID: $HEALTH_MONITOR_PID)"
@@ -366,7 +408,7 @@ if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
 			log_warn "client" "⚠️ Health monitor failed to start"
 		fi
 	else
-		log_warn "client" "⚠️ Health monitor script not found: $MONITOR_PATH"
+		log_warn "client" "⚠️ Health monitor script not found: $PY_MONITOR or $SH_MONITOR"
 	fi
 fi
 
