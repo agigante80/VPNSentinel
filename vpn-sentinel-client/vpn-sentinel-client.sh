@@ -353,6 +353,12 @@ graceful_shutdown() {
 }
 trap 'graceful_shutdown' INT TERM
 
+# Startup logs (moved earlier so tests/readers see them before monitor replacement)
+log_info "client" "🚀 Starting VPN Sentinel Client"
+log_info "config" "📡 Server: ${SERVER_URL}"
+log_info "config" "🏷️ Client ID: ${CLIENT_ID:-not-set}"
+log_info "config" "⏱️ Interval: ${INTERVAL:-300}s"
+
 # Start health monitor if enabled; prefer Python monitor at runtime
 if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
 	PY_MONITOR="$SCRIPT_DIR/health-monitor.py"
@@ -447,11 +453,7 @@ send_keepalive() {
 	fi
 }
 
-# Startup logs
-log_info "client" "🚀 Starting VPN Sentinel Client"
-log_info "config" "📡 Server: ${SERVER_URL}"
-log_info "config" "🏷️ Client ID: ${CLIENT_ID:-not-set}"
-log_info "config" "⏱️ Interval: ${INTERVAL:-300}s"
+# (Startup logs moved earlier in the script so they appear before the health monitor exec.)
 
 # Print version information if available (align with server logging)
 VERSION="${VERSION:-}"
