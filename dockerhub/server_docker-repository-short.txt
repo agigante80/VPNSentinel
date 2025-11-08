@@ -1,0 +1,1 @@
+Server for VPN monitoring: clients keepalives, detects DNS leaks, Telegram alerts and dashboard

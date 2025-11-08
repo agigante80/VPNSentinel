@@ -89,9 +89,27 @@ PAYLOAD_FILE=$(mktemp)
 ## Build payload from markdown by reading the file directly to avoid stdin/heredoc timing issues
 python3 - <<PY > "$PAYLOAD_FILE"
 import json
+import os
+full = ''
 with open(r"$MDPATH", 'r', encoding='utf-8') as f:
-  content = f.read()
-print(json.dumps({'full_description': content}))
+  full = f.read()
+# Optionally include a short description sidecar file next to the markdown
+short_path = os.path.splitext(r"$MDPATH")[0] + '-short.txt'
+short_desc = ''
+if os.path.isfile(short_path):
+  with open(short_path, 'r', encoding='utf-8') as s:
+    short_desc = s.read().strip()
+payload = {'full_description': full}
+if short_desc:
+  # Docker Hub enforces a ~100 character limit for short descriptions. Validate and fail if necessary.
+  short_desc = short_desc.strip()
+  if len(short_desc) > 100:
+    import sys
+    sys.stderr.write(f"ERROR: short description exceeds 100 characters ({len(short_desc)}). Aborting.\n")
+    sys.exit(2)
+  # Docker Hub API accepts 'description' as the short description field
+  payload['description'] = short_desc
+print(json.dumps(payload))
 PY
 
 echo "Checking if repository exists..."
