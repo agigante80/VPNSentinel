@@ -359,6 +359,18 @@ log_info "config" "📡 Server: ${SERVER_URL}"
 log_info "config" "🏷️ Client ID: ${CLIENT_ID:-not-set}"
 log_info "config" "⏱️ Interval: ${INTERVAL:-300}s"
 
+# Print version information early so it appears in stdout before any exec
+# or background monitor replacement. Tests look for a plain ASCII 'Version:'
+# line as a reliable marker.
+VERSION="${VERSION:-}"
+if [ -n "${VERSION}" ]; then
+	printf 'Version: %s\n' "${VERSION}"
+	log_info "client" "📦 Version: ${VERSION}"
+else
+	printf 'Version: %s\n' "1.0.0-dev"
+	log_info "client" "📦 Version: 1.0.0-dev"
+fi
+
 # Start health monitor if enabled; prefer Python monitor at runtime
 if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
 	PY_MONITOR="$SCRIPT_DIR/health-monitor.py"
@@ -458,9 +470,14 @@ send_keepalive() {
 # Print version information if available (align with server logging)
 VERSION="${VERSION:-}"
 if [ -n "${VERSION}" ]; then
+	# Print a plain ASCII fallback version line so unit tests can reliably
+	# detect version even if the Python log shim fails or produces unicode
+	# output that may not be captured in some environments.
+	printf 'Version: %s\n' "${VERSION}"
 	log_info "client" "📦 Version: ${VERSION}"
 else
 	# Provide a sensible default for local/dev runs so logs are consistent
+	printf 'Version: %s\n' "1.0.0-dev"
 	log_info "client" "📦 Version: 1.0.0-dev"
 fi
 
