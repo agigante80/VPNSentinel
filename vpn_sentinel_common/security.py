@@ -45,7 +45,15 @@ def check_ip_whitelist(ip: str) -> bool:
     try:
         import vpn_sentinel_server as _server_shim
 
-        effective_allowed = getattr(_server_shim, 'ALLOWED_IPS', ALLOWED_IPS)
+        # Prefer an explicit ALLOWED_IPS on the package (legacy behavior).
+        effective_allowed = getattr(_server_shim, 'ALLOWED_IPS', None)
+        if effective_allowed is None:
+            # Some tests / shims patch the security submodule instead
+            sec = getattr(_server_shim, 'security', None)
+            if sec is not None:
+                effective_allowed = getattr(sec, 'ALLOWED_IPS', ALLOWED_IPS)
+            else:
+                effective_allowed = ALLOWED_IPS
     except Exception:
         effective_allowed = ALLOWED_IPS
 
