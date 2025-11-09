@@ -1,7 +1,7 @@
 """Telegram integration helpers migrated from vpn_sentinel_server."""
 import requests
 import os
-from .logging import log_info, log_error
+from .log_utils import log_info, log_error
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '')
