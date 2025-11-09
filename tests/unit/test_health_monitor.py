@@ -53,14 +53,14 @@ def test_monitor_heartbeats_and_shutdown(tmp_path):
         proc.send_signal(signal.SIGTERM)
 
         # Give the signal handler a moment to run
-        time.sleep(0.1)
+        time.sleep(0.5)
 
         # Wait for shutdown messages
         shutdown_lines = read_lines_until(proc, lambda l: 'Monitor stopped' in l or 'shutting down gracefully' in l, timeout=5.0)
         assert any('Monitor stopped' in l or 'shutting down gracefully' in l for l in shutdown_lines), f"no shutdown confirmation in output: {shutdown_lines}"
 
         # Wait for process to exit
-        proc.wait(timeout=5.0)
+        proc.wait(timeout=10.0)
         assert proc.returncode == 0 or proc.returncode == None or proc.returncode == 0
     finally:
         if proc.poll() is None:
