@@ -207,14 +207,14 @@ jobs:
         run: |
           docker compose -f tests/docker-compose.test.yaml up -d --build
           # Determine which host port maps to the server container's port 5000
-          HOST_PORT=$(docker compose -f tests/docker-compose.test.yaml port vpn-sentinel-server-test 5000 | sed 's/.*://')
+          HOST_PORT=$(docker compose -f tests/docker-compose.test.yaml port vpn-sentinel-server-test 5001 | sed 's/.*://')
           if [ -z "$HOST_PORT" ]; then
-            echo "ERROR: could not determine host port for vpn-sentinel-server-test:5000"
+            echo "ERROR: could not determine host port for vpn-sentinel-server-test:5001"
             docker compose -f tests/docker-compose.test.yaml ps
             exit 1
           fi
           echo "Waiting for test server on localhost:$HOST_PORT..."
-          timeout 300s bash -c "until curl -sSf http://localhost:${HOST_PORT}/test/v1/health >/dev/null; do sleep 1; done"
+          timeout 300s bash -c "until curl -sSf http://localhost:${HOST_PORT}/health >/dev/null; do sleep 1; done"
           echo "✅ Test server is ready"
       - name: Run integration tests
         run: |
