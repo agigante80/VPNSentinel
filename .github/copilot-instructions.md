@@ -132,7 +132,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 ### Client Structure (`vpn-sentinel-client/`)
 - `vpn-sentinel-client.sh`: Bash script for monitoring and API calls
-- `healthcheck.sh`: Docker health check script
+- Health scripts moved to `vpn_sentinel_common/health_scripts/`
 - Network-aware: runs in VPN container's network namespace
 
 ### Test Structure (`tests/`)

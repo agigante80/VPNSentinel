@@ -186,7 +186,7 @@ def _http_get(url: str, timeout: int = 5) -> Optional[str]:
 
 def log_info(component: str, msg: str) -> None:
     try:
-        from .logging import log_info as _log_info
+        from .log_utils import log_info as _log_info
 
         _log_info(component, msg)
     except Exception:
@@ -196,7 +196,7 @@ def log_info(component: str, msg: str) -> None:
 
 def log_warn(component: str, msg: str) -> None:
     try:
-        from .logging import log_warn as _log_warn
+        from .log_utils import log_warn as _log_warn
 
         _log_warn(component, msg)
     except Exception:
@@ -205,7 +205,7 @@ def log_warn(component: str, msg: str) -> None:
 
 def log_error(component: str, msg: str) -> None:
     try:
-        from .logging import log_error as _log_error
+        from .log_utils import log_error as _log_error
 
         _log_error(component, msg)
     except Exception:
