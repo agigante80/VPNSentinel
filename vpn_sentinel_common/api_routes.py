@@ -13,6 +13,8 @@ API_PATH = os.getenv('VPN_SENTINEL_API_PATH', '/api/v1').strip('/')
 if not API_PATH.startswith('/'):
     API_PATH = '/' + API_PATH
 
+print(f"DEBUG: API_PATH = {API_PATH}")
+
 
 @api_app.route(f'{API_PATH}/status', methods=['GET'])
 def get_status():
