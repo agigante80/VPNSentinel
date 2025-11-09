@@ -60,7 +60,7 @@ ENV PYTHONPATH="/app"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8081/health || exit 1
+    CMD sh -c 'health_port=${VPN_SENTINEL_SERVER_HEALTH_PORT:-8081}; curl -f http://localhost:$health_port/health || exit 1'
 
 # Default command - run the server
 CMD ["python", "./vpn-sentinel-server.py"]
