@@ -126,7 +126,7 @@ COPY vpn_sentinel_common/health_scripts/health_monitor_wrapper.py /app/health-mo
 
 # Make the scripts executable and set proper ownership
 # Ensures the scripts can be executed by the container runtime
-RUN for f in /app/vpn-sentinel-client.sh /app/health-monitor.py /app/healthcheck.py; do \
+RUN for f in /app/vpn-sentinel-client.sh /app/health-monitor.py /app/healthcheck.py /app/vpn_sentinel_common/health_scripts/health_monitor_wrapper.py; do \
             if [ -f "$f" ]; then chmod +x "$f"; fi; \
         done \
         && echo "VPN Sentinel client container built successfully" \

@@ -92,8 +92,22 @@ def stop_monitor():
         return 0
 
 
+def cleanup_stale_pidfile():
+    """Clean up stale PID file if it exists."""
+    pidfile = get_pidfile()
+    if os.path.exists(pidfile):
+        # Always remove the PID file when starting fresh
+        try:
+            os.remove(pidfile)
+        except OSError:
+            pass
+
+
 def start_monitor():
     """Start the health monitor."""
+    # Clean up any stale PID file first
+    cleanup_stale_pidfile()
+
     # Write our PID to file
     write_pidfile(os.getpid())
 
@@ -102,8 +116,13 @@ def start_monitor():
         import subprocess
         import sys
 
+        # Use the venv python if available, otherwise system python
+        venv_python = "/opt/venv/bin/python3"
+        python_exe = venv_python if os.path.exists(venv_python) else sys.executable
+
         # Run the health monitor as a subprocess so we can manage its lifecycle
-        cmd = [sys.executable, str(Path(__file__).parent / 'health_monitor.py')]
+        health_monitor_path = Path(__file__).parent / 'vpn_sentinel_common' / 'health_scripts' / 'health_monitor.py'
+        cmd = [python_exe, str(health_monitor_path)]
         env = os.environ.copy()
         env['PYTHONPATH'] = str(Path(__file__).parent.parent)
 

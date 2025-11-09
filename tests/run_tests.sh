@@ -135,15 +135,27 @@ run_integration_tests() {
   # Check if server is running. Some deployments expose health on the API path
   # (e.g. http://localhost:5000${API_PATH}/health) while docker-compose test stacks
   # expose a dedicated health server on the HEALTH_PORT (e.g. http://localhost:8081/health).
-  # Try the API-mounted health endpoint first, then fall back to the dedicated health port.
+  # For test environment, check the mapped ports from docker-compose.test.yaml
   API_CHECK_URL="http://localhost:5000${API_PATH}/health"
   HEALTH_CHECK_URL="http://localhost:8081/health"
+  TEST_API_CHECK_URL="http://localhost:15554/test/v1/health"
+  TEST_HEALTH_CHECK_URL="http://localhost:15553/health"
 
   server_up=1
   if curl -sSf "$API_CHECK_URL" >/dev/null 2>&1; then
     server_up=0
   elif curl -sSf "$HEALTH_CHECK_URL" >/dev/null 2>&1; then
     server_up=0
+  elif curl -sSf "$TEST_API_CHECK_URL" >/dev/null 2>&1; then
+    server_up=0
+    # Use test environment URLs
+    export VPN_SENTINEL_URL=http://localhost:15554
+    export VPN_SENTINEL_API_PATH=/test/v1
+  elif curl -sSf "$TEST_HEALTH_CHECK_URL" >/dev/null 2>&1; then
+    server_up=0
+    # Use test environment URLs
+    export VPN_SENTINEL_URL=http://localhost:15554
+    export VPN_SENTINEL_API_PATH=/test/v1
   fi
 
   if [ $server_up -eq 0 ]; then
@@ -152,9 +164,9 @@ run_integration_tests() {
     cd "$TEST_DIR"
 
     # Set environment variables for integration tests (matching CI/CD workflow)
-  export VPN_SENTINEL_URL=http://localhost:5000
-  # Use the test API path used by the compose stack (if set in environment), otherwise default to /test/v1
-  export VPN_SENTINEL_API_PATH=${VPN_SENTINEL_API_PATH:-/test/v1}
+    export VPN_SENTINEL_URL=http://localhost:5000
+    # Use the test API path used by the compose stack (if set in environment), otherwise default to /test/v1
+    export VPN_SENTINEL_API_PATH=${VPN_SENTINEL_API_PATH:-/test/v1}
     export VPN_SENTINEL_API_KEY=test-api-key-abcdef123456789
 
     if command -v pytest &>/dev/null; then
