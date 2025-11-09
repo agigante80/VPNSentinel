@@ -18,8 +18,8 @@ WORKDIR /app
 COPY pyproject.toml .
 COPY vpn_sentinel_common/ ./vpn_sentinel_common/
 
-# Install Python dependencies and Flask
-RUN pip install --no-cache-dir --user -e . flask werkzeug
+# Install Python dependencies and Flask with retry logic
+RUN pip install --no-cache-dir --user --retries 10 --timeout 60 -e . flask werkzeug
 
 # Runtime stage
 FROM python:3.12-alpine
