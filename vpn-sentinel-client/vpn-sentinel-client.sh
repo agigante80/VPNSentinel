@@ -19,17 +19,17 @@ if command -v python3 >/dev/null 2>&1; then
 	# callers continue to work.
 	log_info() {
 		local component="$1" message="$2"
-		python3 -c "from vpn_sentinel_common.logging import log_info; log_info(\"$component\", \"$message\")" 2>/dev/null || true
+		python3 -c "from vpn_sentinel_common.log_utils import log_info; log_info(\"$component\", \"$message\")" 2>/dev/null || true
 	}
 
 	log_error() {
 		local component="$1" message="$2"
-		python3 -c "from vpn_sentinel_common.logging import log_error; log_error(\"$component\", \"$message\")" 2>/dev/null || true
+		python3 -c "from vpn_sentinel_common.log_utils import log_error; log_error(\"$component\", \"$message\")" 2>/dev/null || true
 	}
 
 	log_warn() {
 		local component="$1" message="$2"
-		python3 -c "from vpn_sentinel_common.logging import log_warn; log_warn(\"$component\", \"$message\")" 2>/dev/null || true
+		python3 -c "from vpn_sentinel_common.log_utils import log_warn; log_warn(\"$component\", \"$message\")" 2>/dev/null || true
 	}
 else
 	# fallback: keep sourcing the shell lib if present (for tests)
@@ -373,8 +373,8 @@ fi
 
 # Start health monitor if enabled; prefer Python monitor at runtime
 if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
-	PY_MONITOR="$SCRIPT_DIR/health-monitor.py"
-	SH_MONITOR="$SCRIPT_DIR/health-monitor.sh"
+	PY_MONITOR="$SCRIPT_DIR/../vpn_sentinel_common/health_scripts/health_monitor_wrapper.py"
+	SH_MONITOR="$SCRIPT_DIR/../vpn_sentinel_common/health_scripts/health-monitor.sh"
 	MONITOR_PATH=""
 	if command -v python3 >/dev/null 2>&1 && [ -f "$PY_MONITOR" ]; then
 		MONITOR_PATH="$PY_MONITOR"

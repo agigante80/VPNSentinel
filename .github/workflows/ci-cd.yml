@@ -88,7 +88,8 @@ jobs:
 
           # Collect shell script paths to check (respect .gitignore via git ls-files)
           files=$(git ls-files \
-            "vpn-sentinel-client/*.sh" "vpn-sentinel-client/**/*.sh" "vpn-sentinel-client/health-monitor.sh" "vpn-sentinel-client/healthcheck.sh" \
+            "vpn-sentinel-client/*.sh" "vpn-sentinel-client/**/*.sh" \
+            "vpn_sentinel_common/health_scripts/*.sh" \
             "lib/health-common.sh" "lib/*.sh" "lib/**/*.sh" \
             "vpn-sentinel-server/*.sh" "vpn-sentinel-server/**/*.sh" \
             "scripts/*.sh" "scripts/**/*.sh" \

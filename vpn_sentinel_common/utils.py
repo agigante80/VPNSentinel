@@ -10,8 +10,8 @@ from typing import Any
 import json
 import re
 
-from .logging import get_current_time as _get_current_time
-from .logging import log_info as _log_info, log_warn as _log_warn, log_error as _log_error
+from .log_utils import get_current_time as _get_current_time
+from .log_utils import log_info as _log_info, log_warn as _log_warn, log_error as _log_error
 
 
 def get_current_time() -> Any:

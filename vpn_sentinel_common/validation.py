@@ -7,7 +7,7 @@ from typing import Any
 import re
 import socket
 from flask import request
-from .logging import log_warn
+from .log_utils import log_warn
 
 
 def get_client_ip() -> str:

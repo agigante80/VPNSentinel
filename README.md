@@ -62,8 +62,8 @@ VPN Sentinel uses a **distributed architecture** that separates monitoring conce
 ```
 VPN Container
 ├── vpn-sentinel-client.sh (Main monitoring process)
-├── health-monitor.sh (Optional dedicated health server)
-└── healthcheck.sh (Container health checks)
+├── health-monitor.py (Optional dedicated health server)
+└── healthcheck.py (Container health checks)
 ```
 
 #### **VPN Sentinel Server**

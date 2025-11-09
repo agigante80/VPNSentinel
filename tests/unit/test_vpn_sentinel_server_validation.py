@@ -1,4 +1,4 @@
-from vpn_sentinel_server.validation import (
+from vpn_sentinel_common.validation import (
     validate_client_id,
     validate_public_ip,
     validate_location_string,

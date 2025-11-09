@@ -1,5 +1,5 @@
 import time
-from vpn_sentinel_server import get_current_time, log_info, log_warn, log_error
+from vpn_sentinel_common.log_utils import get_current_time, log_info, log_warn, log_error
 
 
 def test_get_current_time_returns_datetime_like():

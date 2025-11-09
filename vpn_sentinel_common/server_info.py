@@ -4,9 +4,8 @@ Migrated from `vpn_sentinel_server.server_info` as a shared implementation so
 both server and client tooling can reuse the canonical code.
 """
 import requests
-import os
 from typing import Dict
-from .logging import log_info, log_warn, log_error
+from .log_utils import log_info, log_warn, log_error
 
 
 def get_server_public_ip() -> str:

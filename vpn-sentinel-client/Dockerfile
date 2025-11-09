@@ -117,7 +117,8 @@ COPY vpn_sentinel_common/ /app/vpn_sentinel_common/
 RUN python3 -m pip install --no-cache-dir -e /app
 
 # Ensure healthcheck script is explicitly copied for tests that inspect the Dockerfile
-COPY vpn-sentinel-client/healthcheck.sh /app/healthcheck.sh
+COPY vpn_sentinel_common/health_scripts/healthcheck.py /app/healthcheck.py
+COPY vpn_sentinel_common/health_scripts/health_monitor_wrapper.py /app/health-monitor.py
 # NOTE: the legacy `health_common.py` shim has been migrated to the canonical
 # `vpn_sentinel_common` package and is no longer copied into the image. The
 # editable install (`pip install -e /app`) installs the canonical package so
@@ -125,11 +126,11 @@ COPY vpn-sentinel-client/healthcheck.sh /app/healthcheck.sh
 
 # Make the scripts executable and set proper ownership
 # Ensures the scripts can be executed by the container runtime
-RUN for f in /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/healthcheck.sh; do \
+RUN for f in /app/vpn-sentinel-client.sh /app/health-monitor.py /app/healthcheck.py; do \
             if [ -f "$f" ]; then chmod +x "$f"; fi; \
         done \
         && echo "VPN Sentinel client container built successfully" \
-        && ls -la /app/vpn-sentinel-client.sh /app/health-monitor.sh /app/healthcheck.sh || true
+        && ls -la /app/vpn-sentinel-client.sh /app/health-monitor.py /app/healthcheck.py || true
 
 # -----------------------------------------------------------------------------
 # Working Directory and User Setup

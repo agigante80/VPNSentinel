@@ -12,16 +12,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-s
 
 
 def _load_health_app():
-    try:
-        from vpn_sentinel_server import health_app
-        return health_app
-    except Exception:
-        import importlib.util
-        server_path = os.path.join(os.path.dirname(__file__), '..', '..', 'vpn-sentinel-server', 'vpn-sentinel-server.py')
-        spec = importlib.util.spec_from_file_location('vpn_sentinel_server', server_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module.health_app
+    from vpn_sentinel_common.server import health_app
+    return health_app
 
 
 def _map_legacy_status_to_allowed(s):

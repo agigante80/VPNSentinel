@@ -7,8 +7,8 @@ import time
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
-MONITOR = ROOT.parent / 'vpn-sentinel-server' / 'health-monitor.py'
+ROOT = Path(__file__).resolve().parents[2]
+MONITOR = ROOT / 'vpn_sentinel_common' / 'health_monitor.py'
 PYTHON = sys.executable or 'python3'
 
 
