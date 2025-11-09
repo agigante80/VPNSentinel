@@ -6,7 +6,7 @@ This folder contains the VPN Sentinel client script `vpn-sentinel-client.sh`: a 
 - Periodically (default every 5 minutes) gathers public IP, geolocation and DNS resolver info
 - Detects potential DNS leaks by comparing DNS resolver location to VPN exit node location
 - Sends structured JSON keepalive payloads to the monitoring server (`/keepalive`)
-- Optionally spawns a background health monitor process (`health-monitor.sh`) that exposes container health
+- Optionally spawns a background health monitor process (`health-monitor.py`) that exposes container health
 - Uses secure HTTPS when configured with custom TLS certificates
 - Structured, component-prefixed logging for easy filtering
 
@@ -18,7 +18,7 @@ This folder contains the VPN Sentinel client script `vpn-sentinel-client.sh`: a 
 
 ## Files in this folder
 - `vpn-sentinel-client.sh` — main client script (entrypoint for the client image)
-- `health-monitor.sh` — optional helper (the script looks for `./health-monitor.sh` and starts it if present)
+- `health-monitor.py` — optional helper (the script looks for the health monitor and starts it if present)
 
 ## Usage
 Run the client container in the same network namespace as your VPN container. Example (host Docker run):
@@ -72,7 +72,7 @@ Below are the variables `vpn-sentinel-client.sh` reads or depends on (required v
 
 - VPN_SENTINEL_HEALTH_MONITOR (optional)
   - Description: Enable/disable the dedicated health monitor background process
-  - Default: `true` (starts `health-monitor.sh` if present)
+  - Default: `true` (starts health monitor if present)
 
 - VPN_SENTINEL_HEALTH_PORT (optional)
   - Description: Port the health monitor binds to when enabled
@@ -87,7 +87,7 @@ Note: The script stores selected values in runtime variables (for example it con
 
 ## Health monitor
 
-The client can optionally spawn a dedicated health monitor process (`health-monitor.sh`) that exposes lightweight HTTP endpoints for liveness/readiness and detailed JSON health status. The monitor is intended for container orchestrators and local debugging.
+The client can optionally spawn a dedicated health monitor process (`health-monitor.py`) that exposes lightweight HTTP endpoints for liveness/readiness and detailed JSON health status. The monitor is intended for container orchestrators and local debugging.
 
 ### Health monitor (deep dive)
 
@@ -99,8 +99,8 @@ Endpoints
 - `GET /client/health/ready` — readiness probe (200 when the client process and network are available; 503 otherwise).
 - `GET /client/health/startup` — simple startup/status check (reports that the monitor is running).
 
-Health check helper (`healthcheck.sh`)
- - The repository includes a lightweight helper script `healthcheck.sh` (in the client folder). It's a quick CLI probe that sources `lib/health-common.sh` and runs the same checks used by the monitor. Key facts:
+Health check helper (`healthcheck.py`)
+ - The repository includes a lightweight helper script `healthcheck.py` (in the common package). It's a quick CLI probe that performs comprehensive health checks. Key facts:
    - Runs checks: client process presence, network connectivity (Cloudflare probe), server connectivity (uses `VPN_SENTINEL_URL`), and optional health-monitor HTTP probe.
    - Emits human-readable logs and can produce JSON when called with `--json`.
    - Returns non-zero exit code when the overall health is unhealthy (suitable for CI or container health probes).
@@ -114,6 +114,12 @@ Usage examples:
 
 # JSON output for automation
 ./healthcheck.sh --json
+```
+
+or using the Python module directly:
+
+```bash
+python3 -m vpn_sentinel_common.health_scripts.healthcheck --json
 ```
 
 JSON schema (summary)
@@ -134,7 +140,7 @@ curl -sS -w "\nHTTP_STATUS:%{http_code}\n" http://localhost:8082/client/health/r
 ```
 
 Runtime & dependencies
-- The health monitor ships an embedded Flask server (Python) in `health-monitor.sh` and prefers a venv Python at `/opt/venv/bin/python3` if present. The `vpn-sentinel-client` Docker image installs `python3`, `flask`, and `jq` so the full feature set is available in-container.
+- The health monitor is implemented in Python and provides HTTP endpoints for health checking. The `vpn-sentinel-client` Docker image installs `python3`, `flask`, and other dependencies so the full feature set is available in-container.
 - If Python is not available locally, the monitor will not start; the client will still function without the monitor when `VPN_SENTINEL_HEALTH_MONITOR=false`.
 
 Configuration (environment variables)
@@ -155,7 +161,7 @@ Testing and troubleshooting
 
 ```bash
 # start the monitor in foreground
-VPN_SENTINEL_HEALTH_PORT=8082 ./health-monitor.sh
+VPN_SENTINEL_HEALTH_PORT=8082 python3 -m vpn_sentinel_common.health_scripts.health_monitor_wrapper
 # then query endpoints with curl from another shell
 curl http://localhost:8082/client/health
 ```
@@ -188,10 +194,10 @@ Notes
 
 ### Stop helper and PIDFILE
 
-The `health-monitor.sh` wrapper supports a safe `--stop` option which will read the pidfile (see `VPN_SENTINEL_HEALTH_PIDFILE`) and attempt to stop the referenced process only if it is owned by the invoking user and looks like the health monitor. This is useful for operators and CI to reliably stop a previously-started monitor:
+The health monitor wrapper supports a safe `--stop` option which will read the pidfile (see `VPN_SENTINEL_HEALTH_PIDFILE`) and attempt to stop the referenced process only if it is owned by the invoking user and looks like the health monitor. This is useful for operators and CI to reliably stop a previously-started monitor:
 
 ```bash
-VPN_SENTINEL_HEALTH_PIDFILE=/tmp/vpn-sentinel-health-monitor.pid ./health-monitor.sh --stop
+VPN_SENTINEL_HEALTH_PIDFILE=/tmp/vpn-sentinel-health-monitor.pid python3 -m vpn_sentinel_common.health_scripts.health_monitor_wrapper --stop
 ```
 
 By default the wrapper uses `/tmp/vpn-sentinel-health-monitor.pid` but you can override this path via the `VPN_SENTINEL_HEALTH_PIDFILE` environment variable (useful in tests and smoke scripts to set a predictable file location).

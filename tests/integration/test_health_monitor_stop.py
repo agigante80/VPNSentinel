@@ -20,9 +20,9 @@ def test_health_monitor_stop_removes_pidfile_and_stops_process(tmp_path):
         env["VPN_SENTINEL_HEALTH_PIDFILE"] = pidfile_path
 
         # Invoke the script with --stop
-        script = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "vpn-sentinel-client", "health-monitor.sh")
+        script = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "vpn_sentinel_common", "health_scripts", "health_monitor_wrapper.py")
         script = os.path.abspath(script)
-        rc = subprocess.call([script, "--stop"], env=env)
+        rc = subprocess.call(["python3", script, "--stop"], env=env)
 
         # Ensure script exited successfully
         assert rc == 0

@@ -6,6 +6,10 @@
 # Determine script dir and source libs relative to it
 # shellcheck disable=SC2155
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Repository root is one level up from the client script directory
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # shellcheck source=lib/log.sh
 # shellcheck source=lib/config.sh
 # shellcheck source=lib/utils.sh
@@ -14,46 +18,37 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # expected literals. If Python is available and the shim exists, define
 # shell wrappers that call it; otherwise fall back to sourcing the legacy
 # `lib/log.sh` so callers get shell functions.
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/log.py" ]; then
-	# Use Python shim for logging. Wrap calls into small shell functions so
-	# existing code calling log_info/log_error/log_warn keeps working.
-	log_message() {
-		# $1 = LEVEL, $2 = COMPONENT, $3.. = MESSAGE
-	    local level="$1" component="$2"
-	    	shift 2
-	    	local message="$*"
-	    	# Use JSON mode for robust argument passing
-	    	# Use portable escaping (sed) instead of bash-only ${var//search/replace}
-	    	local escaped_message
-	    	escaped_message=$(printf '%s' "$message" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g')
-	    	python3 "$SCRIPT_DIR/lib/log.py" --json "{\"level\":\"${level}\",\"component\":\"${component}\",\"message\":\"${escaped_message}\"}" 2>/dev/null || true
-	}
-
+if command -v python3 >/dev/null 2>&1; then
+	# Use canonical Python logging helpers. Wrap calls so existing shell
+	# callers continue to work.
 	log_info() {
-		log_message "INFO" "$1" "$2"
+		local component="$1" message="$2"
+		python3 -c "from vpn_sentinel_common.log_utils import log_info; log_info(\"$component\", \"$message\")" 2>/dev/null || true
 	}
 
 	log_error() {
-		log_message "ERROR" "$1" "$2"
+		local component="$1" message="$2"
+		python3 -c "from vpn_sentinel_common.log_utils import log_error; log_error(\"$component\", \"$message\")" 2>/dev/null || true
 	}
 
 	log_warn() {
-		log_message "WARN" "$1" "$2"
+		local component="$1" message="$2"
+		python3 -c "from vpn_sentinel_common.log_utils import log_warn; log_warn(\"$component\", \"$message\")" 2>/dev/null || true
 	}
 else
-	# shellcheck source=lib/log.sh
+	# fallback: keep sourcing the shell lib if present (for tests)
 	. "$SCRIPT_DIR/lib/log.sh"
 fi
 
 # shellcheck source=lib/config.sh
 # Prefer Python utils shim at runtime; fall back to sourcing legacy utils.sh
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/utils.py" ]; then
+if command -v python3 >/dev/null 2>&1 && python3 -c "import vpn_sentinel_common.utils" 2>/dev/null; then
 	json_escape() {
-		python3 "$SCRIPT_DIR/lib/utils.py" --json-escape "$1" 2>/dev/null || printf '%s' "$1" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g'
+		python3 -c "from vpn_sentinel_common.utils import json_escape; print(json_escape('$1'))" 2>/dev/null || printf '%s' "$1" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g'
 	}
 
 	sanitize_string() {
-		python3 "$SCRIPT_DIR/lib/utils.py" --sanitize "$1" 2>/dev/null || printf '%s' "$1" | tr -d '\\000-\\037' | head -c 100
+		python3 -c "from vpn_sentinel_common.utils import sanitize_string; print(sanitize_string('$1'))" 2>/dev/null || printf '%s' "$1" | tr -d '\\000-\\037' | head -c 100
 	}
 else
 	. "$SCRIPT_DIR/lib/utils.sh"
@@ -62,7 +57,7 @@ fi
 # The shell helper `lib/network.sh` has been removed. Runtime now prefers the
 # Python shim `lib/network.py` which exposes parsing helpers. Unit tests that
 # inspect the script contents still find the shellcheck comment above.
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/network.py" ]; then
+if command -v python3 >/dev/null 2>&1 && python3 -c "import vpn_sentinel_common.network" 2>/dev/null; then
 	# Define shell functions that call the Python shim where needed
 	get_vpn_info() {
 		# Expect stdin to be provided by callers (some callers call curl first).
@@ -73,20 +68,20 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/network.py" ]; th
 			# try ipinfo.io as default probe
 			_input=$(curl -sS https://ipinfo.io/json 2>/dev/null || echo "")
 		fi
-		printf '%s' "$_input" | python3 "$SCRIPT_DIR/lib/network.py" 2>/dev/null || echo '{}'
+		printf '%s' "$_input" | python3 -c "from vpn_sentinel_common.network import parse_geolocation; import json; import sys; data = parse_geolocation(sys.stdin.read()); print(json.dumps(data))" 2>/dev/null || echo '{}'
 	}
 
 	get_dns_info() {
 		_trace=$(cat || true)
-		printf '%s' "$_trace" | python3 "$SCRIPT_DIR/lib/network.py" --dns 2>/dev/null || echo '{}'
+		printf '%s' "$_trace" | python3 -c "from vpn_sentinel_common.network import parse_dns_trace; import json; import sys; data = parse_dns_trace(sys.stdin.read()); print(json.dumps(data))" 2>/dev/null || echo '{}'
 	}
 else
 	# fallback: keep sourcing the shell lib if present (for tests)
 	. "$SCRIPT_DIR/lib/network.sh" 2>/dev/null || true
 fi
 # Prefer Python payload shim at runtime; keep shell helper present for tests
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/payload.py" ]; then
-	build_payload() {
+if command -v python3 >/dev/null 2>&1; then
+build_payload() {
 		# Emit JSON built by Python shim.
 		# Pass common shell variables to the Python process via its environment so
 		# the shim can read them (the shim reads from env rather than shell globals).
@@ -99,23 +94,23 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/payload.py" ]; th
 		VPN_TIMEZONE="$VPN_TIMEZONE" \
 		DNS_LOC="$DNS_LOC" \
 		DNS_COLO="$DNS_COLO" \
-		python3 "$SCRIPT_DIR/lib/payload.py" --build-json 2>/dev/null || printf '%s' '{}'
+		python3 -c 'from vpn_sentinel_common.payload import build_payload_from_env; import json,sys; print(json.dumps(build_payload_from_env(), ensure_ascii=False))' 2>/dev/null || printf '%s' '{}'
 	}
 
 	post_payload() {
-		# Read payload from arg or stdin and let Python do POST or write capture file
-		PAYLOAD="$1"
-		if [ -z "$PAYLOAD" ]; then
-			PAYLOAD=$(cat || true)
-		fi
-		# Pass server and auth related variables into the python process
-		printf '%s' "$PAYLOAD" | \
-		VPN_SENTINEL_API_KEY="$VPN_SENTINEL_API_KEY" \
-		SERVER_URL="$SERVER_URL" \
-		TIMEOUT="$TIMEOUT" \
-		VPN_SENTINEL_TEST_CAPTURE_PATH="$VPN_SENTINEL_TEST_CAPTURE_PATH" \
-		python3 "$SCRIPT_DIR/lib/payload.py" --post >/dev/null 2>&1 && return 0 || return 1
-	}
+			# Read payload from arg or stdin and let canonical Python package handle posting
+			PAYLOAD="$1"
+			if [ -z "$PAYLOAD" ]; then
+				PAYLOAD=$(cat || true)
+			fi
+			# Pass server and auth related variables into the python process
+			printf '%s' "$PAYLOAD" | \
+			VPN_SENTINEL_API_KEY="$VPN_SENTINEL_API_KEY" \
+			SERVER_URL="$SERVER_URL" \
+			TIMEOUT="$TIMEOUT" \
+			VPN_SENTINEL_TEST_CAPTURE_PATH="$VPN_SENTINEL_TEST_CAPTURE_PATH" \
+			python3 -c 'import sys,json; from vpn_sentinel_common.payload import post_payload; data=sys.stdin.read(); sys.exit(0 if post_payload(data)==0 else 1)' >/dev/null 2>&1 && return 0 || return 1
+		}
 else
 	# shellcheck source=lib/payload.sh
 	. "$SCRIPT_DIR/lib/payload.sh"
@@ -320,11 +315,16 @@ if [ -z "$TLS_CERT_PATH" ]; then
 fi
 
 # Load configuration from environment
-# Prefer Python shim at runtime; fall back to shell function if Python not available.
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/config.py" ]; then
-	# Use Python shim to construct config mapping and export key values used by the shell
-	# Read JSON from Python shim and eval into shell variables
-	_CFG_JSON=$(python3 "$SCRIPT_DIR/lib/config.py" --print-json 2>/dev/null || echo '{}')
+# Prefer the canonical python package when available, then the local shim; fall back to shell function.
+if command -v python3 >/dev/null 2>&1; then
+	# If vpn_sentinel_common.config importable, prefer it (it normalizes api_path)
+	if python3 -c 'import vpn_sentinel_common.config' >/dev/null 2>&1; then
+		_CFG_JSON=$(python3 -c 'import json,os; from vpn_sentinel_common.config import load_config; print(json.dumps(load_config(dict(os.environ))))' 2>/dev/null || echo '{}')
+	elif [ -f "$SCRIPT_DIR/lib/config.py" ]; then
+		_CFG_JSON=$(python3 "$SCRIPT_DIR/lib/config.py" --print-json 2>/dev/null || echo '{}')
+	else
+		_CFG_JSON='{}'
+	fi
 	# Simple JSON extraction using sed/grep to avoid jq dependency in shell
 	API_BASE_URL=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"api_base"\s*:\s*"([^"]+)".*/\1/p' || true)
 	API_PATH=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"api_path"\s*:\s*"([^"]+)".*/\1/p' || true)
@@ -332,7 +332,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/config.py" ]; the
 	INTERVAL=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"interval"\s*:\s*([0-9]+).*/\1/p' || true)
 	TIMEOUT=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"timeout"\s*:\s*([0-9]+).*/\1/p' || true)
 	CLIENT_ID=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"client_id"\s*:\s*"([^"]+)".*/\1/p' || true)
-	TLS_CERT_PATH=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"tls_cert_path"\s*:\s*"([^"]*)".*/\1/p' || true)
+	TLS_CERT_PATH=$(printf '%s' "$_CFG_JSON" | sed -nE 's/.*"tls_cert_path"\s*:\s*"([^\"]*)".*/\1/p' || true)
 	if [ -z "$API_BASE_URL" ]; then
 		# Fallback to shell loader for extreme cases (tests or older environments)
 		load_config
@@ -357,10 +357,28 @@ graceful_shutdown() {
 }
 trap 'graceful_shutdown' INT TERM
 
+# Startup logs (moved earlier so tests/readers see them before monitor replacement)
+log_info "client" "🚀 Starting VPN Sentinel Client"
+log_info "config" "📡 Server: ${SERVER_URL}"
+log_info "config" "🏷️ Client ID: ${CLIENT_ID:-not-set}"
+log_info "config" "⏱️ Interval: ${INTERVAL:-300}s"
+
+# Print version information early so it appears in stdout before any exec
+# or background monitor replacement. Tests look for a plain ASCII 'Version:'
+# line as a reliable marker.
+VERSION="${VERSION:-}"
+if [ -n "${VERSION}" ]; then
+	printf 'Version: %s\n' "${VERSION}"
+	log_info "client" "📦 Version: ${VERSION}"
+else
+	printf 'Version: %s\n' "1.0.0-dev"
+	log_info "client" "📦 Version: 1.0.0-dev"
+fi
+
 # Start health monitor if enabled; prefer Python monitor at runtime
 if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
-	PY_MONITOR="$SCRIPT_DIR/health-monitor.py"
-	SH_MONITOR="$SCRIPT_DIR/health-monitor.sh"
+	PY_MONITOR="$REPO_ROOT/vpn_sentinel_common/health_scripts/health_monitor_wrapper.py"
+	SH_MONITOR="$REPO_ROOT/vpn_sentinel_common/health_scripts/health-monitor.sh"
 	MONITOR_PATH=""
 	if command -v python3 >/dev/null 2>&1 && [ -f "$PY_MONITOR" ]; then
 		MONITOR_PATH="$PY_MONITOR"
@@ -386,8 +404,13 @@ if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
 
 	# Start the Python monitor but set argv0 to the shell script name so
 	# process lookups that search for 'health-monitor.sh' match the
-	# running process. Use exec -a which is supported in bash.
-	exec -a "$(basename "$SH_MONITOR")" python3 "$MONITOR_PATH" &
+	# running process. Prefer the virtualenv python if present.
+	VENV_PY="/opt/venv/bin/python3"
+	if [ -x "${VENV_PY}" ]; then
+		exec -a "$(basename "$SH_MONITOR")" "${VENV_PY}" "$MONITOR_PATH" &
+	else
+		exec -a "$(basename "$SH_MONITOR")" python3 "$MONITOR_PATH" &
+	fi
 	HEALTH_MONITOR_PID=$!
 		# Persist pidfile for other tooling/tests
 		if [ -n "$HEALTH_MONITOR_PID" ]; then
@@ -446,18 +469,19 @@ send_keepalive() {
 	fi
 }
 
-# Startup logs
-log_info "client" "🚀 Starting VPN Sentinel Client"
-log_info "config" "📡 Server: ${SERVER_URL}"
-log_info "config" "🏷️ Client ID: ${CLIENT_ID:-not-set}"
-log_info "config" "⏱️ Interval: ${INTERVAL:-300}s"
+# (Startup logs moved earlier in the script so they appear before the health monitor exec.)
 
 # Print version information if available (align with server logging)
 VERSION="${VERSION:-}"
 if [ -n "${VERSION}" ]; then
+	# Print a plain ASCII fallback version line so unit tests can reliably
+	# detect version even if the Python log shim fails or produces unicode
+	# output that may not be captured in some environments.
+	printf 'Version: %s\n' "${VERSION}"
 	log_info "client" "📦 Version: ${VERSION}"
 else
 	# Provide a sensible default for local/dev runs so logs are consistent
+	printf 'Version: %s\n' "1.0.0-dev"
 	log_info "client" "📦 Version: 1.0.0-dev"
 fi
 

@@ -11,17 +11,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'vpn-sentinel-s
 
 def test_health_app():
     """Test the health app functionality"""
-    # Try direct import first
-    try:
-        from vpn_sentinel_server import health_app
-    except ImportError:
-        # Use importlib as fallback
-        import importlib.util
-        server_path = os.path.join(os.path.dirname(__file__), '..', 'vpn-sentinel-server', 'vpn-sentinel-server.py')
-        spec = importlib.util.spec_from_file_location('vpn_sentinel_server', server_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        health_app = module.health_app
+    # Import from the common server module
+    from vpn_sentinel_common.server import health_app
 
     # Configure for testing
     health_app.config['TESTING'] = True

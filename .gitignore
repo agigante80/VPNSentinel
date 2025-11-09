@@ -62,6 +62,8 @@ env/
 ENV/
 .venv/
 .venv-refactor/
+.venv-ci/
+tests/.venv-ci/
 
 # PyCharm
 .idea/

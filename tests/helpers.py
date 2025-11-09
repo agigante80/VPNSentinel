@@ -58,7 +58,7 @@ def kill_health_monitor_processes():
         pass
 
 
-def start_client_with_monitor(client_script, port, client_id='test-helper', extra_env=None, wait=4):
+def start_client_with_monitor(client_script, port, client_id='test-helper', extra_env=None, wait=4, capture_output=True):
     """Start the vpn-sentinel-client script with a health monitor on the specified port.
 
     Returns the subprocess.Popen object.
@@ -86,12 +86,19 @@ def start_client_with_monitor(client_script, port, client_id='test-helper', extr
     kill_health_monitor_processes()
     time.sleep(0.5)
 
+    if capture_output:
+        stdout = subprocess.PIPE
+        stderr = subprocess.STDOUT
+    else:
+        stdout = None
+        stderr = None
+
     proc = subprocess.Popen(
         [client_script],
         env=env,
         preexec_fn=os.setsid,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stdout=stdout,
+        stderr=stderr,
         text=True,
     )
 
