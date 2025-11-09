@@ -8,14 +8,19 @@ import os
 # In-memory storage for client status (in production this would be a database)
 client_status = {}
 
+# Get API path from environment
+API_PATH = os.getenv('VPN_SENTINEL_API_PATH', '/api/v1').strip('/')
+if not API_PATH.startswith('/'):
+    API_PATH = '/' + API_PATH
 
-@api_app.route('/api/v1/status', methods=['GET'])
+
+@api_app.route(f'{API_PATH}/status', methods=['GET'])
 def get_status():
     """Get status of all connected clients."""
     return jsonify(client_status)
 
 
-@api_app.route('/api/v1/keepalive', methods=['POST'])
+@api_app.route(f'{API_PATH}/keepalive', methods=['POST'])
 def keepalive():
     """Receive keepalive from a client."""
     try:
