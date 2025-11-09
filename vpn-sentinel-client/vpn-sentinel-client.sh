@@ -6,6 +6,10 @@
 # Determine script dir and source libs relative to it
 # shellcheck disable=SC2155
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Repository root is one level up from the client script directory
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # shellcheck source=lib/log.sh
 # shellcheck source=lib/config.sh
 # shellcheck source=lib/utils.sh
@@ -373,8 +377,8 @@ fi
 
 # Start health monitor if enabled; prefer Python monitor at runtime
 if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
-	PY_MONITOR="$SCRIPT_DIR/vpn_sentinel_common/health_scripts/health_monitor_wrapper.py"
-	SH_MONITOR="$SCRIPT_DIR/vpn_sentinel_common/health_scripts/health-monitor.sh"
+	PY_MONITOR="$REPO_ROOT/vpn_sentinel_common/health_scripts/health_monitor_wrapper.py"
+	SH_MONITOR="$REPO_ROOT/vpn_sentinel_common/health_scripts/health-monitor.sh"
 	MONITOR_PATH=""
 	if command -v python3 >/dev/null 2>&1 && [ -f "$PY_MONITOR" ]; then
 		MONITOR_PATH="$PY_MONITOR"

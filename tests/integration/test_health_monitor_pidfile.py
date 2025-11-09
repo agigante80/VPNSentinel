@@ -4,6 +4,7 @@ import subprocess
 import requests
 import tempfile
 import json
+import sys
 
 from tests.helpers import start_client_with_monitor, stop_client_process, kill_health_monitor_processes
 
@@ -66,10 +67,10 @@ def test_pidfile_cleanup_for_live_user_owned_process(tmp_path):
 
         repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
         client_script = os.path.join(repo_root, 'vpn-sentinel-client', 'vpn-sentinel-client.sh')
-        proc = start_client_with_monitor(client_script, 0, client_id='test-pidfile-live', extra_env=env, wait=4)
+        proc = start_client_with_monitor(client_script, 8082, client_id='test-pidfile-live', extra_env=env, wait=6, capture_output=False)
         try:
             # Give the wrapper a moment to detect and stop the stale monitor
-            time.sleep(2)
+            time.sleep(3)
             # After starting, pidfile should point to the wrapper pid (not the sleeper)
             assert os.path.exists(pidfile), "pidfile should exist"
             with open(pidfile, 'r') as f:
