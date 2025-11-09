@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""VPN Sentinel Health Monitor Wrapper (Python version).
+"""VPN Sentinel Health Monitor Wrapper.
 
-Replaces the shell-based health-monitor.sh with a pure Python implementation.
-Provides process management and delegates to the main health monitor.
+This wrapper manages the health monitor process and handles PID file management.
 """
 import os
 import sys
@@ -130,7 +129,7 @@ def cleanup_stale_pidfile():
                     except ProcessLookupError:
                         pass  # Process already exited
                     print(f"Terminated stale health monitor process {existing_pid}", file=sys.stderr)
-            except (subprocess.TimeoutExpired, subprocess.SubprocessError, ValueError, OSError):
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError, ValueError, OSError) as e:
                 # Process doesn't exist or other error - this is fine
                 pass
 
@@ -138,8 +137,10 @@ def cleanup_stale_pidfile():
         try:
             os.remove(pidfile)
             print(f"Removed stale PID file: {pidfile}", file=sys.stderr)
-        except OSError:
+        except OSError as e:
             pass
+    else:
+        print(f"DEBUG: PID file does not exist: {pidfile}", file=sys.stderr)
 
 
 def start_monitor():
@@ -160,7 +161,7 @@ def start_monitor():
         python_exe = venv_python if os.path.exists(venv_python) else sys.executable
 
         # Run the health monitor as a subprocess so we can manage its lifecycle
-        health_monitor_path = Path(__file__).parent / 'vpn_sentinel_common' / 'health_scripts' / 'health_monitor.py'
+        health_monitor_path = Path(__file__).parent / 'health_monitor.py'
         cmd = [python_exe, str(health_monitor_path)]
         env = os.environ.copy()
         env['PYTHONPATH'] = str(Path(__file__).parent.parent)
