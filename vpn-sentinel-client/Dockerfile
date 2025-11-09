@@ -84,7 +84,7 @@ RUN apk add --no-cache curl python3 py3-pip bash jq \
 
 # Install Flask for health monitor
 RUN python3 -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir flask \
+    && /opt/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 flask \
     && echo "✅ Python packages installed: flask"
 
 # Make sure virtual environment is in PATH
@@ -114,7 +114,7 @@ COPY vpn_sentinel_common/ /app/vpn_sentinel_common/
 
 # Install shared python package so client and server import the same codebase.
 # Using editable install keeps the code in-sync during development and CI.
-RUN python3 -m pip install --no-cache-dir -e /app
+RUN python3 -m pip install --no-cache-dir --retries 10 --timeout 60 -e /app
 
 # Ensure healthcheck script is explicitly copied for tests that inspect the Dockerfile
 COPY vpn_sentinel_common/health_scripts/healthcheck.py /app/healthcheck.py
