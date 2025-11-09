@@ -93,12 +93,51 @@ def stop_monitor():
 
 
 def cleanup_stale_pidfile():
-    """Clean up stale PID file if it exists."""
+    """Clean up stale PID file if it exists.
+
+    This function is more aggressive than the previous version:
+    - Checks if PID file exists
+    - If PID in file corresponds to a running process owned by current user, terminates it
+    - Always removes the PID file to ensure clean state
+    """
     pidfile = get_pidfile()
     if os.path.exists(pidfile):
-        # Always remove the PID file when starting fresh
+        # Read the PID from file
+        existing_pid = read_pidfile()
+        if existing_pid is not None:
+            try:
+                # Check if process exists and is owned by current user
+                current_uid = os.getuid()
+                proc_uid = subprocess.run(
+                    ['ps', '-o', 'uid=', '-p', str(existing_pid)],
+                    capture_output=True,
+                    text=True,
+                    timeout=2
+                ).stdout.strip()
+
+                if proc_uid and int(proc_uid) == current_uid:
+                    print(f"Found live process {existing_pid} in PID file, terminating...", file=sys.stderr)
+                    try:
+                        # Send TERM signal first
+                        os.kill(existing_pid, signal.SIGTERM)
+                        # Wait a bit for graceful shutdown
+                        time.sleep(0.5)
+                        # Check if still running
+                        os.kill(existing_pid, 0)
+                        # If still running, force kill
+                        os.kill(existing_pid, signal.SIGKILL)
+                        time.sleep(0.1)
+                    except ProcessLookupError:
+                        pass  # Process already exited
+                    print(f"Terminated stale health monitor process {existing_pid}", file=sys.stderr)
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError, ValueError, OSError):
+                # Process doesn't exist or other error - this is fine
+                pass
+
+        # Always remove the PID file to ensure clean state
         try:
             os.remove(pidfile)
+            print(f"Removed stale PID file: {pidfile}", file=sys.stderr)
         except OSError:
             pass
 
