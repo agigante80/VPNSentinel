@@ -36,6 +36,7 @@ def test_monitor_heartbeats_and_shutdown(tmp_path):
     env['PYTHONUNBUFFERED'] = '1'
     env['VERSION'] = 'test-ver'
     env['COMMIT_HASH'] = 'deadbeef'
+    env['PYTHONPATH'] = str(ROOT)
 
     proc = subprocess.Popen([PYTHON, str(MONITOR)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env, text=True)
 
