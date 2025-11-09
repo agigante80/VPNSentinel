@@ -138,7 +138,7 @@ run_integration_tests() {
   # For test environment, check the mapped ports from docker-compose.test.yaml
   API_CHECK_URL="http://localhost:5000${API_PATH}/health"
   HEALTH_CHECK_URL="http://localhost:8081/health"
-  TEST_API_CHECK_URL="http://localhost:15554/test/v1/health"
+  TEST_API_CHECK_URL="http://localhost:15553/health"
   TEST_HEALTH_CHECK_URL="http://localhost:15553/health"
 
   server_up=1
