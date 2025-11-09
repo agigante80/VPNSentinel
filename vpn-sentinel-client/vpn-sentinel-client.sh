@@ -38,13 +38,13 @@ fi
 
 # shellcheck source=lib/config.sh
 # Prefer Python utils shim at runtime; fall back to sourcing legacy utils.sh
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/utils.py" ]; then
+if command -v python3 >/dev/null 2>&1 && python3 -c "import vpn_sentinel_common.utils" 2>/dev/null; then
 	json_escape() {
-		python3 "$SCRIPT_DIR/lib/utils.py" --json-escape "$1" 2>/dev/null || printf '%s' "$1" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g'
+		python3 -c "from vpn_sentinel_common.utils import json_escape; print(json_escape('$1'))" 2>/dev/null || printf '%s' "$1" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g'
 	}
 
 	sanitize_string() {
-		python3 "$SCRIPT_DIR/lib/utils.py" --sanitize "$1" 2>/dev/null || printf '%s' "$1" | tr -d '\\000-\\037' | head -c 100
+		python3 -c "from vpn_sentinel_common.utils import sanitize_string; print(sanitize_string('$1'))" 2>/dev/null || printf '%s' "$1" | tr -d '\\000-\\037' | head -c 100
 	}
 else
 	. "$SCRIPT_DIR/lib/utils.sh"
@@ -53,7 +53,7 @@ fi
 # The shell helper `lib/network.sh` has been removed. Runtime now prefers the
 # Python shim `lib/network.py` which exposes parsing helpers. Unit tests that
 # inspect the script contents still find the shellcheck comment above.
-if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/network.py" ]; then
+if command -v python3 >/dev/null 2>&1 && python3 -c "import vpn_sentinel_common.network" 2>/dev/null; then
 	# Define shell functions that call the Python shim where needed
 	get_vpn_info() {
 		# Expect stdin to be provided by callers (some callers call curl first).
@@ -64,12 +64,12 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/lib/network.py" ]; th
 			# try ipinfo.io as default probe
 			_input=$(curl -sS https://ipinfo.io/json 2>/dev/null || echo "")
 		fi
-		printf '%s' "$_input" | python3 "$SCRIPT_DIR/lib/network.py" 2>/dev/null || echo '{}'
+		printf '%s' "$_input" | python3 -c "from vpn_sentinel_common.network import parse_geolocation; import json; import sys; data = parse_geolocation(sys.stdin.read()); print(json.dumps(data))" 2>/dev/null || echo '{}'
 	}
 
 	get_dns_info() {
 		_trace=$(cat || true)
-		printf '%s' "$_trace" | python3 "$SCRIPT_DIR/lib/network.py" --dns 2>/dev/null || echo '{}'
+		printf '%s' "$_trace" | python3 -c "from vpn_sentinel_common.network import parse_dns_trace; import json; import sys; data = parse_dns_trace(sys.stdin.read()); print(json.dumps(data))" 2>/dev/null || echo '{}'
 	}
 else
 	# fallback: keep sourcing the shell lib if present (for tests)
@@ -373,8 +373,8 @@ fi
 
 # Start health monitor if enabled; prefer Python monitor at runtime
 if [ "${VPN_SENTINEL_HEALTH_MONITOR:-true}" != "false" ]; then
-	PY_MONITOR="$SCRIPT_DIR/../vpn_sentinel_common/health_scripts/health_monitor_wrapper.py"
-	SH_MONITOR="$SCRIPT_DIR/../vpn_sentinel_common/health_scripts/health-monitor.sh"
+	PY_MONITOR="$SCRIPT_DIR/vpn_sentinel_common/health_scripts/health_monitor_wrapper.py"
+	SH_MONITOR="$SCRIPT_DIR/vpn_sentinel_common/health_scripts/health-monitor.sh"
 	MONITOR_PATH=""
 	if command -v python3 >/dev/null 2>&1 && [ -f "$PY_MONITOR" ]; then
 		MONITOR_PATH="$PY_MONITOR"
