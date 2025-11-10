@@ -35,12 +35,34 @@ def parse_geolocation(json_text: str, source: str = "ipinfo.io") -> Dict[str, st
 
 
 def parse_dns_trace(trace_text: str) -> Dict[str, str]:
+    """Parse DNS trace response from Cloudflare whoami service.
+    
+    Handles both formats:
+    - Single line: "fl=... ip=... loc=XX colo=YYY ..."
+    - Multi-line: loc=XX\ncolo=YYY
+    """
     out = {"loc": "", "colo": ""}
     if not trace_text:
         return out
-    for line in trace_text.splitlines():
-        if line.startswith("loc="):
-            out["loc"] = line.split("=", 1)[1]
-        elif line.startswith("colo="):
-            out["colo"] = line.split("=", 1)[1]
+    
+    # Remove quotes if present (Cloudflare returns quoted string)
+    trace_text = trace_text.strip('"')
+    
+    # Try to parse as space-separated key=value pairs (Cloudflare format)
+    for pair in trace_text.split():
+        if '=' in pair:
+            key, value = pair.split('=', 1)
+            if key == 'loc':
+                out['loc'] = value
+            elif key == 'colo':
+                out['colo'] = value
+    
+    # Also check line-by-line format (legacy compatibility)
+    if not out['loc'] and not out['colo']:
+        for line in trace_text.splitlines():
+            if line.startswith("loc="):
+                out["loc"] = line.split("=", 1)[1]
+            elif line.startswith("colo="):
+                out["colo"] = line.split("=", 1)[1]
+    
     return out
