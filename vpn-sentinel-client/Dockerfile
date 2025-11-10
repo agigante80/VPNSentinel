@@ -74,9 +74,10 @@ ENV COMMIT_HASH=${COMMIT_HASH}
 # curl: Essential for communicating with ipinfo.io, Cloudflare, and monitoring server
 # python3: Required for Flask-based health monitor
 # jq: Required for JSON processing in health monitor
-RUN apk add --no-cache curl python3 py3-pip bash jq \
+# tzdata: Required for timezone support in Python's zoneinfo module
+RUN apk add --no-cache curl python3 py3-pip bash jq tzdata \
     && echo "✅ Package installation completed" \
-    && echo "📦 Installed packages: curl, python3, py3-pip, bash, jq" \
+    && echo "📦 Installed packages: curl, python3, py3-pip, bash, jq, tzdata" \
     && curl --version \
     && python3 --version \
     && bash --version \
@@ -119,6 +120,8 @@ RUN python3 -m pip install --no-cache-dir --retries 10 --timeout 60 -e /app
 # Ensure healthcheck script is explicitly copied for tests that inspect the Dockerfile
 COPY vpn_sentinel_common/health_scripts/healthcheck.py /app/healthcheck.py
 COPY vpn_sentinel_common/health_scripts/health_monitor_wrapper.py /app/health-monitor.py
+COPY vpn-sentinel-client/vpn-sentinel-client.py /app/vpn-sentinel-client.py
+
 # NOTE: the legacy `health_common.py` shim has been migrated to the canonical
 # `vpn_sentinel_common` package and is no longer copied into the image. The
 # editable install (`pip install -e /app`) installs the canonical package so
@@ -126,11 +129,11 @@ COPY vpn_sentinel_common/health_scripts/health_monitor_wrapper.py /app/health-mo
 
 # Make the scripts executable and set proper ownership
 # Ensures the scripts can be executed by the container runtime
-RUN for f in /app/vpn-sentinel-client.sh /app/health-monitor.py /app/healthcheck.py /app/vpn_sentinel_common/health_scripts/health_monitor_wrapper.py; do \
+RUN for f in /app/vpn-sentinel-client.py /app/health-monitor.py /app/healthcheck.py /app/vpn_sentinel_common/health_scripts/health_monitor_wrapper.py; do \
             if [ -f "$f" ]; then chmod +x "$f"; fi; \
         done \
         && echo "VPN Sentinel client container built successfully" \
-        && ls -la /app/vpn-sentinel-client.sh /app/health-monitor.py /app/healthcheck.py || true
+        && ls -la /app/vpn-sentinel-client.py /app/health-monitor.py /app/healthcheck.py || true
 
 # -----------------------------------------------------------------------------
 # Working Directory and User Setup
@@ -157,10 +160,10 @@ WORKDIR /app
 # Health monitor: Dedicated health status server (port 8082)
 #
 # Alternative approaches:
-# 1. External loop: CMD ["sh", "-c", "while true; do /app/vpn-sentinel-client.sh; sleep 300; done"]
+# 1. External loop: CMD ["sh", "-c", "while true; do /app/vpn-sentinel-client.py; sleep 300; done"]
 # 2. Cron-based: Install crond and use crontab (more complex, less real-time feedback)
-# 3. Script-managed: Let vpn-sentinel-client.sh handle its own loop (current approach - recommended)
-CMD ["/app/vpn-sentinel-client.sh"]
+# 3. Script-managed: Let vpn-sentinel-client.py handle its own loop (current approach - recommended)
+CMD ["/app/vpn-sentinel-client.py"]
 
 # -----------------------------------------------------------------------------
 # Build-time Configuration
