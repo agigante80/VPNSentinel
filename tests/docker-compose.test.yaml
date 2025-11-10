@@ -8,6 +8,7 @@ services:
     ports:
       - "15554:5000"
       - "15553:5001"
+      - "18080:8080"
     networks:
       - vpn-sentinel-test
     restart: unless-stopped
