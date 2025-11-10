@@ -9,8 +9,12 @@ real E2E tests, enable them explicitly:
 """
 import os
 import subprocess
+import time
 import unittest
+from datetime import datetime, timezone
+
 import pytest
+import requests
 
 pytest.skip("Moved to tests/integration_server/ (server-dependent). Set VPN_SENTINEL_SERVER_TESTS=1 to run.", allow_module_level=True)
 
