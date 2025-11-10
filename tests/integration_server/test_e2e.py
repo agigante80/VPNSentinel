@@ -8,6 +8,8 @@ skipped by default. To run them locally enable the suite explicitly:
 
 """
 
+import os
+import unittest
 import pytest
 
 pytest.skip("Server-dependent integration tests disabled. Set VPN_SENTINEL_SERVER_TESTS=1 to enable.", allow_module_level=True)

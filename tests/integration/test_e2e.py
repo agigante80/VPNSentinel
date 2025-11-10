@@ -7,6 +7,9 @@ real E2E tests, enable them explicitly:
     pytest tests/integration_server -q
 
 """
+import os
+import subprocess
+import unittest
 import pytest
 
 pytest.skip("Moved to tests/integration_server/ (server-dependent). Set VPN_SENTINEL_SERVER_TESTS=1 to run.", allow_module_level=True)
