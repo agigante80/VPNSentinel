@@ -17,11 +17,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from vpn_sentinel_common.config import load_config
 from vpn_sentinel_common.geolocation import get_geolocation
-from vpn_sentinel_common.network import parse_geolocation, parse_dns_trace
+from vpn_sentinel_common.network import parse_dns_trace
 from vpn_sentinel_common.payload import build_payload_from_env, post_payload
 from vpn_sentinel_common.log_utils import log_info, log_warn, log_error
-from vpn_sentinel_common.monitor import Monitor
-from vpn_sentinel_common.utils import sanitize_string
 
 
 def get_dns_info() -> dict:
@@ -69,6 +67,9 @@ def send_keepalive(config: dict) -> bool:
             log_error("vpn-info", "❌ All geolocation providers failed")
             return False
 
+        # Store geolocation source for logging
+        geolocation_source = geo_data.get("source", "unknown")
+
         # Set environment variables for payload building
         os.environ["CLIENT_ID"] = config["client_id"]
         os.environ["PUBLIC_IP"] = geo_data.get("public_ip", "unknown")
@@ -99,7 +100,7 @@ def send_keepalive(config: dict) -> bool:
         if result == 0:
             log_info("api", "✅ Keepalive sent successfully")
             log_info("vpn-info", f"📍 Location: {os.environ['CITY']}, {os.environ['REGION']}, {os.environ['COUNTRY']}")
-            log_info("vpn-info", f"🌐 VPN IP: {os.environ['PUBLIC_IP']}")
+            log_info("vpn-info", f"🌐 VPN IP: {os.environ['PUBLIC_IP']} (via {geolocation_source})")
             log_info("vpn-info", f"🏢 Provider: {os.environ['ORG']}")
             log_info("vpn-info", f"🕒 Timezone: {os.environ['VPN_TIMEZONE']}")
             log_info("dns-test", f"🔒 DNS: {os.environ['DNS_LOC']} ({os.environ['DNS_COLO']})")
@@ -107,7 +108,7 @@ def send_keepalive(config: dict) -> bool:
         else:
             log_error("api", f"❌ Failed to send keepalive to {config['server_url']}")
             log_error("vpn-info", f"📍 Location: {os.environ['CITY']}, {os.environ['REGION']}, {os.environ['COUNTRY']}")
-            log_error("vpn-info", f"🌐 VPN IP: {os.environ['PUBLIC_IP']}")
+            log_error("vpn-info", f"🌐 VPN IP: {os.environ['PUBLIC_IP']} (via {geolocation_source})")
             log_error("vpn-info", f"🏢 Provider: {os.environ['ORG']}")
             log_error("vpn-info", f"🕒 Timezone: {os.environ['VPN_TIMEZONE']}")
             log_error("dns-test", f"🔒 DNS: {os.environ['DNS_LOC']} ({os.environ['DNS_COLO']})")
@@ -133,7 +134,7 @@ def start_health_monitor(config: dict) -> subprocess.Popen:
         repo_root = Path(__file__).parent.parent
         py_monitor = repo_root / "vpn_sentinel_common" / "health_scripts" / "health_monitor_wrapper.py"
         sh_monitor = repo_root / "vpn_sentinel_common" / "health_scripts" / "health-monitor.sh"
-        
+
         # Fallback to /app locations if running in container with different structure
         container_py_monitor = Path("/app/vpn_sentinel_common/health_scripts/health_monitor_wrapper.py")
         container_sh_monitor = Path("/app/vpn_sentinel_common/health_scripts/health-monitor.sh")
@@ -153,12 +154,14 @@ def start_health_monitor(config: dict) -> subprocess.Popen:
             return None
 
         # Start the monitor
-        log_info("client", f"Starting health monitor: {monitor_path}")
+        # Log the monitor name without the full container path for clarity
+        monitor_name = monitor_path.name if monitor_path else "health monitor"
+        log_info("client", f"Starting health monitor: {monitor_name}")
         if monitor_path.suffix == '.py':
             cmd = [sys.executable, str(monitor_path)]
         else:
             cmd = [str(monitor_path)]
-        
+
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
