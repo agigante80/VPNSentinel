@@ -42,3 +42,28 @@ colo=la1
     data = net.parse_dns_trace(sample)
     assert data['loc'] == 'LA'
     assert data['colo'] == 'la1'
+
+
+def test_parse_dns_trace_cloudflare_format():
+    """Test parsing Cloudflare whoami.cloudflare response format.
+    
+    Cloudflare returns a quoted string with space-separated key=value pairs.
+    Example: "fl=922f1 ip=185.170.104.53 ts=1699651483.123 loc=PL colo=WAW"
+    """
+    # Real Cloudflare format with quotes
+    cloudflare_response = '"fl=922f1 ip=185.170.104.53 ts=1699651483.123 loc=PL colo=WAW"'
+    data = net.parse_dns_trace(cloudflare_response)
+    assert data['loc'] == 'PL'
+    assert data['colo'] == 'WAW'
+    
+    # Without quotes
+    cloudflare_no_quotes = 'fl=abc ip=1.2.3.4 loc=US colo=LAX ts=123'
+    data2 = net.parse_dns_trace(cloudflare_no_quotes)
+    assert data2['loc'] == 'US'
+    assert data2['colo'] == 'LAX'
+    
+    # Edge case: only some fields present
+    partial = 'fl=xyz loc=GB'
+    data3 = net.parse_dns_trace(partial)
+    assert data3['loc'] == 'GB'
+    assert data3['colo'] == ''  # Missing field should be empty
