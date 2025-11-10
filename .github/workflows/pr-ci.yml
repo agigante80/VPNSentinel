@@ -40,7 +40,7 @@ jobs:
       - name: Quick syntax checks
         run: |
           python -m py_compile vpn-sentinel-server/vpn-sentinel-server.py
-          bash -n vpn-sentinel-client/vpn-sentinel-client.sh || true
+          python -m py_compile vpn-sentinel-client/vpn-sentinel-client.py
 
       - name: Run unit tests
         run: |

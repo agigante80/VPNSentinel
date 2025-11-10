@@ -40,11 +40,8 @@ jobs:
       - name: Check Python syntax
         run: |
           python -m py_compile vpn-sentinel-server/vpn-sentinel-server.py
+          python -m py_compile vpn-sentinel-client/vpn-sentinel-client.py
           echo "✅ Python syntax check passed"
-      - name: Check shell script syntax
-        run: |
-          bash -n vpn-sentinel-client/vpn-sentinel-client.sh
-          echo "✅ Shell script syntax check passed"
       - name: Check shell script formatting (shfmt via Docker)
         run: |
           # Collect shell script paths to check (respect .gitignore via git ls-files)
