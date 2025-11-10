@@ -93,8 +93,14 @@ def start_client_with_monitor(client_script, port, client_id='test-helper', extr
         stdout = None
         stderr = None
 
+    # If script is a Python file, run it with Python interpreter
+    if client_script.endswith('.py'):
+        cmd = ['python3', client_script]
+    else:
+        cmd = [client_script]
+    
     proc = subprocess.Popen(
-        [client_script],
+        cmd,
         env=env,
         preexec_fn=os.setsid,
         stdout=stdout,

@@ -23,14 +23,24 @@ class TestClientScript(unittest.TestCase):
             'TZ': 'UTC'
         }
         
-        # Path to client script
+        # Path to client script (legacy shell script - may not exist if replaced with Python)
         self.script_path = os.path.join(
             os.path.dirname(__file__), 
             '../../vpn-sentinel-client/vpn-sentinel-client.sh'
         )
+        
+        # Check if script exists (skip tests if shell script has been replaced with Python)
+        self.script_exists = os.path.exists(self.script_path)
+    
+    def _skip_if_no_script(self):
+        """Skip test if shell script doesn't exist (replaced with Python)"""
+        if not self.script_exists:
+            self.skipTest("Shell script has been replaced with Python implementation")
     
     def test_script_syntax(self):
         """Test that the shell script has valid syntax"""
+        self._skip_if_no_script()
+        
         try:
             # Test shell script syntax
             result = subprocess.run(
@@ -129,6 +139,8 @@ class TestClientScript(unittest.TestCase):
 
     def test_tls_certificate_handling(self):
         """Test automatic TLS certificate handling based on TLS_CERT_PATH presence"""
+        self._skip_if_no_script()
+        
         # Read the script content to verify TLS handling logic
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -513,6 +525,14 @@ class TestSecurityFeatures(unittest.TestCase):
             os.path.dirname(__file__), 
             '../../vpn-sentinel-client/vpn-sentinel-client.sh'
         )
+        
+        # Check if script exists (skip tests if shell script has been replaced with Python)
+        self.script_exists = os.path.exists(self.script_path)
+    
+    def _skip_if_no_script(self):
+        """Skip test if shell script doesn't exist (replaced with Python)"""
+        if not self.script_exists:
+            self.skipTest("Shell script has been replaced with Python implementation")
     
     def test_client_id_sanitization_basic(self):
         """Test CLIENT_ID sanitization removes basic dangerous characters"""
@@ -619,20 +639,23 @@ class TestSecurityFeatures(unittest.TestCase):
                 self.assertEqual(result.stdout.strip(), expected)
     
     def test_script_contains_security_functions(self):
-        """Test that the script contains the security functions we added"""
+        """Test that the script contains required security functions"""
+        self._skip_if_no_script()
+        
+        # Read the script content
         with open(self.script_path, 'r') as f:
-            content = f.read()
+            script_content = f.read()
         
         # Check for security functions
-        self.assertIn('json_escape()', content, "json_escape function should be present")
-        self.assertIn('sanitize_string()', content, "sanitize_string function should be present")
+        self.assertIn('json_escape()', script_content, "json_escape function should be present")
+        self.assertIn('sanitize_string()', script_content, "sanitize_string function should be present")
         
         # Check for sanitization usage
-        self.assertIn('$(sanitize_string', content, "sanitize_string should be used in parsing")
-        self.assertIn('$(json_escape', content, "json_escape should be used in JSON construction")
+        self.assertIn('$(sanitize_string', script_content, "sanitize_string should be used in parsing")
+        self.assertIn('$(json_escape', script_content, "json_escape should be used in JSON construction")
         
         # Check for CLIENT_ID sanitization
-        self.assertIn('tr \'[:upper:]\' \'[:lower:]\'', content, "CLIENT_ID sanitization should be present")
+        self.assertIn('tr \'[:upper:]\' \'[:lower:]\'', script_content, "CLIENT_ID sanitization should be present")
     
     def test_json_structure_integrity(self):
         """Test that JSON structure remains valid with escaped content"""
@@ -673,9 +696,19 @@ class TestGeolocationAndDebugFeatures(unittest.TestCase):
             os.path.dirname(__file__),
             '../../vpn-sentinel-client/vpn-sentinel-client.sh'
         )
-
+        
+        # Check if script exists (skip tests if shell script has been replaced with Python)
+        self.script_exists = os.path.exists(self.script_path)
+    
+    def _skip_if_no_script(self):
+        """Skip test if shell script doesn't exist (replaced with Python)"""
+        if not self.script_exists:
+            self.skipTest("Shell script has been replaced with Python implementation")
+    
     def test_debug_mode_configuration(self):
         """Test debug mode configuration parsing"""
+        self._skip_if_no_script()
+        
         # Read the script content to verify debug configuration
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -688,7 +721,9 @@ class TestGeolocationAndDebugFeatures(unittest.TestCase):
         self.assertIn('ℹ️ Debug mode disabled', script_content)
 
     def test_geolocation_service_validation_function(self):
-        """Test the validate_geolocation_service function logic"""
+        """Test geolocation service validation function"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -701,7 +736,9 @@ class TestGeolocationAndDebugFeatures(unittest.TestCase):
         self.assertIn('validate_geolocation_service "$GEOLOCATION_SERVICE"', script_content)
 
     def test_geolocation_service_configuration(self):
-        """Test geolocation service configuration logic"""
+        """Test geolocation service configuration"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -717,7 +754,9 @@ class TestGeolocationAndDebugFeatures(unittest.TestCase):
         self.assertIn('will try ipinfo.io first, fallback to ip-api.com', script_content)
 
     def test_debug_raw_info_logging(self):
-        """Test that debug mode includes raw VPN info logging"""
+        """Test debug raw info logging"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -732,7 +771,9 @@ class TestGeolocationAndDebugFeatures(unittest.TestCase):
         self.assertIn('if [ "$DEBUG" = "true" ]; then', script_content)
 
     def test_forced_ipinfo_io_logic(self):
-        """Test the logic for forcing ipinfo.io usage"""
+        """Test forced ipinfo.io logic"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -743,7 +784,9 @@ class TestGeolocationAndDebugFeatures(unittest.TestCase):
         self.assertIn('GEOLOCATION_SOURCE="ipinfo.io"', script_content)
 
     def test_forced_ip_api_com_logic(self):
-        """Test the logic for forcing ip-api.com usage"""
+        """Test forced ip-api.com logic"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -755,6 +798,8 @@ class TestGeolocationAndDebugFeatures(unittest.TestCase):
 
     def test_auto_mode_default_behavior(self):
         """Test that auto mode defaults to ipinfo.io first"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -767,7 +812,9 @@ class TestGeolocationAndDebugFeatures(unittest.TestCase):
         self.assertIn('ip-api.com/json 2>/dev/null || echo \'{}\'', script_content)
 
     def test_invalid_service_error_handling(self):
-        """Test error handling for invalid geolocation service values"""
+        """Test invalid service error handling"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -791,9 +838,19 @@ class TestEnvironmentVariables(unittest.TestCase):
             os.path.dirname(__file__),
             '../../vpn-sentinel-client/vpn-sentinel-client.sh'
         )
+        
+        # Check if script exists (skip tests if shell script has been replaced with Python)
+        self.script_exists = os.path.exists(self.script_path)
+
+    def _skip_if_no_script(self):
+        """Skip test if shell script doesn't exist (replaced with Python)"""
+        if not self.script_exists:
+            self.skipTest("Shell script has been replaced with Python implementation")
 
     def test_vpn_sentinel_url_default(self):
         """Test VPN_SENTINEL_URL default value"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -803,6 +860,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_vpn_sentinel_url_custom(self):
         """Test VPN_SENTINEL_URL custom value configuration"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -814,6 +873,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_vpn_sentinel_api_path_default(self):
         """Test VPN_SENTINEL_API_PATH default value"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -823,6 +884,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_vpn_sentinel_api_path_custom(self):
         """Test VPN_SENTINEL_API_PATH custom value configuration"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -834,6 +897,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_vpn_sentinel_client_id_auto_generated(self):
         """Test VPN_SENTINEL_CLIENT_ID auto-generation logic"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -844,6 +909,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_vpn_sentinel_client_id_custom(self):
         """Test VPN_SENTINEL_CLIENT_ID custom value configuration"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -853,6 +920,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_vpn_sentinel_client_id_sanitization(self):
         """Test VPN_SENTINEL_CLIENT_ID sanitization logic"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -863,6 +932,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_vpn_sentinel_api_key_not_set(self):
         """Test VPN_SENTINEL_API_KEY when not set (no auth headers)"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -872,6 +943,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_vpn_sentinel_api_key_custom(self):
         """Test VPN_SENTINEL_API_KEY custom value configuration"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -881,6 +954,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_tz_default(self):
         """Test TZ default behavior"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -891,6 +966,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_tz_custom(self):
         """Test TZ custom value configuration"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -900,6 +977,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_vpn_sentinel_tls_cert_path_not_set(self):
         """Test VPN_SENTINEL_TLS_CERT_PATH when not set"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -912,6 +991,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_vpn_sentinel_debug_default(self):
         """Test VPN_SENTINEL_DEBUG default value"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -924,6 +1005,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_vpn_sentinel_debug_enabled(self):
         """Test VPN_SENTINEL_DEBUG when set to true"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -936,6 +1019,8 @@ class TestEnvironmentVariables(unittest.TestCase):
 
     def test_vpn_sentinel_geolocation_service_default(self):
         """Test VPN_SENTINEL_GEOLOCATION_SERVICE default value"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -947,7 +1032,9 @@ class TestEnvironmentVariables(unittest.TestCase):
         self.assertIn('🌐 Geolocation service: auto', script_content)
 
     def test_vpn_sentinel_geolocation_service_custom(self):
-        """Test VPN_SENTINEL_GEOLOCATION_SERVICE custom value configuration"""
+        """Test VPN_SENTINEL_GEOLOCATION_SERVICE with custom value"""
+        self._skip_if_no_script()
+        
         # Read the script content
         with open(self.script_path, 'r') as f:
             script_content = f.read()
@@ -958,3 +1045,134 @@ class TestEnvironmentVariables(unittest.TestCase):
         # Verify forced service messages exist
         self.assertIn('🌐 Geolocation service: forced to ipinfo.io', script_content)
         self.assertIn('🌐 Geolocation service: forced to ip-api.com', script_content)
+
+    def test_vpn_sentinel_health_check_interval_default(self):
+        """Test VPN_SENTINEL_HEALTH_CHECK_INTERVAL default value"""
+        self._skip_if_no_script()
+        
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify default value is set
+        self.assertIn('HEALTH_CHECK_INTERVAL="${VPN_SENTINEL_HEALTH_CHECK_INTERVAL:-30}"', script_content)
+
+    def test_vpn_sentinel_health_check_interval_custom(self):
+        """Test VPN_SENTINEL_HEALTH_CHECK_INTERVAL with custom value"""
+        self._skip_if_no_script()
+        
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify the variable is used in HEALTH_CHECK_INTERVAL assignment
+        self.assertIn('HEALTH_CHECK_INTERVAL="${VPN_SENTINEL_HEALTH_CHECK_INTERVAL:-30}"', script_content)
+        # Verify SERVER_URL construction uses HEALTH_CHECK_INTERVAL
+        self.assertIn('SERVER_URL="${API_BASE_URL}${API_PATH}"', script_content)
+
+    def test_vpn_sentinel_keepalive_interval_default(self):
+        """Test VPN_SENTINEL_KEEPALIVE_INTERVAL default value"""
+        self._skip_if_no_script()
+        
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify default value is set
+        self.assertIn('KEEPALIVE_INTERVAL="${VPN_SENTINEL_KEEPALIVE_INTERVAL:-30}"', script_content)
+
+    def test_vpn_sentinel_keepalive_interval_custom(self):
+        """Test VPN_SENTINEL_KEEPALIVE_INTERVAL with custom value"""
+        self._skip_if_no_script()
+        
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify the variable is used in KEEPALIVE_INTERVAL assignment
+        self.assertIn('KEEPALIVE_INTERVAL="${VPN_SENTINEL_KEEPALIVE_INTERVAL:-30}"', script_content)
+
+    def test_vpn_sentinel_server_host_default(self):
+        """Test VPN_SENTINEL_SERVER_HOST default value"""
+        self._skip_if_no_script()
+        
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify default value is set
+        self.assertIn('SERVER_HOST="${VPN_SENTINEL_SERVER_HOST:-localhost}"', script_content)
+
+    def test_vpn_sentinel_server_host_custom(self):
+        """Test VPN_SENTINEL_SERVER_HOST with custom value"""
+        self._skip_if_no_script()
+        
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify the variable is used in SERVER_HOST assignment
+        self.assertIn('SERVER_HOST="${VPN_SENTINEL_SERVER_HOST:-localhost}"', script_content)
+        # Verify SERVER_URL construction uses SERVER_HOST
+        self.assertIn('SERVER_URL="${API_BASE_URL}${API_PATH}"', script_content)
+
+    def test_vpn_sentinel_server_port_default(self):
+        """Test VPN_SENTINEL_SERVER_PORT default value"""
+        self._skip_if_no_script()
+        
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify default value is set
+        self.assertIn('SERVER_PORT="${VPN_SENTINEL_SERVER_PORT:-51820}"', script_content)
+
+    def test_vpn_sentinel_server_port_custom(self):
+        """Test VPN_SENTINEL_SERVER_PORT with custom value"""
+        self._skip_if_no_script()
+        
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify the variable is used in SERVER_PORT assignment
+        self.assertIn('SERVER_PORT="${VPN_SENTINEL_SERVER_PORT:-51820}"', script_content)
+
+    def test_vpn_sentinel_telegram_chat_id_custom(self):
+        """Test VPN_SENTINEL_TELEGRAM_CHAT_ID with custom value"""
+        self._skip_if_no_script()
+        
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify the variable is used in TELEGRAM_CHAT_ID assignment
+        self.assertIn('TELEGRAM_CHAT_ID="${VPN_SENTINEL_TELEGRAM_CHAT_ID:-}"', script_content)
+        # Verify notification logic uses TELEGRAM_CHAT_ID
+        self.assertIn('curl -s -X POST', script_content)
+        self.assertIn('--data "chat_id=$TELEGRAM_CHAT_ID"', script_content)
+
+    def test_vpn_sentinel_telegram_token_default(self):
+        """Test VPN_SENTINEL_TELEGRAM_TOKEN default value"""
+        self._skip_if_no_script()
+        
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify default value is set
+        self.assertIn('TELEGRAM_TOKEN="${VPN_SENTINEL_TELEGRAM_TOKEN:-}"', script_content)
+
+        # Verify notification logic uses TELEGRAM_TOKEN
+        self.assertIn('--data "token=$TELEGRAM_TOKEN"', script_content)
+
+    def test_vpn_sentinel_telegram_token_custom(self):
+        """Test VPN_SENTINEL_TELEGRAM_TOKEN with custom value"""
+        self._skip_if_no_script()
+        
+        # Read the script content
+        with open(self.script_path, 'r') as f:
+            script_content = f.read()
+
+        # Verify the variable is used in TELEGRAM_TOKEN assignment
+        self.assertIn('TELEGRAM_TOKEN="${VPN_SENTINEL_TELEGRAM_TOKEN:-}"', script_content)

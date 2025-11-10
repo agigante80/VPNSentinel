@@ -39,21 +39,15 @@ def log_message(level: str, component: str, message: str) -> None:
 
 
 def log_info(component: str, msg: str) -> None:
-    _configure_once()
-    # Also print to stdout to preserve legacy behaviour used by tests
-    print(f"INFO [{component}] {msg}", flush=True)
-    std_logging.info(f"{component} | {msg}")
+    """Log info message with timestamp."""
+    log_message("INFO", component, msg)
 
 
 def log_error(component: str, msg: str) -> None:
-    _configure_once()
-    # Also print to stdout to preserve legacy behaviour used by tests
-    print(f"ERROR [{component}] {msg}", flush=True)
-    std_logging.error(f"{component} | {msg}")
+    """Log error message with timestamp."""
+    log_message("ERROR", component, msg)
 
 
 def log_warn(component: str, msg: str) -> None:
-    _configure_once()
-    # Also print to stdout to preserve legacy behaviour used by tests
-    print(f"WARN [{component}] {msg}", flush=True)
-    std_logging.warning(f"{component} | {msg}")
+    """Log warning message with timestamp."""
+    log_message("WARN", component, msg)

@@ -70,11 +70,11 @@ run_syntax_checks() {
     return 1
   fi
 
-  # Check shell script syntax
-  if bash -n "$PROJECT_ROOT/vpn-sentinel-client/vpn-sentinel-client.sh"; then
-    echo -e "${GREEN}✅ Client shell script syntax OK${NC}"
+  # Check Python client syntax
+  if python3 -m py_compile "$PROJECT_ROOT/vpn-sentinel-client/vpn-sentinel-client.py"; then
+    echo -e "${GREEN}✅ Client Python script syntax OK${NC}"
   else
-    echo -e "${RED}❌ Client shell script syntax error${NC}"
+    echo -e "${RED}❌ Client Python script syntax error${NC}"
     return 1
   fi
 
