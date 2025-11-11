@@ -1,7 +1,7 @@
 """Telegram bot command handlers for VPN Sentinel."""
 from . import telegram
 from .log_utils import log_info
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def format_time_ago(iso_string: str) -> str:
@@ -15,7 +15,7 @@ def format_time_ago(iso_string: str) -> str:
     """
     try:
         last_seen = datetime.fromisoformat(iso_string.replace('Z', '+00:00'))
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         delta = now - last_seen
         minutes = int(delta.total_seconds() / 60)
 
@@ -45,7 +45,8 @@ def handle_ping(chat_id: str, message_text: str) -> None:
     from .api_routes import client_status
 
     active_count = len(client_status)
-    server_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+    """Handle /ping command - Show bot status."""
+    server_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
 
     response = f"""🏓 <b>Pong!</b>
 
@@ -71,7 +72,7 @@ def handle_status(chat_id: str, message_text: str) -> None:
 
 No active VPN clients connected.
 
-Server time: """ + datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+Server time: """ + datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
         telegram.send_telegram_message(response)
         return
 
@@ -89,7 +90,7 @@ Server time: """ + datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
 
 """
 
-    response += "\nServer time: " + datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+    response += "\nServer time: " + datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
 
     telegram.send_telegram_message(response)
 

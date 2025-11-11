@@ -51,7 +51,7 @@ def keepalive():
             return jsonify({'error': 'client_id is required'}), 400
 
         # Extract client info (handle both flat and nested formats)
-        from datetime import datetime
+        from datetime import datetime, timezone
         vpn_ip = data.get('public_ip') or data.get('ip', 'unknown')
 
         # Extract location (nested or flat)
@@ -89,7 +89,7 @@ def keepalive():
 
         # Update client status
         client_status[client_id] = {
-            'last_seen': datetime.utcnow().isoformat(),
+            'last_seen': datetime.now(timezone.utc).isoformat(),
             'ip': vpn_ip,
             'location': f"{city}, {region}, {country}",
             'provider': provider,
@@ -130,7 +130,7 @@ def keepalive():
         return jsonify({
             'status': 'ok',
             'message': 'Keepalive received',
-            'server_time': datetime.utcnow().isoformat()
+            'server_time': datetime.now(timezone.utc).isoformat()
         })
 
     except Exception as e:

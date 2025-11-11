@@ -3,7 +3,7 @@ import requests
 import os
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Callable
 from .log_utils import log_info, log_error, log_warn
 
@@ -67,7 +67,7 @@ def format_datetime(dt: Optional[datetime] = None) -> str:
         Formatted string like "2025-10-21 10:10:13 UTC"
     """
     if dt is None:
-        dt = datetime.utcnow()
+        dt = datetime.now(timezone.utc)
     return dt.strftime('%Y-%m-%d %H:%M:%S UTC')
 
 
