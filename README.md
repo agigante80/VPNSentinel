@@ -198,15 +198,44 @@ services:
     restart: unless-stopped
 ```
 
+#### **Client Configuration Options**
+
+| Environment Variable | Required | Default | Description |
+|---------------------|----------|---------|-------------|
+| `VPN_SENTINEL_URL` | ✅ | - | Server base URL (e.g., `http://server:5000`) |
+| `VPN_SENTINEL_CLIENT_ID` | ❌ | auto-generated | Unique client identifier (e.g., `office-vpn`) |
+| `VPN_SENTINEL_API_KEY` | ✅ | - | Authentication key (must match server) |
+| `VPN_SENTINEL_API_PATH` | ❌ | `/api/v1` | API path prefix |
+| `VPN_SENTINEL_INTERVAL` | ❌ | `300` | Keepalive interval in seconds (5 minutes) |
+| `VPN_SENTINEL_TIMEOUT` | ❌ | `30` | HTTP request timeout in seconds |
+| `VPN_SENTINEL_GEOLOCATION_SERVICE` | ❌ | `auto` | Geolocation provider (`auto`, `ipinfo.io`, `ip-api.com`, `ipwhois.app`) |
+| `VPN_SENTINEL_HEALTH_MONITOR` | ❌ | `true` | Enable dedicated health monitor process |
+| `VPN_SENTINEL_ALLOW_INSECURE` | ❌ | `false` | Allow insecure HTTPS connections (not recommended) |
+| `VPN_SENTINEL_TLS_CERT_PATH` | ❌ | - | Path to custom TLS certificate for HTTPS |
+| `VPN_SENTINEL_DEBUG` | ❌ | `false` | Enable debug logging |
+| `IPINFO_API_TOKEN` | ❌ | - | Optional ipinfo.io API token for higher rate limits |
+| `TZ` | ❌ | `UTC` | System timezone for log timestamps |
+
 #### **Server Configuration Options**
 
 | Environment Variable | Required | Default | Description |
 |---------------------|----------|---------|-------------|
 | `VPN_SENTINEL_API_KEY` | ✅ | - | Authentication key (must match clients) |
+| `VPN_SENTINEL_SERVER_API_PORT` | ❌ | `5000` | API server port |
+| `VPN_SENTINEL_SERVER_HEALTH_PORT` | ❌ | `8081` | Health check server port |
+| `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | ❌ | `8080` | Web dashboard server port |
+| `VPN_SENTINEL_API_PATH` | ❌ | `/api/v1` | API path prefix |
+| `VPN_SENTINEL_SERVER_RATE_LIMIT` | ❌ | `30` | API rate limit (requests per minute) |
+| `VPN_SENTINEL_SERVER_CHECK_INTERVAL` | ❌ | `60` | Client check interval in seconds |
+| `VPN_SENTINEL_SERVER_OFFLINE_THRESHOLD` | ❌ | `300` | Mark client offline after N seconds |
+| `VPN_SENTINEL_WEB_DASHBOARD_ENABLED` | ❌ | `true` | Enable web dashboard |
+| `VPN_SENTINEL_SERVER_ALLOWED_IPS` | ❌ | - | IP whitelist (comma-separated, CIDR notation) |
+| `VPN_SENTINEL_SERVER_IP_WHITELIST_ENABLED` | ❌ | `false` | Enable IP whitelisting |
+| `VPN_SENTINEL_TLS_CERT_PATH` | ❌ | - | Path to TLS certificate for HTTPS |
+| `VPN_SENTINEL_TLS_KEY_PATH` | ❌ | - | Path to TLS private key for HTTPS |
 | `TELEGRAM_BOT_TOKEN` | ❌ | - | Telegram bot token for notifications |
 | `TELEGRAM_CHAT_ID` | ❌ | - | Telegram chat ID for notifications |
-| `VPN_SENTINEL_SERVER_ALLOWED_IPS` | ❌ | - | IP whitelist (CIDR notation) |
-| `API_RATE_LIMIT` | ❌ | `30/minute` | API rate limiting |
+| `VPN_SENTINEL_TELEGRAM_ENABLED` | ❌ | `false` | Enable Telegram notifications (auto-enabled if token provided) |
 | `FLASK_ENV` | ❌ | `production` | Flask environment (`development`/`production`) |
 | `TZ` | ❌ | `UTC` | System timezone |
 | `LOG_LEVEL` | ❌ | `INFO` | Logging level (`DEBUG`/`INFO`/`WARNING`/`ERROR`) |
