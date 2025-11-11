@@ -55,14 +55,16 @@ def keepalive():
         vpn_ip = data.get('public_ip') or data.get('ip', 'unknown')
 
         # Extract location (nested or flat)
-        location = data.get('location', {})
-        if isinstance(location, dict):
+        location = data.get('location')
+        if location and isinstance(location, dict) and 'country' in location:
+            # Nested format
             country = location.get('country', 'unknown')
             city = location.get('city', 'unknown')
             region = location.get('region', 'unknown')
             provider = location.get('org', 'unknown')
             timezone_str = location.get('timezone', 'unknown')
         else:
+            # Flat format
             country = data.get('country', 'unknown')
             city = data.get('city', 'unknown')
             region = data.get('region', 'unknown')
@@ -70,11 +72,13 @@ def keepalive():
             timezone_str = data.get('timezone', 'unknown')
 
         # Extract DNS test (nested or flat)
-        dns_test = data.get('dns_test', {})
-        if isinstance(dns_test, dict):
+        dns_test = data.get('dns_test')
+        if dns_test and isinstance(dns_test, dict) and 'location' in dns_test:
+            # Nested format
             dns_loc = dns_test.get('location', 'Unknown')
             dns_colo = dns_test.get('colo', 'Unknown')
         else:
+            # Flat format
             dns_loc = data.get('dns_loc', 'Unknown')
             dns_colo = data.get('dns_colo', 'Unknown')
 
