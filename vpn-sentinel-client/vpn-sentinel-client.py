@@ -40,9 +40,40 @@ def get_dns_info() -> dict:
         if result.returncode == 0 and result.stdout.strip():
             # Parse the DNS response
             trace_text = result.stdout.strip()
-            return parse_dns_trace(trace_text)
+            log_info('dns-test', f"Using 'dig' output: {trace_text}")
+            parsed = parse_dns_trace(trace_text)
+            log_info('dns-test', f"Parsed DNS info: {parsed}")
+            return parsed
 
     except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+        pass
+
+    # If dig is not available or failed, fall back to HTTP trace endpoint
+    # Cloudflare provides a trace endpoint that returns similar key=value pairs
+    # Example response: "fl=... ip=... ts=... loc=PL colo=WAW"
+    try:
+        import requests
+
+        # Prefer the 1.1.1.1 endpoint if reachable, otherwise use cloudflare.com
+        urls = [
+            "https://1.1.1.1/cdn-cgi/trace",
+            "https://www.cloudflare.com/cdn-cgi/trace"
+        ]
+        for url in urls:
+            try:
+                resp = requests.get(url, timeout=5)
+                if resp.status_code == 200 and resp.text:
+                    trace_text = resp.text.strip()
+                    log_info('dns-test', f"Using HTTP fallback ({url}): {trace_text}")
+                    parsed = parse_dns_trace(trace_text)
+                    log_info('dns-test', f"Parsed DNS info (HTTP): {parsed}")
+                    return parsed
+            except Exception as e:
+                log_warn('dns-test', f"HTTP fallback failed for {url}: {e}")
+                continue
+    except Exception as e:
+        # requests not available or other error - fall through to unknown
+        log_warn('dns-test', f"Requests not available for HTTP fallback: {e}")
         pass
 
     # Fallback: return empty dict
