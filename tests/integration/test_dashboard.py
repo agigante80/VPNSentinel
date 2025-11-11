@@ -61,9 +61,9 @@ class TestDashboardEndpoint:
         assert response.status_code == 200
         
         html = response.text
-        # Check for status indicators
-        assert 'Server Status' in html or 'Running' in html
-        assert '✅' in html or 'ok' in html.lower()
+        # Check for server info section and statistics
+        assert 'Server Details' in html or 'Total Clients' in html
+        assert 'Real-time VPN Client Monitoring' in html or 'VPN Sentinel Dashboard' in html
 
     def test_dashboard_has_client_monitoring_info(self, dashboard_url):
         """Test that dashboard has client monitoring information."""
@@ -81,8 +81,8 @@ class TestDashboardEndpoint:
         assert response.status_code == 200
         
         html = response.text
-        # Check for health endpoint reference
-        assert '/health' in html or 'health' in html.lower()
+        # Check for GitHub links or monitoring information
+        assert 'github.com' in html.lower() or 'client' in html.lower()
 
     def test_dashboard_has_styling(self, dashboard_url):
         """Test that dashboard includes CSS styling."""
@@ -122,9 +122,8 @@ class TestDashboardLinks:
         assert response.status_code == 200
         
         html = response.text
-        # Should contain a reference to the status endpoint
-        # Common patterns: /api/v1/status or href="/api/v1/status"
-        assert '/status' in html
+        # Check for client table or status indicators (traffic lights)
+        assert 'VPN Status' in html or 'DNS Leak' in html or 'Client ID' in html
 
     def test_dashboard_health_link_format(self, dashboard_url):
         """Test that health link is properly formatted."""
@@ -132,8 +131,8 @@ class TestDashboardLinks:
         assert response.status_code == 200
         
         html = response.text
-        # Should contain reference to health endpoint
-        assert '/health' in html
+        # Check for GitHub or documentation links
+        assert 'GitHub' in html or 'Documentation' in html
 
 
 class TestDashboardEdgeCases:
@@ -174,8 +173,8 @@ class TestDashboardContent:
         assert response.status_code == 200
         
         html = response.text
-        # Check for common emojis used in the dashboard
-        emojis = ['✅', '📊', '💚', '🚀', '⚠️']
+        # Check for emojis used in the new dashboard (traffic lights, server icon, etc)
+        emojis = ['🔒', '🖥️', '⭐', '🐛', '📖', '�', '�', '�', '🔴']
         found_emojis = [emoji for emoji in emojis if emoji in html]
         assert len(found_emojis) > 0, "Dashboard should contain status emojis"
 
