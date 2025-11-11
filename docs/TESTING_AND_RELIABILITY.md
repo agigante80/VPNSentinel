@@ -28,10 +28,17 @@ VPN Sentinel follows a **test-first reliability approach**:
 ```
 tests/
 ├── unit/                     # Unit tests (fast, isolated)
+│   ├── test_api_routes.py    # API keepalive/status endpoints (13 tests)
+│   ├── test_dashboard_routes.py  # Dashboard rendering (13 tests)
+│   ├── test_server_info.py   # Server IP detection (14 tests)
+│   ├── test_health_routes.py # Health check endpoints (4 tests)
+│   ├── test_geolocation.py   # Geolocation APIs (21 tests)
+│   ├── test_payload.py       # Client payload building (17 tests)
+│   ├── test_security.py      # Rate limiting & IP whitelist (15 tests)
+│   ├── test_utils.py         # Utility functions (21 tests)
 │   ├── test_server.py        # Server logic tests
 │   ├── test_client.py        # Client logic tests
 │   ├── test_common_logging.py
-│   ├── test_common_geolocation.py
 │   └── test_common_network_edgecases.py
 │
 ├── integration/              # Integration tests (slower, real services)
@@ -43,7 +50,7 @@ tests/
 │
 ├── fixtures/                 # Test data and helpers
 │   ├── sample_data.py        # Mock responses
-│   └── dummy_server.py       # Mock server for testing
+│   └── test_server.py       # Mock server for testing
 │
 ├── conftest.py               # Pytest configuration
 ├── pytest.ini                # Pytest settings
@@ -55,7 +62,7 @@ tests/
 
 ## Test Categories
 
-### 1. Unit Tests (115 tests)
+### 1. Unit Tests (233+ tests)
 
 **Purpose**: Test individual functions and classes in isolation
 
@@ -186,22 +193,38 @@ python3 -m flake8 --max-line-length=120 vpn_sentinel_common/
 
 ## Test Coverage
 
-### Current Coverage (as of 2025-01-15)
+### Current Coverage (as of 2025-01-16)
 
 | Module | Lines | Coverage | Status |
 |--------|-------|----------|--------|
-| `vpn_sentinel_common/logging.py` | 45 | 92% | ✅ Good |
-| `vpn_sentinel_common/geolocation.py` | 78 | 85% | ✅ Good |
-| `vpn_sentinel_common/network.py` | 62 | 89% | ✅ Good |
-| `vpn-sentinel-server.py` | 450 | 71% | ⚠️ Needs improvement |
-| `vpn-sentinel-client.py` | 320 | 68% | ⚠️ Needs improvement |
+| **High Coverage (90%+)** |
+| `vpn_sentinel_common/api_routes.py` | 67 | 99% | ✅ Excellent |
+| `vpn_sentinel_common/server_info.py` | 62 | 98% | ✅ Excellent |
+| `vpn_sentinel_common/geolocation.py` | 51 | 96% | ✅ Excellent |
+| `vpn_sentinel_common/payload.py` | 63 | 94% | ✅ Excellent |
+| `vpn_sentinel_common/log_utils.py` | 21 | 90% | ✅ Good |
+| `vpn_sentinel_common/security.py` | 27 | 100% | ✅ Excellent |
+| `vpn_sentinel_common/utils.py` | 25 | 100% | ✅ Excellent |
+| `vpn_sentinel_common/health_routes.py` | 13 | 100% | ✅ Excellent |
+| `vpn_sentinel_common/dashboard_routes.py` | 61 | ~95% | ✅ Excellent |
+| **Needs Improvement** |
+| `vpn_sentinel_common/telegram.py` | 145 | 16% | ⚠️ Needs work |
+| `vpn_sentinel_common/health.py` | 178 | 0% | ❌ Critical |
+| `vpn_sentinel_common/config.py` | 45 | 0% | ❌ Critical |
+| `vpn_sentinel_common/monitor.py` | 45 | 0% | ❌ Critical |
+| `vpn_sentinel_common/validation.py` | 49 | 0% | ❌ Critical |
 
-**Overall Coverage**: 78%
+**Overall Coverage**: 34% (668 of 1019 lines uncovered)
+
+**Recent Improvements**:
+- Added 118 new unit tests across 8 modules
+- Improved 9 modules from 0-41% to 90-100% coverage
+- Fixed critical JSON parsing bug in api_routes.py
 
 **Coverage Goals**:
-- Common library: >85% (currently 88% ✅)
-- Server: >75% (currently 71% ⚠️)
-- Client: >70% (currently 68% ⚠️)
+- Common library: >85% (partially achieved, 9/20 modules ✅)
+- Server: >75% (in progress)
+- Client: >70% (pending)
 
 ### View Coverage Report
 

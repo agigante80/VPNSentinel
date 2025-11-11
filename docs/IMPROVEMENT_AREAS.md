@@ -10,24 +10,35 @@ This document tracks **known issues, technical debt, and potential improvements*
 
 ### 1. Server Coverage Below Target
 
-**Issue**: Server code coverage at 71%, below 75% target
+**Issue**: Server code coverage needs improvement
 
 **Impact**: High  
 **Effort**: Medium  
-**Status**: Open
+**Status**: In Progress
 
 **Details**:
-- `vpn-sentinel-server.py` has insufficient test coverage
-- Critical paths like Telegram polling need more tests
-- Error handling paths often uncovered
+- ✅ **Resolved**: 9 core modules improved from 0-41% to 90-100% coverage
+- ✅ Added 118 new unit tests across 8 test files
+- ✅ Fixed critical JSON parsing bug in `api_routes.py`
+- ⚠️ **Remaining**: 11 modules still at 0% or low coverage (config, health, monitor, telegram modules, validation, etc.)
 
-**Proposed Solution**:
-- Add unit tests for Telegram bot logic
-- Test client monitoring background thread
-- Add integration tests for full keepalive flow
-- Mock external API calls properly
+**Progress**:
+- api_routes.py: 0% → 99% (13 tests added)
+- server_info.py: 8% → 98% (14 tests added)
+- geolocation.py: 25% → 96% (21 tests added)
+- payload.py: 41% → 94% (17 tests added)
+- security.py: 0% → 100% (15 tests added)
+- utils.py: 0% → 100% (21 tests added)
+- health_routes.py: 0% → 100% (4 tests added)
+- dashboard_routes.py: 0% → ~95% (13 tests added)
+- log_utils.py: 81% → 90%
 
-**Related**: See `TESTING_AND_RELIABILITY.md` for coverage targets
+**Next Steps**:
+- Add tests for telegram.py, health.py, monitor.py
+- Add tests for config.py, validation.py, version.py
+- Resolve dashboard_routes import conflict for accurate measurement
+
+**Related**: See `TESTING_AND_RELIABILITY.md` for current coverage details
 
 ---
 
