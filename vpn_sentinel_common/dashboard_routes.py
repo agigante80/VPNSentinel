@@ -50,6 +50,9 @@ def dashboard():
     server_provider = server_info.get('provider', 'Unknown')
     dns_status = server_info.get('dns_status', 'Unknown')
     
+    # Get version
+    version = os.getenv('VPN_SENTINEL_VERSION', 'dev')
+    
     # Get client statistics
     total_clients = len(client_status)
     online_clients = sum(1 for c in client_status.values() if c)
@@ -365,6 +368,27 @@ def dashboard():
                 border-top: 1px solid #eee;
             }}
             
+            .footer a {{
+                color: #3498db;
+                text-decoration: none;
+                font-weight: 600;
+            }}
+            
+            .footer a:hover {{
+                text-decoration: underline;
+            }}
+            
+            .version-badge {{
+                display: inline-block;
+                background: #3498db;
+                color: white;
+                padding: 4px 10px;
+                border-radius: 12px;
+                font-size: 0.85em;
+                font-weight: bold;
+                margin: 0 5px;
+            }}
+            
             .legend {{
                 display: flex;
                 justify-content: center;
@@ -500,7 +524,22 @@ def dashboard():
             </div>
             
             <div class="footer">
-                <p>VPN Sentinel Server | Server Time: {current_time} | Dashboard Port: 8080</p>
+                <p>
+                    🔒 <strong>VPN Sentinel</strong> <span class="version-badge">v{version}</span> | 
+                    Server Time: {current_time} | 
+                    Dashboard Port: 8080
+                </p>
+                <p style="margin-top: 10px;">
+                    <a href="https://github.com/agigante80/VPNSentinel" target="_blank" rel="noopener noreferrer">
+                        ⭐ View on GitHub
+                    </a> | 
+                    <a href="https://github.com/agigante80/VPNSentinel/issues" target="_blank" rel="noopener noreferrer">
+                        🐛 Report Issue
+                    </a> | 
+                    <a href="https://github.com/agigante80/VPNSentinel/blob/main/README.md" target="_blank" rel="noopener noreferrer">
+                        📖 Documentation
+                    </a>
+                </p>
             </div>
         </div>
         
