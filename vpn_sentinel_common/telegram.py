@@ -116,7 +116,8 @@ Time: {format_datetime()}
 def notify_client_connected(client_id: str, vpn_ip: str, location: str,
                             city: str, region: str, country: str,
                             provider: str, timezone: str,
-                            dns_loc: str = "Unknown", dns_colo: str = "Unknown") -> bool:
+                            dns_loc: str = "Unknown", dns_colo: str = "Unknown",
+                            server_ip: str = "Unknown") -> bool:
     """Send notification when a VPN client connects.
 
     Args:
@@ -130,17 +131,45 @@ def notify_client_connected(client_id: str, vpn_ip: str, location: str,
         timezone: Timezone string
         dns_loc: DNS location code
         dns_colo: DNS colocation server
+        server_ip: Server's public IP for comparison
 
     Returns:
         True if notification sent successfully
     """
-    # Determine DNS leak status
-    dns_status = "✅ No DNS leak detected" if dns_loc != "Unknown" else "❓ DNS leak test inconclusive"
+    # Check for VPN bypass (same IP as server)
+    if vpn_ip == server_ip or vpn_ip == "unknown" or vpn_ip == "Unknown":
+        status_emoji = "🔴"
+        status_text = "<b>⚠️ VPN BYPASS DETECTED!</b>"
+        status_detail = "Client IP matches server IP - VPN is NOT working!"
+        dns_status = "🔴 Unable to verify - VPN not active"
+    else:
+        # VPN is working, check DNS leak
+        dns_leak = (dns_loc != "Unknown" and country != "Unknown" and dns_loc != country)
+        
+        if dns_leak:
+            status_emoji = "🟡"
+            status_text = "<b>⚠️ DNS Leak Detected</b>"
+            status_detail = f"VPN is active but DNS queries leak to: {dns_loc}"
+            dns_status = "🟡 DNS leak detected"
+        elif dns_loc == "Unknown":
+            status_emoji = "🟡"
+            status_text = "<b>⚠️ DNS Test Inconclusive</b>"
+            status_detail = "VPN is active but DNS status could not be verified"
+            dns_status = "❓ DNS leak test inconclusive"
+        else:
+            status_emoji = "🟢"
+            status_text = "<b>✅ Secure Connection</b>"
+            status_detail = "VPN is active and no DNS leak detected"
+            dns_status = "✅ No DNS leak detected"
 
-    message = f"""✅ <b>VPN Connected!</b>
+    message = f"""{status_emoji} <b>VPN Connected!</b>
+
+{status_text}
+{status_detail}
 
 Client: <code>{client_id}</code>
 VPN IP: <code>{vpn_ip}</code>
+Server IP: <code>{server_ip}</code>
 📍 Location: {city}, {region}, {country}
 🏢 Provider: {provider}
 🕒 VPN Timezone: {timezone}
@@ -157,7 +186,8 @@ DNS Server: {dns_colo}
 def notify_ip_changed(client_id: str, old_ip: str, new_ip: str,
                       city: str, region: str, country: str,
                       provider: str, timezone: str,
-                      dns_loc: str = "Unknown", dns_colo: str = "Unknown") -> bool:
+                      dns_loc: str = "Unknown", dns_colo: str = "Unknown",
+                      server_ip: str = "Unknown") -> bool:
     """Send notification when a client's VPN IP changes.
 
     Args:
@@ -171,18 +201,46 @@ def notify_ip_changed(client_id: str, old_ip: str, new_ip: str,
         timezone: Timezone string
         dns_loc: DNS location code
         dns_colo: DNS colocation server
+        server_ip: Server's public IP for comparison
 
     Returns:
         True if notification sent successfully
     """
-    # Determine DNS leak status
-    dns_status = "✅ No DNS leak detected" if dns_loc != "Unknown" else "❓ DNS leak test inconclusive"
+    # Check for VPN bypass (same IP as server)
+    if new_ip == server_ip or new_ip == "unknown" or new_ip == "Unknown":
+        status_emoji = "🔴"
+        status_text = "<b>⚠️ VPN BYPASS DETECTED!</b>"
+        status_detail = "Client IP matches server IP - VPN is NOT working!"
+        dns_status = "🔴 Unable to verify - VPN not active"
+    else:
+        # VPN is working, check DNS leak
+        dns_leak = (dns_loc != "Unknown" and country != "Unknown" and dns_loc != country)
+        
+        if dns_leak:
+            status_emoji = "🟡"
+            status_text = "<b>⚠️ DNS Leak Detected</b>"
+            status_detail = f"VPN is active but DNS queries leak to: {dns_loc}"
+            dns_status = "🟡 DNS leak detected"
+        elif dns_loc == "Unknown":
+            status_emoji = "🟡"
+            status_text = "<b>⚠️ DNS Test Inconclusive</b>"
+            status_detail = "VPN is active but DNS status could not be verified"
+            dns_status = "❓ DNS leak test inconclusive"
+        else:
+            status_emoji = "🟢"
+            status_text = "<b>✅ Secure Connection</b>"
+            status_detail = "VPN is active and no DNS leak detected"
+            dns_status = "✅ No DNS leak detected"
 
-    message = f"""🔄 <b>VPN IP Changed!</b>
+    message = f"""{status_emoji} <b>VPN IP Changed!</b>
+
+{status_text}
+{status_detail}
 
 Previous IP: <code>{old_ip}</code>
 Client: <code>{client_id}</code>
 VPN IP: <code>{new_ip}</code>
+Server IP: <code>{server_ip}</code>
 📍 Location: {city}, {region}, {country}
 🏢 Provider: {provider}
 🕒 VPN Timezone: {timezone}
