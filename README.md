@@ -341,7 +341,88 @@ curl -H "Authorization: Bearer ${API_KEY}" \
 
 Both client and server include Docker HEALTHCHECK instructions for automatic container health monitoring.
 
-## 📚 Documentation & Support
+## � Web Dashboard
+
+VPN Sentinel includes a modern, real-time web dashboard for visualizing your VPN connections and monitoring their health status.
+
+### **Accessing the Dashboard**
+
+The dashboard is available at:
+```
+http://your-server-ip:8080/dashboard
+```
+
+By default, the dashboard runs on **port 8080** and requires no authentication (configured via `VPN_SENTINEL_SERVER_DASHBOARD_PORT`).
+
+### **Dashboard Features**
+
+![VPN Sentinel Dashboard](docs/images/dashboard-screenshot.png)
+
+The dashboard provides:
+
+- **🖥️ Server Information**: Real-time server IP, location, provider, and DNS status
+- **📊 Client Statistics**: Total clients, online count, offline count
+- **🔄 Auto-Refresh**: Automatically updates every 30 seconds
+- **📱 Responsive Design**: Works on desktop, tablet, and mobile devices
+
+#### **Traffic Light Status System**
+
+Each client displays a color-coded status indicator:
+
+| Status | Color | Meaning | Action Required |
+|--------|-------|---------|----------------|
+| **🟢 Secure** | Green | VPN working correctly, no DNS leak | ✅ No action needed |
+| **🟡 Warning** | Yellow | VPN active but DNS leak detected or unverifiable | ⚠️ Investigate DNS configuration |
+| **🔴 Danger** | Red | **VPN BYPASS**: Client IP matches server IP | 🚨 **Immediate action required** |
+
+#### **Client Information Table**
+
+For each connected client, the dashboard shows:
+- **Client ID**: Unique identifier for the VPN connection
+- **VPN IP**: Public IP address as seen from the internet
+- **Location**: City, region, and country of the VPN endpoint
+- **Provider**: ISP or VPN provider name
+- **Last Seen**: Time since last keepalive (e.g., "Just now", "5 min ago")
+- **VPN Status**: Traffic light indicator (🟢/🟡/🔴)
+- **DNS Leak**: DNS location and colocation server status
+
+### **Dashboard Configuration**
+
+Configure dashboard behavior with environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | `8080` | Dashboard web server port |
+| `VPN_SENTINEL_WEB_DASHBOARD_ENABLED` | `true` | Enable/disable web dashboard |
+| `VPN_SENTINEL_VERSION` | `dev` | Version displayed in dashboard footer |
+
+### **Dashboard URL Examples**
+
+```bash
+# Local development
+http://localhost:8080/dashboard
+
+# Remote server
+http://192.168.1.100:8080/dashboard
+
+# Domain with reverse proxy
+https://vpn-monitor.example.com/dashboard
+```
+
+### **Reverse Proxy Configuration**
+
+If exposing the dashboard through a reverse proxy (Nginx, Traefik, Caddy), ensure the dashboard port is proxied correctly:
+
+```nginx
+# Nginx example
+location /dashboard {
+    proxy_pass http://vpn-sentinel-server:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
+
+## �📚 Documentation & Support
 
 For detailed documentation, troubleshooting, API reference, and advanced configuration options, visit the [VPN Sentinel Wiki](https://github.com/agigante80/VPNSentinel/wiki).
 
