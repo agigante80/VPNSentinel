@@ -75,7 +75,7 @@ ENV COMMIT_HASH=${COMMIT_HASH}
 # python3: Required for Flask-based health monitor
 # jq: Required for JSON processing in health monitor
 # tzdata: Required for timezone support in Python's zoneinfo module
-RUN apk add --no-cache curl python3 py3-pip bash jq tzdata \
+RUN apk add --no-cache curl python3 py3-pip bash jq tzdata bind-tools \
     && echo "✅ Package installation completed" \
     && echo "📦 Installed packages: curl, python3, py3-pip, bash, jq, tzdata" \
     && curl --version \
