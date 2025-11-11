@@ -1,7 +1,8 @@
 """API server routes for VPN Sentinel."""
 from vpn_sentinel_common.server import api_app
-from vpn_sentinel_common.log_utils import log_info
+from vpn_sentinel_common.log_utils import log_info, log_warn
 from vpn_sentinel_common import telegram
+from vpn_sentinel_common.server_info import get_server_public_ip
 from flask import jsonify, request
 import os
 
@@ -11,6 +12,17 @@ client_status = {}
 
 # Track if clients have ever connected (to avoid spam on first connect)
 _client_first_seen = set()
+
+# Cache server's public IP (fetched once at startup)
+_server_public_ip = None
+
+
+def get_cached_server_ip():
+    """Get server's public IP (cached)."""
+    global _server_public_ip
+    if _server_public_ip is None:
+        _server_public_ip = get_server_public_ip()
+    return _server_public_ip
 
 # Get API path from environment
 API_PATH = os.getenv('VPN_SENTINEL_API_PATH', '/api/v1').strip('/')
@@ -85,9 +97,16 @@ def keepalive():
             'dns_colo': dns_colo
         }
 
+        # Get server IP for comparison
+        server_ip = get_cached_server_ip()
+        
         # Log keepalive with VPN info
         log_info('api', f"✅ Keepalive from {client_id}")
         log_info('vpn-info', f"  📍 {city}, {country} | 🌐 {vpn_ip} | 🏢 {provider}")
+        
+        # Check for VPN bypass
+        if vpn_ip == server_ip or vpn_ip == "unknown":
+            log_warn('security', f"⚠️ VPN BYPASS WARNING: Client {client_id} has same IP as server ({vpn_ip})")
 
         # Send Telegram notifications
         if is_new_client:
@@ -95,13 +114,13 @@ def keepalive():
             telegram.notify_client_connected(
                 client_id, vpn_ip, f"{city}, {region}, {country}",
                 city, region, country, provider, timezone_str,
-                dns_loc, dns_colo
+                dns_loc, dns_colo, server_ip
             )
         elif ip_changed:
             telegram.notify_ip_changed(
                 client_id, old_ip, vpn_ip,
                 city, region, country, provider, timezone_str,
-                dns_loc, dns_colo
+                dns_loc, dns_colo, server_ip
             )
 
         return jsonify({
