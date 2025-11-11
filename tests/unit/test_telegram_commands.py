@@ -3,6 +3,7 @@
 Tests Telegram bot command handlers.
 """
 import pytest
+import sys
 from datetime import datetime, timedelta
 from unittest.mock import patch, Mock, MagicMock, call
 from vpn_sentinel_common import telegram_commands
@@ -90,70 +91,86 @@ class TestFormatTimeAgo:
 class TestHandlePing:
     """Tests for handle_ping() function."""
 
-    def test_handle_ping_with_no_clients(self):
+    @patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message')
+    def test_handle_ping_with_no_clients(self, mock_send):
         """Test /ping command with no active clients."""
-        with patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message') as mock_send:
-            with patch('vpn_sentinel_common.api_routes.client_status', {}):
-                telegram_commands.handle_ping('123456', '/ping')
-                
-                mock_send.assert_called_once()
-                message = mock_send.call_args[0][0]
-                assert '🏓' in message
-                assert 'Pong!' in message
-                assert 'Active clients: 0' in message
+        # Mock the client_status dict that gets imported locally
+        mock_api_routes = Mock()
+        mock_api_routes.client_status = {}
+        
+        with patch.dict('sys.modules', {'vpn_sentinel_common.api_routes': mock_api_routes}):
+            telegram_commands.handle_ping('123456', '/ping')
+            
+            mock_send.assert_called_once()
+            message = mock_send.call_args[0][0]
+            assert '🏓' in message
+            assert 'Pong!' in message
+            assert 'Active clients: 0' in message
 
-    def test_handle_ping_with_clients(self):
+    @patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message')
+    def test_handle_ping_with_clients(self, mock_send):
         """Test /ping command with active clients."""
-        mock_clients = {
+        mock_api_routes = Mock()
+        mock_api_routes.client_status = {
             'client-1': {'ip': '1.2.3.4'},
             'client-2': {'ip': '5.6.7.8'}
         }
         
-        with patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message') as mock_send:
-            with patch('vpn_sentinel_common.api_routes.client_status', mock_clients):
-                telegram_commands.handle_ping('123456', '/ping')
-                
-                message = mock_send.call_args[0][0]
-                assert 'Active clients: 2' in message
+        with patch.dict('sys.modules', {'vpn_sentinel_common.api_routes': mock_api_routes}):
+            telegram_commands.handle_ping('123456', '/ping')
+            
+            message = mock_send.call_args[0][0]
+            assert 'Active clients: 2' in message
 
-    def test_handle_ping_includes_server_time(self):
+    @patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message')
+    def test_handle_ping_includes_server_time(self, mock_send):
         """Test /ping includes server time."""
-        with patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message') as mock_send:
-            with patch('vpn_sentinel_common.api_routes.client_status', {}):
-                telegram_commands.handle_ping('123456', '/ping')
-                
-                message = mock_send.call_args[0][0]
-                assert 'Server time:' in message
-                assert 'UTC' in message
+        mock_api_routes = Mock()
+        mock_api_routes.client_status = {}
+        
+        with patch.dict('sys.modules', {'vpn_sentinel_common.api_routes': mock_api_routes}):
+            telegram_commands.handle_ping('123456', '/ping')
+            
+            message = mock_send.call_args[0][0]
+            assert 'Server time:' in message
+            assert 'UTC' in message
 
-    def test_handle_ping_includes_thresholds(self):
+    @patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message')
+    def test_handle_ping_includes_thresholds(self, mock_send):
         """Test /ping includes monitoring thresholds."""
-        with patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message') as mock_send:
-            with patch('vpn_sentinel_common.api_routes.client_status', {}):
-                telegram_commands.handle_ping('123456', '/ping')
-                
-                message = mock_send.call_args[0][0]
-                assert 'Alert threshold:' in message
-                assert 'Check interval:' in message
+        mock_api_routes = Mock()
+        mock_api_routes.client_status = {}
+        
+        with patch.dict('sys.modules', {'vpn_sentinel_common.api_routes': mock_api_routes}):
+            telegram_commands.handle_ping('123456', '/ping')
+            
+            message = mock_send.call_args[0][0]
+            assert 'Alert threshold:' in message
+            assert 'Check interval:' in message
 
 
 class TestHandleStatus:
     """Tests for handle_status() function."""
 
-    def test_handle_status_no_clients(self):
+    @patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message')
+    def test_handle_status_no_clients(self, mock_send):
         """Test /status command with no active clients."""
-        with patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message') as mock_send:
-            with patch('vpn_sentinel_common.api_routes.client_status', {}):
-                telegram_commands.handle_status('123456', '/status')
-                
-                message = mock_send.call_args[0][0]
-                assert '📊' in message
-                assert 'VPN Status' in message
-                assert 'No active VPN clients' in message
+        mock_api_routes = Mock()
+        mock_api_routes.client_status = {}
+        
+        with patch.dict('sys.modules', {'vpn_sentinel_common.api_routes': mock_api_routes}):
+            telegram_commands.handle_status('123456', '/status')
+            
+            message = mock_send.call_args[0][0]
+            assert '📊' in message
+            assert 'VPN Status' in message
+            assert 'No active VPN clients' in message
 
-    def test_handle_status_with_single_client(self):
+    @patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message')
+    def test_handle_status_with_single_client(self, mock_send):
         """Test /status command with one client."""
-        mock_clients = {
+        mock_api_routes = Mock()
+        mock_api_routes.client_status = {
             'office-vpn': {
                 'ip': '203.0.113.1',
                 'location': 'US',
@@ -161,19 +178,20 @@ class TestHandleStatus:
             }
         }
         
-        with patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message') as mock_send:
-            with patch('vpn_sentinel_common.api_routes.client_status', mock_clients):
-                telegram_commands.handle_status('123456', '/status')
-                
-                message = mock_send.call_args[0][0]
-                assert 'office-vpn' in message
-                assert '203.0.113.1' in message
-                assert 'US' in message
-                assert '🟢' in message
+        with patch.dict('sys.modules', {'vpn_sentinel_common.api_routes': mock_api_routes}):
+            telegram_commands.handle_status('123456', '/status')
+            
+            message = mock_send.call_args[0][0]
+            assert 'office-vpn' in message
+            assert '203.0.113.1' in message
+            assert 'US' in message
+            assert '🟢' in message
 
-    def test_handle_status_with_multiple_clients(self):
+    @patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message')
+    def test_handle_status_with_multiple_clients(self, mock_send):
         """Test /status command with multiple clients."""
-        mock_clients = {
+        mock_api_routes = Mock()
+        mock_api_routes.client_status = {
             'client-1': {
                 'ip': '1.2.3.4',
                 'location': 'UK',
@@ -186,20 +204,21 @@ class TestHandleStatus:
             }
         }
         
-        with patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message') as mock_send:
-            with patch('vpn_sentinel_common.api_routes.client_status', mock_clients):
-                telegram_commands.handle_status('123456', '/status')
-                
-                message = mock_send.call_args[0][0]
-                assert 'client-1' in message
-                assert 'client-2' in message
-                assert '1.2.3.4' in message
-                assert '5.6.7.8' in message
+        with patch.dict('sys.modules', {'vpn_sentinel_common.api_routes': mock_api_routes}):
+            telegram_commands.handle_status('123456', '/status')
+            
+            message = mock_send.call_args[0][0]
+            assert 'client-1' in message
+            assert 'client-2' in message
+            assert '1.2.3.4' in message
+            assert '5.6.7.8' in message
 
-    def test_handle_status_formats_time_ago(self):
+    @patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message')
+    def test_handle_status_formats_time_ago(self, mock_send):
         """Test /status formats last_seen as time ago."""
         old_time = datetime.utcnow() - timedelta(minutes=10)
-        mock_clients = {
+        mock_api_routes = Mock()
+        mock_api_routes.client_status = {
             'test-client': {
                 'ip': '1.2.3.4',
                 'location': 'US',
@@ -207,36 +226,39 @@ class TestHandleStatus:
             }
         }
         
-        with patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message') as mock_send:
-            with patch('vpn_sentinel_common.api_routes.client_status', mock_clients):
-                telegram_commands.handle_status('123456', '/status')
-                
-                message = mock_send.call_args[0][0]
-                assert '10 minutes ago' in message
+        with patch.dict('sys.modules', {'vpn_sentinel_common.api_routes': mock_api_routes}):
+            telegram_commands.handle_status('123456', '/status')
+            
+            message = mock_send.call_args[0][0]
+            assert '10 minutes ago' in message
 
-    def test_handle_status_handles_missing_fields(self):
+    @patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message')
+    def test_handle_status_handles_missing_fields(self, mock_send):
         """Test /status handles missing client info fields."""
-        mock_clients = {
+        mock_api_routes = Mock()
+        mock_api_routes.client_status = {
             'incomplete-client': {}
         }
         
-        with patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message') as mock_send:
-            with patch('vpn_sentinel_common.api_routes.client_status', mock_clients):
-                telegram_commands.handle_status('123456', '/status')
-                
-                message = mock_send.call_args[0][0]
-                assert 'incomplete-client' in message
-                assert 'unknown' in message
+        with patch.dict('sys.modules', {'vpn_sentinel_common.api_routes': mock_api_routes}):
+            telegram_commands.handle_status('123456', '/status')
+            
+            message = mock_send.call_args[0][0]
+            assert 'incomplete-client' in message
+            assert 'unknown' in message
 
-    def test_handle_status_includes_server_time(self):
+    @patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message')
+    def test_handle_status_includes_server_time(self, mock_send):
         """Test /status includes server time."""
-        with patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message') as mock_send:
-            with patch('vpn_sentinel_common.api_routes.client_status', {}):
-                telegram_commands.handle_status('123456', '/status')
-                
-                message = mock_send.call_args[0][0]
-                assert 'Server time:' in message
-                assert 'UTC' in message
+        mock_api_routes = Mock()
+        mock_api_routes.client_status = {}
+        
+        with patch.dict('sys.modules', {'vpn_sentinel_common.api_routes': mock_api_routes}):
+            telegram_commands.handle_status('123456', '/status')
+            
+            message = mock_send.call_args[0][0]
+            assert 'Server time:' in message
+            assert 'UTC' in message
 
 
 class TestHandleHelp:
@@ -353,11 +375,14 @@ class TestTelegramCommandsIntegration:
         """Test register_all_commands is callable."""
         assert callable(telegram_commands.register_all_commands)
 
-    def test_handlers_accept_correct_arguments(self):
+    @patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message')
+    def test_handlers_accept_correct_arguments(self, mock_send):
         """Test handlers accept chat_id and message_text."""
-        with patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message'):
-            with patch('vpn_sentinel_common.api_routes.client_status', {}):
-                # Should not raise TypeError
-                telegram_commands.handle_ping('123', 'test')
-                telegram_commands.handle_status('123', 'test')
-                telegram_commands.handle_help('123', 'test')
+        mock_api_routes = Mock()
+        mock_api_routes.client_status = {}
+        
+        with patch.dict('sys.modules', {'vpn_sentinel_common.api_routes': mock_api_routes}):
+            # Should not raise TypeError
+            telegram_commands.handle_ping('123', 'test')
+            telegram_commands.handle_status('123', 'test')
+            telegram_commands.handle_help('123', 'test')
