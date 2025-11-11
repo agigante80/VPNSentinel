@@ -4,439 +4,772 @@
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue)](https://docs.docker.com/compose/)
 [![Python](https://img.shields.io/badge/Python-3.11+-green)](https://python.org)
 
-**Monitor your VPN connections with real-time health checks, DNS leak detection, and instant Telegram notifications. Ensure your VPN is working correctly and get alerted immediately when issues occur.**
-
-## 🎯 Use Case: VPN Monitoring & Security
-
-VPN Sentinel addresses critical VPN monitoring challenges:
-
-### **The Problem**
-- **VPN Connection Failures**: VPNs can disconnect silently, leaving you exposed
-- **DNS Leaks**: DNS queries can bypass VPN protection, revealing your location
-- **IP Address Leaks**: Failed VPN reconnections may expose your real IP
-- **No Visibility**: Traditional VPN clients provide no monitoring or alerting
-- **Delayed Detection**: Issues are only discovered when it's too late
-
-### **The Solution**
-VPN Sentinel provides **continuous, automated monitoring** of your VPN connections with:
-- **Real-time Health Checks**: Continuous verification that your VPN is working
-- **DNS Leak Detection**: Automatic detection of DNS queries bypassing VPN
-- **IP Geolocation Verification**: Ensures your traffic exits from VPN servers
-- **Instant Notifications**: Telegram alerts when issues are detected
-- **Historical Tracking**: Monitor connection stability over time
-
-## 🏗️ Architecture: Independent Client-Server Design
-
-VPN Sentinel uses a **distributed architecture** that separates monitoring concerns for maximum reliability and flexibility.
-
-### **Network Isolation Model**
-
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   VPN Client    │◄────┤ VPN Sentinel    │     │ VPN Sentinel    │
-│   Container     │     │    Client       │────►│    Server       │
-│                 │     │ (VPN Network)   │     │ (Host Network)  │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                              ▲                        ▲
-                              │                        │
-                       ┌──────┴──────┐        ┌────────┴────────┐
-                       │   VPN       │        │     Internet    │
-                       │   Tunnel    │        │   (Port 5000)   │
-                       └─────────────┘        └─────────────────┘
-```
-
-### **Component Roles**
-
-#### **VPN Sentinel Client**
-- **Location**: Runs inside your VPN container's network namespace
-- **Architecture**: Multi-process design with optional dedicated health monitoring
-- **Purpose**: Monitors VPN connection health from within the protected network
-- **Capabilities**:
-  - **Main Process**: Checks public IP address, geolocation, and DNS leak detection
-  - **Health Monitor** (optional): Dedicated health status server on port 8082
-  - Sends heartbeat signals to the server with comprehensive connection data
-  - Performs local health checks and system monitoring
-  - Supports both single-process and multi-process operation modes
-
-**Multi-Process Architecture:**
-```
-VPN Container
-├── vpn-sentinel-client.sh (Main monitoring process)
-├── health-monitor.py (Optional dedicated health server)
-└── healthcheck.py (Container health checks)
-```
-
-#### **VPN Sentinel Server**
-- **Location**: Runs on your host network (outside VPN)
-- **Purpose**: Receives monitoring data and handles notifications
-- **Capabilities**:
-  - REST API for client communications
-  - Telegram bot integration for notifications
-  - Web dashboard for monitoring (future)
-  - Stores connection history and analytics
-
-### **Key Architectural Benefits**
-
-- **Network Isolation**: Client and server operate in separate network spaces
-- **VPN Independence**: Works with any VPN provider (OpenVPN, WireGuard, etc.)
-- **Reliable Communication**: Uses internet-based communication, not Docker networks
-- **Scalability**: Single server can monitor multiple VPN clients
-- **Security**: Sensitive monitoring logic runs within VPN-protected space
-
-## 🚀 Installation & Configuration
-
-### **Prerequisites**
-- Docker Engine 20.10+
-- Docker Compose v2.0+
-- Internet connectivity for API calls
-
-### Note for contributors
-
-The project's Dockerfiles assume the build context is the repository root so COPY instructions can reference files using repository-relative paths (for example `COPY vpn-sentinel-server/vpn-sentinel-server.py /app/`). The GitHub Actions workflow has been updated to use the repository root as the build context when building component images. When building locally, run from the repo root with a command like:
-
-```bash
-# from repository root
-docker build -f vpn-sentinel-server/Dockerfile .
-```
-
-### **Quick Start (5 minutes)**
-
-```bash
-# 1. Clone repository
-git clone https://github.com/agigante80/VPNSentinel.git
-cd VPNSentinel
-
-# 2. Choose deployment type
-cd deployments/unified/  # Recommended for most users
-
-# 3. Configure environment
-cp .env.example .env
-# Edit .env with your settings (see configuration section below)
-
-# 4. Deploy
-docker compose up -d
-
-# 5. Check status
-docker compose logs -f vpn-sentinel-client
-```
-
-### **Deployment Options**
-
-VPN Sentinel offers flexible deployment configurations:
-
-| Deployment | Use Case | Components |
-|------------|----------|------------|
-| **`unified/`** | Complete VPN + monitoring stack | VPN client + Sentinel client + Sentinel server |
-| **`client-only/`** | Add monitoring to existing VPN | Sentinel client only (connects to external server) |
-| **`server-only/`** | Central monitoring server | Sentinel server only (accepts multiple clients) |
-
-### **Client Installation**
-
-The VPN Sentinel client runs alongside your VPN container and monitors its health.
-
-#### **Docker Compose Configuration**
-
-```yaml
-services:
-  vpn-sentinel-client:
-    image: agigante80/vpn-sentinel-client:latest
-    network_mode: service:vpn-client  # Shares VPN network
-    environment:
-      # Required: Server connection
-      - VPN_SENTINEL_URL=http://your-server:5000
-      - VPN_SENTINEL_API_KEY=your-api-key-here
-
-      # Optional: Client identification
-      - VPN_SENTINEL_CLIENT_ID=my-vpn-monitor
-
-      # Optional: Health check intervals
-      - HEALTH_CHECK_INTERVAL=300  # seconds
-      - DNS_LEAK_TOLERANCE=RO     # expected country code
-    restart: unless-stopped
-```
-
-#### **Client Configuration Options**
-
-| Environment Variable | Required | Default | Description |
-|---------------------|----------|---------|-------------|
-| `VPN_SENTINEL_URL` | ✅ | - | Server endpoint URL (e.g., `http://server:5000`) |
-| `VPN_SENTINEL_API_KEY` | ✅ | - | Authentication key (64-char hex) |
-| `VPN_SENTINEL_CLIENT_ID` | ❌ | `vpn-sentinel-client` | Unique client identifier |
-| `HEALTH_CHECK_INTERVAL` | ❌ | `300` | Health check frequency (seconds) |
-| `DNS_LEAK_TOLERANCE` | ❌ | - | Expected DNS country code (e.g., `US`, `RO`) |
-| `CONNECT_TIMEOUT` | ❌ | `10` | API connection timeout (seconds) |
-| `REQUEST_TIMEOUT` | ❌ | `30` | API request timeout (seconds) |
-
-### **Server Installation**
-
-The VPN Sentinel server receives monitoring data and sends notifications.
-
-#### **Docker Compose Configuration**
-
-```yaml
-services:
-  vpn-sentinel-server:
-    image: agigante80/vpn-sentinel-server:latest
-    ports:
-      - "5000:5000"  # API port
-    environment:
-      # Required: Authentication
-      - VPN_SENTINEL_API_KEY=your-api-key-here
-
-      # Optional: Telegram notifications
-      - TELEGRAM_BOT_TOKEN=your-bot-token
-      - TELEGRAM_CHAT_ID=your-chat-id
-
-      # Optional: Security
-      - VPN_SENTINEL_SERVER_ALLOWED_IPS=192.168.1.0/24
-
-      # Optional: Advanced settings
-      - FLASK_ENV=production
-      - API_RATE_LIMIT=30/minute
-    volumes:
-      - ./certs:/certs:ro  # For HTTPS (optional)
-    restart: unless-stopped
-```
-
-#### **Client Configuration Options**
-
-| Environment Variable | Required | Default | Description |
-|---------------------|----------|---------|-------------|
-| `VPN_SENTINEL_URL` | ✅ | - | Server base URL (e.g., `http://server:5000`) |
-| `VPN_SENTINEL_CLIENT_ID` | ❌ | auto-generated | Unique client identifier (e.g., `office-vpn`) |
-| `VPN_SENTINEL_API_KEY` | ✅ | - | Authentication key (must match server) |
-| `VPN_SENTINEL_API_PATH` | ❌ | `/api/v1` | API path prefix |
-| `VPN_SENTINEL_INTERVAL` | ❌ | `300` | Keepalive interval in seconds (5 minutes) |
-| `VPN_SENTINEL_TIMEOUT` | ❌ | `30` | HTTP request timeout in seconds |
-| `VPN_SENTINEL_GEOLOCATION_SERVICE` | ❌ | `auto` | Geolocation provider (`auto`, `ipinfo.io`, `ip-api.com`, `ipwhois.app`) |
-| `VPN_SENTINEL_HEALTH_MONITOR` | ❌ | `true` | Enable dedicated health monitor process |
-| `VPN_SENTINEL_ALLOW_INSECURE` | ❌ | `false` | Allow insecure HTTPS connections (not recommended) |
-| `VPN_SENTINEL_TLS_CERT_PATH` | ❌ | - | Path to custom TLS certificate for HTTPS |
-| `VPN_SENTINEL_DEBUG` | ❌ | `false` | Enable debug logging |
-| `IPINFO_API_TOKEN` | ❌ | - | Optional ipinfo.io API token for higher rate limits |
-| `TZ` | ❌ | `UTC` | System timezone for log timestamps |
-
-#### **Server Configuration Options**
-
-| Environment Variable | Required | Default | Description |
-|---------------------|----------|---------|-------------|
-| `VPN_SENTINEL_API_KEY` | ✅ | - | Authentication key (must match clients) |
-| `VPN_SENTINEL_SERVER_API_PORT` | ❌ | `5000` | API server port |
-| `VPN_SENTINEL_SERVER_HEALTH_PORT` | ❌ | `8081` | Health check server port |
-| `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | ❌ | `8080` | Web dashboard server port |
-| `VPN_SENTINEL_API_PATH` | ❌ | `/api/v1` | API path prefix |
-| `VPN_SENTINEL_SERVER_RATE_LIMIT` | ❌ | `30` | API rate limit (requests per minute) |
-| `VPN_SENTINEL_SERVER_CHECK_INTERVAL` | ❌ | `60` | Client check interval in seconds |
-| `VPN_SENTINEL_SERVER_OFFLINE_THRESHOLD` | ❌ | `300` | Mark client offline after N seconds |
-| `VPN_SENTINEL_WEB_DASHBOARD_ENABLED` | ❌ | `true` | Enable web dashboard |
-| `VPN_SENTINEL_SERVER_ALLOWED_IPS` | ❌ | - | IP whitelist (comma-separated, CIDR notation) |
-| `VPN_SENTINEL_SERVER_IP_WHITELIST_ENABLED` | ❌ | `false` | Enable IP whitelisting |
-| `VPN_SENTINEL_TLS_CERT_PATH` | ❌ | - | Path to TLS certificate for HTTPS |
-| `VPN_SENTINEL_TLS_KEY_PATH` | ❌ | - | Path to TLS private key for HTTPS |
-| `TELEGRAM_BOT_TOKEN` | ❌ | - | Telegram bot token for notifications |
-| `TELEGRAM_CHAT_ID` | ❌ | - | Telegram chat ID for notifications |
-| `VPN_SENTINEL_TELEGRAM_ENABLED` | ❌ | `false` | Enable Telegram notifications (auto-enabled if token provided) |
-| `FLASK_ENV` | ❌ | `production` | Flask environment (`development`/`production`) |
-| `TZ` | ❌ | `UTC` | System timezone |
-| `LOG_LEVEL` | ❌ | `INFO` | Logging level (`DEBUG`/`INFO`/`WARNING`/`ERROR`) |
-
-### **API Key Generation**
-
-Generate a secure API key for authentication:
-
-```bash
-# Generate cryptographically secure 64-character hex key
-VPN_SENTINEL_API_KEY=$(openssl rand -hex 32)
-echo "API Key: ${VPN_SENTINEL_API_KEY}"
-```
-
-Use the same key for both client and server configuration.
-
-## 🔧 Advanced Configuration
-
-### **Multi-Client Setup**
-
-Monitor multiple VPN connections with a single server:
-
-```yaml
-services:
-  # VPN Client 1
-  vpn-client-office:
-    image: qmcgaw/gluetun:latest
-    # ... VPN configuration ...
-
-  # VPN Client 2
-  vpn-client-home:
-    image: qmcgaw/gluetun:latest
-    # ... VPN configuration ...
-
-  # Monitoring clients
-  vpn-sentinel-client-office:
-    image: agigante80/vpn-sentinel-client:latest
-    network_mode: service:vpn-client-office
-    environment:
-      - VPN_SENTINEL_CLIENT_ID=office-vpn
-      - VPN_SENTINEL_URL=http://vpn-sentinel-server:5000
-      - VPN_SENTINEL_API_KEY=${API_KEY}
-
-  vpn-sentinel-client-home:
-    image: agigante80/vpn-sentinel-client:latest
-    network_mode: service:vpn-client-home
-    environment:
-      - VPN_SENTINEL_CLIENT_ID=home-vpn
-      - VPN_SENTINEL_URL=http://vpn-sentinel-server:5000
-      - VPN_SENTINEL_API_KEY=${API_KEY}
-
-  # Single monitoring server
-  vpn-sentinel-server:
-    image: agigante80/vpn-sentinel-server:latest
-    # ... server configuration ...
-```
-
-### **VPN Provider Compatibility**
-
-VPN Sentinel works with any Docker-based VPN client:
-
-| VPN Client | Image | Network Mode |
-|------------|-------|--------------|
-| **Gluetun** | `qmcgaw/gluetun` | `service:vpn-client` |
-| **OpenVPN** | `dperson/openvpn-client` | `service:vpn-client` |
-| **WireGuard** | `linuxserver/wireguard` | `service:vpn-client` |
-| **PIA WireGuard** | `thrnz/docker-wireguard-pia` | `service:vpn-client` |
-| **Transmission+VPN** | `haugene/transmission-openvpn` | `service:vpn-client` |
-
-### **Telegram Bot Setup**
-
-1. **Create Bot**: Message [@BotFather](https://t.me/botfather) on Telegram
-2. **Get Token**: `/newbot` → follow instructions → copy API token
-3. **Get Chat ID**: Message your bot → visit `https://api.telegram.org/bot<TOKEN>/getUpdates`
-4. **Configure**: Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in server environment
-
-## 📊 Monitoring & Health Checks
-
-### **Health Check Endpoints**
-
-VPN Sentinel provides comprehensive health monitoring:
-
-```bash
-# Server health
-curl http://localhost:5000/api/v1/health
-
-# Readiness check
-curl http://localhost:5000/api/v1/health/ready
-
-# Startup check
-curl http://localhost:5000/api/v1/health/startup
-```
-
-### **Client Status Monitoring**
-
-```bash
-# Get all client statuses
-curl -H "Authorization: Bearer ${API_KEY}" \
-     http://localhost:5000/api/v1/status
-```
-
-### **Docker Health Checks**
-
-Both client and server include Docker HEALTHCHECK instructions for automatic container health monitoring.
-
-## � Web Dashboard
-
-VPN Sentinel includes a modern, real-time web dashboard for visualizing your VPN connections and monitoring their health status.
-
-### **Accessing the Dashboard**
-
-The dashboard is available at:
-```
-http://your-server-ip:8080/dashboard
-```
-
-By default, the dashboard runs on **port 8080** and requires no authentication (configured via `VPN_SENTINEL_SERVER_DASHBOARD_PORT`).
-
-### **Dashboard Features**
-
-![VPN Sentinel Dashboard](docs/images/dashboard-screenshot.png)
-
-The dashboard provides:
-
-- **🖥️ Server Information**: Real-time server IP, location, provider, and DNS status
-- **📊 Client Statistics**: Total clients, online count, offline count
-- **🔄 Auto-Refresh**: Automatically updates every 30 seconds
-- **📱 Responsive Design**: Works on desktop, tablet, and mobile devices
-
-#### **Traffic Light Status System**
-
-Each client displays a color-coded status indicator:
-
-| Status | Color | Meaning | Action Required |
-|--------|-------|---------|----------------|
-| **🟢 Secure** | Green | VPN working correctly, no DNS leak | ✅ No action needed |
-| **🟡 Warning** | Yellow | VPN active but DNS leak detected or unverifiable | ⚠️ Investigate DNS configuration |
-| **🔴 Danger** | Red | **VPN BYPASS**: Client IP matches server IP | 🚨 **Immediate action required** |
-
-#### **Client Information Table**
-
-For each connected client, the dashboard shows:
-- **Client ID**: Unique identifier for the VPN connection
-- **VPN IP**: Public IP address as seen from the internet
-- **Location**: City, region, and country of the VPN endpoint
-- **Provider**: ISP or VPN provider name
-- **Last Seen**: Time since last keepalive (e.g., "Just now", "5 min ago")
-- **VPN Status**: Traffic light indicator (🟢/🟡/🔴)
-- **DNS Leak**: DNS location and colocation server status
-
-### **Dashboard Configuration**
-
-Configure dashboard behavior with environment variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | `8080` | Dashboard web server port |
-| `VPN_SENTINEL_WEB_DASHBOARD_ENABLED` | `true` | Enable/disable web dashboard |
-| `VPN_SENTINEL_VERSION` | `dev` | Version displayed in dashboard footer |
-
-### **Dashboard URL Examples**
-
-```bash
-# Local development
-http://localhost:8080/dashboard
-
-# Remote server
-http://192.168.1.100:8080/dashboard
-
-# Domain with reverse proxy
-https://vpn-monitor.example.com/dashboard
-```
-
-### **Reverse Proxy Configuration**
-
-If exposing the dashboard through a reverse proxy (Nginx, Traefik, Caddy), ensure the dashboard port is proxied correctly:
-
-```nginx
-# Nginx example
-location /dashboard {
-    proxy_pass http://vpn-sentinel-server:8080;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-}
-```
-
-## �📚 Documentation & Support
-
-For detailed documentation, troubleshooting, API reference, and advanced configuration options, visit the [VPN Sentinel Wiki](https://github.com/agigante80/VPNSentinel/wiki).
-
-### **Key Wiki Sections**
-- [API Reference](https://github.com/agigante80/VPNSentinel/wiki/API-Reference) - Complete API documentation
-- [Troubleshooting](https://github.com/agigante80/VPNSentinel/wiki/Troubleshooting) - Common issues and solutions
-- [Deployment Patterns](https://github.com/agigante80/VPNSentinel/wiki/Deployment-Patterns) - Advanced deployment scenarios
-- [Security](https://github.com/agigante80/VPNSentinel/wiki/Security) - Security hardening and best practices
-- [Development](https://github.com/agigante80/VPNSentinel/wiki/Development) - Contributing and development setup
-
-## ⚖️ License
-
-**MIT License** - Open source with commercial usage permitted.
+**Real-time VPN monitoring with DNS leak detection, traffic light status indicators, and instant Telegram notifications. Know immediately when your VPN fails.**
 
 ---
 
-**VPN Sentinel** - Keep your VPN connections secure and monitored.
+## Table of Contents
+
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Dashboard](#dashboard)
+- [Telegram Integration](#telegram-integration)
+- [Configuration](#configuration)
+- [Deployment Scenarios](#deployment-scenarios)
+- [Development](#development)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Overview
+
+VPN Sentinel is a **distributed monitoring system** designed to continuously verify VPN connections are working correctly. It detects silent VPN failures, DNS leaks, and IP address exposure before they become security incidents.
+
+### The Problem
+
+- **Silent VPN Failures**: VPN connections can drop without warning, exposing your real IP address
+- **DNS Leaks**: DNS queries bypass VPN protection, revealing your location to ISPs and websites
+- **No Built-in Monitoring**: Most VPN clients lack health monitoring or alerting capabilities
+- **Delayed Detection**: You only discover VPN issues after sensitive data has been exposed
+
+### The Solution
+
+VPN Sentinel provides **continuous, automated verification** with:
+
+- **Traffic Light Status System**: Instant visual status for each client (Green/Yellow/Red)
+- **VPN Bypass Detection**: Critical alerts when client IP matches server IP
+- **DNS Leak Detection**: Automatic detection of DNS queries bypassing VPN tunnel
+- **Real-time Notifications**: Instant Telegram alerts for connection issues
+- **Web Dashboard**: Modern responsive interface for monitoring all clients
+- **Multi-client Support**: Monitor unlimited VPN clients from a single server
+
+---
+
+## Key Features
+
+### Security Monitoring
+
+- **VPN Bypass Detection**: Critical red alerts when VPN is not routing traffic
+- **DNS Leak Testing**: Detects when DNS queries expose your location
+- **IP Geolocation Verification**: Ensures traffic exits from expected VPN server locations
+- **Provider Validation**: Confirms your traffic routes through VPN provider networks
+
+### Real-time Alerting
+
+- **Telegram Bot Integration**: Instant notifications for all connection events
+- **Priority-Based Alerts**: Critical (red), warning (yellow), and info (green) message types
+- **Rich Notifications**: Detailed status with IP, location, provider, and DNS information
+- **Connection History**: Tracks IP changes and connection events
+
+### Modern Dashboard
+
+![VPN Sentinel Dashboard](docs/images/dashboard-screenshot.png)
+
+- **Traffic Light Status Indicators**: Green (secure), Yellow (DNS issues), Red (VPN bypass)
+- **Server Information**: View server's public IP, location, and DNS status
+- **Client Table**: Comprehensive table with all connected clients
+- **Auto-refresh**: Updates every 30 seconds
+- **Responsive Design**: Works on mobile, tablet, and desktop
+- **Last Seen Timestamps**: "Just now", "5 min ago", "2h ago" format
+
+### Flexible Architecture
+
+- **Network Isolation**: Client runs inside VPN network, server on host network
+- **VPN Provider Agnostic**: Works with OpenVPN, WireGuard, or any VPN solution
+- **Docker Native**: Containerized deployment with Docker Compose
+- **Multi-process Design**: Optional dedicated health monitoring service
+- **Scalable**: Single server monitors multiple distributed clients
+
+---
+
+## Architecture
+
+VPN Sentinel uses a **client-server architecture** with network isolation to ensure accurate monitoring.
+
+### Network Flow Diagram
+
+```
+                                    INTERNET / CLOUD
+                                           |
+                                           | VPN Tunnel
+                                           v
+┌─────────────────────────────────────────────────────────────┐
+│                     VPN Container                           │
+│  ┌────────────────┐           ┌──────────────────────────┐ │
+│  │  VPN Client    │           │  VPN Sentinel Client     │ │
+│  │  (OpenVPN/WG)  │◄─────────►│  - Monitors connection   │ │
+│  │                │           │  - Checks public IP       │ │
+│  │  tun0/wg0      │           │  - DNS leak testing       │ │
+│  └────────────────┘           │  - Sends keepalives      │ │
+│                                └──────────────────────────┘ │
+└──────────────────────────────────────┬──────────────────────┘
+                                       |
+                                       | HTTP/HTTPS
+                                       | (via VPN tunnel)
+                                       |
+                                       v
+                            ┌──────────────────────┐
+                            │   INTERNET/CLOUD     │
+                            │                      │
+                            │  Public APIs:        │
+                            │  - ipinfo.io         │
+                            │  - DNS leak tests    │
+                            └──────────┬───────────┘
+                                       |
+                                       | Reaches server
+                                       | via public internet
+                                       v
+┌─────────────────────────────────────────────────────────────┐
+│                     Host Network                            │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │           VPN Sentinel Server                        │  │
+│  │                                                       │  │
+│  │  ┌─────────────┐  ┌──────────────┐  ┌────────────┐ │  │
+│  │  │   API       │  │  Dashboard   │  │  Telegram  │ │  │
+│  │  │ Port 5000   │  │  Port 8080   │  │    Bot     │ │  │
+│  │  │             │  │              │  │            │ │  │
+│  │  │ - Keepalive │  │ - Web UI     │  │ - Alerts   │ │  │
+│  │  │ - Status    │  │ - Traffic    │  │ - Status   │ │  │
+│  │  │ - Health    │  │   lights     │  │ - History  │ │  │
+│  │  └─────────────┘  └──────────────┘  └────────────┘ │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+           ^                    ^                    ^
+           |                    |                    |
+      API Access          Web Browser         Telegram App
+```
+
+### How It Works
+
+1. **VPN Sentinel Client** runs inside the VPN container's network namespace
+2. **All client traffic** (including monitoring) flows through the VPN tunnel
+3. **Client reaches internet** via VPN, checks its public IP and DNS
+4. **Client sends keepalive** to server with connection status (via internet, not Docker network)
+5. **Server receives data** on host network, validates VPN is working correctly
+6. **Server compares IPs**: If client IP == server IP, VPN is bypassed (RED alert)
+7. **Server sends notifications** via Telegram for any issues
+8. **Dashboard displays** real-time status with traffic light indicators
+
+### Traffic Light Status System
+
+| Status | Color | Condition | Meaning |
+|--------|-------|-----------|---------|
+| **Secure** | 🟢 Green | Client IP != Server IP<br>DNS location matches VPN | VPN working correctly |
+| **DNS Leak** | 🟡 Yellow | DNS location != VPN country | DNS queries bypassing VPN |
+| **DNS Unknown** | 🟡 Yellow | Cannot determine DNS location | DNS status unverifiable |
+| **VPN Bypass** | 🔴 Red | Client IP == Server IP | **CRITICAL**: VPN not routing traffic! |
+
+### Component Details
+
+#### VPN Sentinel Client
+- **Deployment**: Inside VPN container using `network_mode: service:vpn-container`
+- **Language**: Bash + Python
+- **Functions**:
+  - Periodic health checks (configurable interval)
+  - Public IP detection via ipinfo.io
+  - DNS leak testing
+  - Geolocation verification
+  - Keepalive transmission to server
+
+#### VPN Sentinel Server
+- **Deployment**: Host network (requires internet access)
+- **Language**: Python 3.11+ with Flask
+- **Services**:
+  - **API Server** (port 5000): Receives client keepalives
+  - **Health Server** (port 8081): Health check endpoint
+  - **Dashboard** (port 8080): Web interface
+  - **Telegram Bot**: Notification delivery
+- **Features**:
+  - Multi-client status tracking
+  - Server IP caching (reduces API calls)
+  - Rate limiting and security middleware
+  - Auto-cleanup of stale clients
+
+---
+
+## Quick Start
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/agigante80/VPNSentinel.git
+cd VPNSentinel
+```
+
+### 2. Configure Environment
+
+```bash
+cp .env.example .env
+# Edit .env with your settings
+```
+
+**Minimum Required Configuration:**
+
+```env
+# API Key for client-server authentication
+VPN_SENTINEL_API_KEY=your-secure-api-key-here
+
+# Telegram (optional but recommended)
+VPN_SENTINEL_TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+VPN_SENTINEL_TELEGRAM_CHAT_ID=your-chat-id
+```
+
+### 3. Start with Docker Compose
+
+```bash
+# All-in-one deployment (server + client + VPN)
+docker compose up -d
+
+# Or server only (if clients are remote)
+docker compose up -d vpn-sentinel-server
+```
+
+### 4. Verify Deployment
+
+```bash
+# Check server health
+curl http://localhost:18081/health
+
+# View dashboard
+open http://localhost:18080/dashboard
+
+# Check logs
+docker logs vpn-sentinel-server
+docker logs vpn-sentinel-client
+```
+
+---
+
+## Dashboard
+
+Access the web dashboard at: **http://server-ip:8080/dashboard**
+
+### Features
+
+- **Server Status Box**: Shows server's public IP, location, provider, and DNS status
+- **Statistics Cards**: Total clients, online count, offline count
+- **Client Table**: Detailed information for each monitored client
+  - Client ID
+  - VPN IP address
+  - Location (City, Region, Country)
+  - Provider/ISP
+  - Last seen time
+  - VPN status (traffic light)
+  - DNS leak status
+
+### Status Indicators
+
+| Indicator | Meaning |
+|-----------|---------|
+| 🟢 **VPN Working** | Connection secure, DNS not leaking |
+| 🟡 **DNS Leak Detected** | VPN working but DNS queries leaking |
+| 🟡 **DNS Undetectable** | Cannot verify DNS status |
+| 🔴 **VPN Bypass Detected!** | **CRITICAL** - VPN not routing traffic |
+
+### Configuration
+
+```env
+# Dashboard port (default: 8080)
+VPN_SENTINEL_SERVER_DASHBOARD_PORT=8080
+
+# Enable/disable dashboard
+VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED=true
+
+# Auto-refresh interval (seconds)
+# Note: Currently hardcoded to 30 seconds in HTML
+```
+
+### Reverse Proxy Example (Nginx)
+
+```nginx
+server {
+    listen 80;
+    server_name vpn-monitor.example.com;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+---
+
+## Telegram Integration
+
+Receive instant notifications for all VPN events.
+
+### Setup Instructions
+
+1. **Create a Bot**
+   ```bash
+   # Message @BotFather on Telegram
+   /newbot
+   # Follow instructions, save the token
+   ```
+
+2. **Get Your Chat ID**
+   ```bash
+   # Message your bot, then visit:
+   https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates
+   # Find "chat":{"id": YOUR_CHAT_ID}
+   ```
+
+3. **Configure VPN Sentinel**
+   ```env
+   VPN_SENTINEL_TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+   VPN_SENTINEL_TELEGRAM_CHAT_ID=123456789
+   VPN_SENTINEL_TELEGRAM_ENABLED=true
+   ```
+
+### Notification Types
+
+#### Connected Notification
+```
+✅ VPN Connected!
+
+Client: home-office-vpn
+VPN IP: 91.203.5.146
+Location: London, ENG, GB
+Provider: M247 Ltd
+DNS: No leaks detected
+Status: 🟢 VPN Working
+```
+
+#### DNS Leak Warning
+```
+⚠️ DNS Leak Detected!
+
+Client: media-server-vpn
+VPN IP: 185.200.118.50
+Location: Amsterdam, NH, NL
+DNS Location: US
+Status: 🟡 DNS Leak Detected
+```
+
+#### VPN Bypass Alert (Critical)
+```
+🚨 VPN BYPASS DETECTED!
+
+Client: home-office-vpn
+Client IP: 79.116.8.43
+Server IP: 79.116.8.43
+Location: Madrid, MD, ES
+
+⚠️ WARNING: VPN is NOT routing traffic!
+This is a critical security issue.
+```
+
+### Bot Commands
+
+- `/status` - Show current status of all clients
+- `/help` - Display available commands
+
+---
+
+## Configuration
+
+### Environment Variables
+
+#### Server Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VPN_SENTINEL_API_KEY` | *(required)* | API key for client authentication |
+| `VPN_SENTINEL_SERVER_API_PORT` | `5000` | API server port |
+| `VPN_SENTINEL_SERVER_HEALTH_PORT` | `8081` | Health check port |
+| `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | `8080` | Web dashboard port |
+| `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable web dashboard |
+| `VPN_SENTINEL_TELEGRAM_ENABLED` | `false` | Enable Telegram notifications |
+| `VPN_SENTINEL_TELEGRAM_BOT_TOKEN` | - | Telegram bot token |
+| `VPN_SENTINEL_TELEGRAM_CHAT_ID` | - | Telegram chat ID |
+| `VPN_SENTINEL_LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARN, ERROR) |
+
+#### Client Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VPN_SENTINEL_CLIENT_ID` | `vpn-monitor-main` | Unique client identifier |
+| `VPN_SENTINEL_SERVER_URL` | `http://server:5000` | Server API URL |
+| `VPN_SENTINEL_API_KEY` | *(required)* | API key (must match server) |
+| `VPN_SENTINEL_API_PATH` | `/api/v1` | API path prefix |
+| `VPN_SENTINEL_CHECK_INTERVAL` | `60` | Health check interval (seconds) |
+| `VPN_SENTINEL_CLIENT_HEALTH_MONITOR_ENABLED` | `false` | Enable dedicated health monitor |
+| `VPN_SENTINEL_CLIENT_HEALTH_MONITOR_PORT` | `8082` | Health monitor port |
+
+### Security Best Practices
+
+1. **Use Strong API Keys**
+   ```bash
+   # Generate secure random key
+   openssl rand -hex 32
+   ```
+
+2. **Restrict Network Access**
+   - Firewall rules to limit server access
+   - Use HTTPS for production deployments
+   - Consider VPN or private network for server
+
+3. **Rotate Credentials**
+   - Periodically change API keys
+   - Update Telegram bot tokens if compromised
+
+4. **Monitor Logs**
+   ```bash
+   docker logs -f vpn-sentinel-server | grep -E "(WARN|ERROR)"
+   ```
+
+---
+
+## Deployment Scenarios
+
+### Scenario 1: All-in-One (Server + Client + VPN)
+
+**Use Case**: Single-host deployment with local VPN client
+
+```bash
+cd deployments/all-in-one
+cp .env.example .env
+# Edit .env
+docker compose up -d
+```
+
+**Components**:
+- VPN Sentinel Server (host network)
+- VPN Sentinel Client (VPN network)
+- VPN Client container (your VPN provider)
+
+### Scenario 2: Distributed (Central Server + Remote Clients)
+
+**Use Case**: Monitor multiple remote VPN clients from central server
+
+**Server Deployment**:
+```bash
+cd deployments/server-central
+cp .env.example .env
+# Edit .env with public-facing URL
+docker compose up -d
+```
+
+**Client Deployment** (on each remote host):
+```bash
+cd deployments/client-with-vpn
+cp .env.example .env
+# Edit .env with server URL
+docker compose up -d
+```
+
+### Scenario 3: Existing VPN Integration
+
+**Use Case**: Add monitoring to existing VPN setup
+
+```yaml
+services:
+  my-existing-vpn:
+    image: my-vpn-provider:latest
+    # ... existing configuration
+
+  vpn-sentinel-client:
+    image: agigante80/vpn-sentinel-client:latest
+    network_mode: service:my-existing-vpn  # Share VPN network
+    environment:
+      VPN_SENTINEL_SERVER_URL: http://monitoring-server:5000
+      VPN_SENTINEL_API_KEY: ${VPN_SENTINEL_API_KEY}
+      VPN_SENTINEL_CLIENT_ID: my-vpn-client
+```
+
+---
+
+## Development
+
+### Build from Source
+
+```bash
+# Build server image
+docker build -t vpn-sentinel-server:latest -f vpn-sentinel-server/Dockerfile .
+
+# Build client image
+docker build -t vpn-sentinel-client:latest -f vpn-sentinel-client/Dockerfile .
+```
+
+### Local Development Setup
+
+```bash
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r vpn-sentinel-server/requirements.txt
+pip install -r tests/requirements.txt
+
+# Install pre-commit hooks
+pip install pre-commit
+pre-commit install
+```
+
+### Run Tests
+
+```bash
+# Run all tests
+./tests/run_tests.sh --all
+
+# Run specific test categories
+./tests/run_tests.sh --unit
+./tests/run_tests.sh --integration
+
+# Run with coverage
+./tests/run_tests.sh --coverage
+```
+
+### Code Quality
+
+```bash
+# Run linters
+pre-commit run --all-files
+
+# Type checking
+mypy vpn-sentinel-server/ vpn_sentinel_common/
+
+# Security scanning
+bandit -r vpn-sentinel-server/ vpn_sentinel_common/
+```
+
+---
+
+## Testing
+
+### Test Structure
+
+```
+tests/
+├── unit/                    # Unit tests with mocks
+│   ├── test_api_routes.py
+│   ├── test_telegram.py
+│   └── ...
+├── integration/             # Integration tests
+│   ├── test_dashboard.py
+│   ├── test_client_keepalive.py
+│   └── ...
+└── fixtures/                # Test data and helpers
+    ├── sample_data.py
+    └── dummy_server.py
+```
+
+### Running Tests
+
+```bash
+# Quick test run
+pytest tests/unit
+
+# Full integration tests (requires Docker)
+pytest tests/integration
+
+# With coverage report
+pytest --cov=vpn_sentinel_common --cov-report=html
+
+# View coverage
+open htmlcov/index.html
+```
+
+### Test Coverage
+
+Current coverage: **125 unit tests**, **116 integration tests**
+
+Key areas:
+- API routes and keepalive logic
+- Dashboard rendering and status determination
+- Telegram notification formatting
+- Client health monitoring
+- Security middleware and rate limiting
+
+---
+
+## Troubleshooting
+
+### Client Not Connecting
+
+**Symptoms**: No keepalives received, client offline in dashboard
+
+**Solutions**:
+1. Check client logs:
+   ```bash
+   docker logs vpn-sentinel-client
+   ```
+
+2. Verify API key matches:
+   ```bash
+   # On client
+   echo $VPN_SENTINEL_API_KEY
+   # On server
+   docker exec vpn-sentinel-server env | grep API_KEY
+   ```
+
+3. Test network connectivity:
+   ```bash
+   docker exec vpn-sentinel-client curl -I http://server:5000/health
+   ```
+
+4. Check server is reachable:
+   ```bash
+   curl http://server-ip:5000/health
+   ```
+
+### VPN Bypass Warnings (False Positives)
+
+**Symptoms**: Red status even though VPN is working
+
+**Causes**:
+- Server and client both behind same NAT/firewall
+- Server running on same network as VPN exit point
+- Testing locally with server on same machine
+
+**Solutions**:
+- Deploy server on separate network/host
+- Use public server with different IP
+- Adjust monitoring logic if false positives persist
+
+### Dashboard Not Loading
+
+**Symptoms**: 404 or blank page
+
+**Solutions**:
+1. Verify dashboard is enabled:
+   ```bash
+   docker exec vpn-sentinel-server env | grep DASHBOARD_ENABLED
+   ```
+
+2. Check port mapping:
+   ```bash
+   docker ps | grep sentinel-server
+   # Should show: 0.0.0.0:8080->8080/tcp
+   ```
+
+3. Check server logs:
+   ```bash
+   docker logs vpn-sentinel-server | grep dashboard
+   ```
+
+### Telegram Notifications Not Working
+
+**Symptoms**: No messages received
+
+**Solutions**:
+1. Verify bot token and chat ID:
+   ```bash
+   curl "https://api.telegram.org/bot<TOKEN>/getMe"
+   ```
+
+2. Test bot manually:
+   ```bash
+   curl -X POST "https://api.telegram.org/bot<TOKEN>/sendMessage" \
+     -d "chat_id=<CHAT_ID>&text=Test"
+   ```
+
+3. Check server logs:
+   ```bash
+   docker logs vpn-sentinel-server | grep -i telegram
+   ```
+
+4. Ensure `VPN_SENTINEL_TELEGRAM_ENABLED=true`
+
+---
+
+## Contributing
+
+Contributions are welcome! Please follow these guidelines:
+
+### Development Workflow
+
+1. **Fork** the repository
+2. **Create** a feature branch: `git checkout -b feature/my-feature`
+3. **Make** your changes
+4. **Test** thoroughly: `./tests/run_tests.sh --all`
+5. **Commit** with clear messages
+6. **Push** to your fork
+7. **Submit** a pull request
+
+### Coding Standards
+
+- Follow PEP 8 for Python code
+- Use type hints where possible
+- Add docstrings to functions
+- Write tests for new features
+- Update documentation
+
+### Commit Message Format
+
+```
+type(scope): brief description
+
+Detailed explanation of changes...
+
+- Bullet points for key changes
+- Reference issues: Fixes #123
+```
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+
+### Pull Request Guidelines
+
+- Describe the problem your PR solves
+- Include screenshots for UI changes
+- List breaking changes clearly
+- Ensure CI passes
+- Update CHANGELOG.md
+
+---
+
+## License
+
+This project is licensed under the **MIT License**.
+
+**Copyright (c) 2024 VPN Sentinel Contributors**
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+**Full License**: [MIT License](https://opensource.org/licenses/MIT)
+
+---
+
+## Acknowledgments
+
+- **Flask** - Web framework
+- **Docker** - Containerization platform
+- **ipinfo.io** - IP geolocation API
+- **Telegram** - Notification platform
+
+---
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/agigante80/VPNSentinel/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/agigante80/VPNSentinel/discussions)
+- **Documentation**: [docs/](docs/)
+
+---
+
+**Made with ❤️ for privacy and security**
