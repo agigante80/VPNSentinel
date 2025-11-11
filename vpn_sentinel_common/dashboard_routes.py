@@ -4,7 +4,7 @@ from vpn_sentinel_common.log_utils import log_info
 from vpn_sentinel_common.server_info import get_server_info
 from vpn_sentinel_common.api_routes import client_status
 from flask import render_template_string
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 
 
@@ -59,7 +59,7 @@ def dashboard():
     offline_clients = total_clients - online_clients
     
     # Get current time
-    current_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+    current_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
     
     # Build client rows HTML
     client_rows_html = ""
@@ -77,7 +77,7 @@ def dashboard():
             # Format last seen time
             try:
                 last_seen_dt = datetime.fromisoformat(last_seen.replace('Z', '+00:00'))
-                time_diff = datetime.utcnow() - last_seen_dt
+                time_diff = datetime.now(timezone.utc) - last_seen_dt
                 if time_diff.total_seconds() < 60:
                     last_seen_str = "Just now"
                 elif time_diff.total_seconds() < 3600:

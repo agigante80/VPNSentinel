@@ -4,7 +4,7 @@ Tests Telegram bot command handlers.
 """
 import pytest
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, Mock, MagicMock, call
 from vpn_sentinel_common import telegram_commands
 
@@ -14,7 +14,7 @@ class TestFormatTimeAgo:
 
     def test_format_time_ago_just_now(self):
         """Test formatting time less than 1 minute ago."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         iso_string = now.isoformat()
         
         result = telegram_commands.format_time_ago(iso_string)
@@ -23,7 +23,7 @@ class TestFormatTimeAgo:
 
     def test_format_time_ago_one_minute(self):
         """Test formatting exactly 1 minute ago."""
-        time = datetime.utcnow() - timedelta(minutes=1)
+        time = datetime.now(timezone.utc) - timedelta(minutes=1)
         iso_string = time.isoformat()
         
         result = telegram_commands.format_time_ago(iso_string)
@@ -32,7 +32,7 @@ class TestFormatTimeAgo:
 
     def test_format_time_ago_multiple_minutes(self):
         """Test formatting multiple minutes ago."""
-        time = datetime.utcnow() - timedelta(minutes=5)
+        time = datetime.now(timezone.utc) - timedelta(minutes=5)
         iso_string = time.isoformat()
         
         result = telegram_commands.format_time_ago(iso_string)
@@ -41,7 +41,7 @@ class TestFormatTimeAgo:
 
     def test_format_time_ago_one_hour(self):
         """Test formatting exactly 1 hour ago."""
-        time = datetime.utcnow() - timedelta(hours=1)
+        time = datetime.now(timezone.utc) - timedelta(hours=1)
         iso_string = time.isoformat()
         
         result = telegram_commands.format_time_ago(iso_string)
@@ -50,7 +50,7 @@ class TestFormatTimeAgo:
 
     def test_format_time_ago_multiple_hours(self):
         """Test formatting multiple hours ago."""
-        time = datetime.utcnow() - timedelta(hours=3)
+        time = datetime.now(timezone.utc) - timedelta(hours=3)
         iso_string = time.isoformat()
         
         result = telegram_commands.format_time_ago(iso_string)
@@ -71,7 +71,7 @@ class TestFormatTimeAgo:
 
     def test_format_time_ago_59_minutes(self):
         """Test formatting 59 minutes (boundary case)."""
-        time = datetime.utcnow() - timedelta(minutes=59)
+        time = datetime.now(timezone.utc) - timedelta(minutes=59)
         iso_string = time.isoformat()
         
         result = telegram_commands.format_time_ago(iso_string)
@@ -80,7 +80,7 @@ class TestFormatTimeAgo:
 
     def test_format_time_ago_60_minutes(self):
         """Test formatting 60 minutes (should be 1 hour)."""
-        time = datetime.utcnow() - timedelta(minutes=60)
+        time = datetime.now(timezone.utc) - timedelta(minutes=60)
         iso_string = time.isoformat()
         
         result = telegram_commands.format_time_ago(iso_string)
@@ -174,7 +174,7 @@ class TestHandleStatus:
             'office-vpn': {
                 'ip': '203.0.113.1',
                 'location': 'US',
-                'last_seen': datetime.utcnow().isoformat()
+                'last_seen': datetime.now(timezone.utc).isoformat()
             }
         }
         
@@ -195,12 +195,12 @@ class TestHandleStatus:
             'client-1': {
                 'ip': '1.2.3.4',
                 'location': 'UK',
-                'last_seen': datetime.utcnow().isoformat()
+                'last_seen': datetime.now(timezone.utc).isoformat()
             },
             'client-2': {
                 'ip': '5.6.7.8',
                 'location': 'FR',
-                'last_seen': (datetime.utcnow() - timedelta(minutes=5)).isoformat()
+                'last_seen': (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
             }
         }
         
@@ -216,7 +216,7 @@ class TestHandleStatus:
     @patch('vpn_sentinel_common.telegram_commands.telegram.send_telegram_message')
     def test_handle_status_formats_time_ago(self, mock_send):
         """Test /status formats last_seen as time ago."""
-        old_time = datetime.utcnow() - timedelta(minutes=10)
+        old_time = datetime.now(timezone.utc) - timedelta(minutes=10)
         mock_api_routes = Mock()
         mock_api_routes.client_status = {
             'test-client': {
