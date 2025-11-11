@@ -23,6 +23,7 @@ test/
 .env-TEST
 compose-TEST.yaml
 temp/
+example/
 
 # Backup files
 *.backup
@@ -35,6 +36,10 @@ compose.override.yaml
 # Script outputs and cache
 command.bash
 *.cache
+
+# Local binaries (install separately, but keep README)
+bin/*
+!bin/README.md
 
 # Python
 __pycache__/
@@ -73,6 +78,10 @@ tests/.venv-ci/
 *.code-workspace
 .history/
 
+# AI Coding Assistants
+.cursor/
+.autopilot.json
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
@@ -86,11 +95,12 @@ htmlcov/
 .dmypy.json
 dmypy.json
 
-# Certificates and keys
-certs/
-certs/*.pem
-certs/*.key
-certs/*.csr
+# Certificates and keys (anywhere in project)
+**/certs/
+*.pem
+*.key
+*.csr
+*.crt
 
 # Smoke run logs (workspace-relative)
 scripts/smoke/logs/
