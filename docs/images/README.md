@@ -1,37 +1,72 @@
 # Dashboard Screenshots
 
-## Adding Dashboard Screenshot
+This directory contains screenshots of the VPN Sentinel dashboard for documentation purposes.
 
-To add a dashboard screenshot:
+## Current Screenshot
 
-1. **Access the dashboard**: Navigate to `http://your-server:8080/dashboard` in your browser
-2. **Take screenshot**: Use your browser or screenshot tool to capture the dashboard
-3. **Save as**: `dashboard-screenshot.png` in this directory (`docs/images/`)
-4. **Recommended size**: 1400x900 pixels for best display in README
+- **File**: `dashboard-screenshot.png`
+- **Resolution**: 1400x900 pixels
+- **Format**: PNG
+- **Size**: ~341KB
+- **Last Updated**: 2025-11-11
+
+The screenshot shows the dashboard with multiple clients displaying all status types (🟢 Green, 🟡 Yellow, 🔴 Red).
+
+## Regenerating Screenshot Automatically
+
+The dashboard screenshot can be regenerated automatically using the following command:
+
+```bash
+# Start the VPN Sentinel server and client first
+docker compose up -d
+
+# Wait for services to be ready
+sleep 5
+
+# Generate screenshot using chromium headless mode
+chromium-browser --headless --disable-gpu \
+  --screenshot=docs/images/dashboard-screenshot.png \
+  --window-size=1400,900 \
+  --virtual-time-budget=3000 \
+  http://localhost:18080/dashboard
+```
+
+### Prerequisites
+
+- VPN Sentinel server running on port 18080 (or adjust URL)
+- Chromium browser installed (`sudo apt install chromium-browser`)
+- At least 2-3 clients connected with varied statuses for best visual
+
+### Alternative Browsers
+
+```bash
+# Using Firefox
+firefox --headless --screenshot docs/images/dashboard-screenshot.png \
+  http://localhost:18080/dashboard
+
+# Using Chrome
+google-chrome --headless --disable-gpu \
+  --screenshot=docs/images/dashboard-screenshot.png \
+  --window-size=1400,900 \
+  http://localhost:18080/dashboard
+```
 
 ## Screenshot Guidelines
 
-- Show the dashboard with at least 2-3 connected clients
-- Include examples of different status indicators (🟢 Green, 🟡 Yellow, 🔴 Red)
-- Ensure the full interface is visible (header, stats, table, footer)
-- Use high resolution (at least 1200px wide)
-- Save as PNG format for best quality
+When regenerating screenshots:
+- Ensure at least 2-3 clients are connected
+- Include examples of all status indicators (🟢 Green, 🟡 Yellow, 🔴 Red)
+- Full interface should be visible (header, server info, stats, table, footer)
+- Resolution: 1400x900 pixels minimum
+- Format: PNG for best quality
+- Show realistic data (varied locations, providers, statuses)
 
-## Alternative: Manual Screenshot Instructions
+## Updating Documentation
 
-If you need to generate a screenshot manually:
+After regenerating the screenshot:
 
 ```bash
-# Option 1: Using Firefox
-firefox --headless --screenshot dashboard-screenshot.png http://localhost:8080/dashboard
-
-# Option 2: Using Chromium/Chrome
-chromium --headless --disable-gpu --screenshot=dashboard-screenshot.png --window-size=1400,900 http://localhost:8080/dashboard
-
-# Option 3: Using cutycapt (if installed)
-cutycapt --url=http://localhost:8080/dashboard --out=dashboard-screenshot.png --min-width=1400 --min-height=900
+git add docs/images/dashboard-screenshot.png
+git commit -m "docs: Update dashboard screenshot"
+git push origin develop
 ```
-
-## Current Status
-
-⚠️ **Screenshot pending**: A dashboard screenshot will be added in the next commit once the dashboard is properly deployed and can be captured with sample data.
