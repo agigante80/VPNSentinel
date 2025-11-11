@@ -195,7 +195,7 @@ LABEL maintainer="VPN Sentinel Project" \
 # Verifies process status, server connectivity, external service reachability,
 # and optional health monitor status
 HEALTHCHECK --interval=60s --timeout=15s --start-period=30s --retries=3 \
-    CMD /app/healthcheck.sh
+    CMD python3 /app/healthcheck.py
 
 # =============================================================================
 # End of VPN Sentinel Client Dockerfile
