@@ -94,20 +94,17 @@ VPN Sentinel uses a **client-server architecture** with network isolation to ens
 ### Network Flow Diagram
 
 ```
-                                    INTERNET / CLOUD
-                                           |
-                                           | VPN Tunnel
-                                           v
-┌─────────────────────────────────────────────────────────────┐
-│                     VPN Container                           │
+                                           
+┌────────────────────────────────────────────────────────────┐
+│                     VPN Container                          │
 │  ┌────────────────┐           ┌──────────────────────────┐ │
 │  │  VPN Client    │           │  VPN Sentinel Client     │ │
 │  │  (OpenVPN/WG)  │◄─────────►│  - Monitors connection   │ │
-│  │                │           │  - Checks public IP       │ │
-│  │  tun0/wg0      │           │  - DNS leak testing       │ │
+│  │                │           │  - Checks public IP      │ │
+│  │  tun0/wg0      │           │  - DNS leak testing      │ │
 │  └────────────────┘           │  - Sends keepalives      │ │
-│                                └──────────────────────────┘ │
-└──────────────────────────────────────┬──────────────────────┘
+│                                └─────────────────────────┘ │
+└──────────────────────────────────────┬─────────────────────┘
                                        |
                                        | HTTP/HTTPS
                                        | (via VPN tunnel)
@@ -124,11 +121,11 @@ VPN Sentinel uses a **client-server architecture** with network isolation to ens
                                        | Reaches server
                                        | via public internet
                                        v
-┌─────────────────────────────────────────────────────────────┐
-│                     Host Network                            │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │           VPN Sentinel Server                        │  │
-│  │                                                       │  │
+┌──────────────────────────────────────────────────────────┐
+│                     Host Network                         │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │           VPN Sentinel Server                      │  │
+│  │                                                    │  │
 │  │  ┌─────────────┐  ┌──────────────┐  ┌────────────┐ │  │
 │  │  │   API       │  │  Dashboard   │  │  Telegram  │ │  │
 │  │  │ Port 5000   │  │  Port 8080   │  │    Bot     │ │  │
@@ -137,8 +134,8 @@ VPN Sentinel uses a **client-server architecture** with network isolation to ens
 │  │  │ - Status    │  │ - Traffic    │  │ - Status   │ │  │
 │  │  │ - Health    │  │   lights     │  │ - History  │ │  │
 │  │  └─────────────┘  └──────────────┘  └────────────┘ │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+│  └────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────┘
            ^                    ^                    ^
            |                    |                    |
       API Access          Web Browser         Telegram App
@@ -383,26 +380,67 @@ This is a critical security issue.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `VPN_SENTINEL_API_KEY` | *(required)* | API key for client authentication |
+| `VPN_SENTINEL_API_PATH` | `/api/v1` | API path prefix (must match client configuration) |
 | `VPN_SENTINEL_SERVER_API_PORT` | `5000` | API server port |
 | `VPN_SENTINEL_SERVER_HEALTH_PORT` | `8081` | Health check port |
 | `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | `8080` | Web dashboard port |
-| `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable web dashboard |
-| `VPN_SENTINEL_TELEGRAM_ENABLED` | `false` | Enable Telegram notifications |
-| `VPN_SENTINEL_TELEGRAM_BOT_TOKEN` | - | Telegram bot token |
-| `VPN_SENTINEL_TELEGRAM_CHAT_ID` | - | Telegram chat ID |
+| `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable/disable web dashboard (set to `false` to reduce resources) |
+| `VPN_SENTINEL_TELEGRAM_ENABLED` | *(auto)* | Telegram notifications: `true` (require credentials), `false` (disable), unset (auto-enable if credentials present) |
+| `TELEGRAM_BOT_TOKEN` | - | Telegram bot token (required if TELEGRAM_ENABLED=true) |
+| `TELEGRAM_CHAT_ID` | - | Telegram chat ID (required if TELEGRAM_ENABLED=true) |
 | `VPN_SENTINEL_LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARN, ERROR) |
 
 #### Client Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VPN_SENTINEL_CLIENT_ID` | `vpn-monitor-main` | Unique client identifier |
+| `VPN_SENTINEL_CLIENT_ID` | *(auto-generated)* | Unique client identifier (format: `vpn-monitor-{12-random-digits}`) |
 | `VPN_SENTINEL_SERVER_URL` | `http://server:5000` | Server API URL |
 | `VPN_SENTINEL_API_KEY` | *(required)* | API key (must match server) |
-| `VPN_SENTINEL_API_PATH` | `/api/v1` | API path prefix |
+| `VPN_SENTINEL_API_PATH` | `/api/v1` | API path prefix (must match server configuration) |
 | `VPN_SENTINEL_CHECK_INTERVAL` | `60` | Health check interval (seconds) |
 | `VPN_SENTINEL_CLIENT_HEALTH_MONITOR_ENABLED` | `false` | Enable dedicated health monitor |
 | `VPN_SENTINEL_CLIENT_HEALTH_MONITOR_PORT` | `8082` | Health monitor port |
+
+### Configuration Notes
+
+#### Telegram Notification Behavior
+
+The `VPN_SENTINEL_TELEGRAM_ENABLED` variable supports **3 states**:
+
+1. **`true`** (Explicit Enable)
+   - **Requires** both `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to be set
+   - Server exits with error if credentials are missing
+   - Use when you want to ensure Telegram is always active
+
+2. **`false`** (Explicit Disable)
+   - Disables Telegram even if credentials are present
+   - Use in testing or when temporarily disabling notifications
+
+3. **Unset or any other value** (Auto-Detect)
+   - Automatically enables if both credentials are present
+   - Silently disables if credentials are missing
+   - **Recommended for most deployments**
+
+Example configurations:
+```bash
+# Auto-detect (recommended)
+TELEGRAM_BOT_TOKEN=your_token
+TELEGRAM_CHAT_ID=your_chat_id
+# VPN_SENTINEL_TELEGRAM_ENABLED not set - will auto-enable
+
+# Explicit enable (validates credentials)
+VPN_SENTINEL_TELEGRAM_ENABLED=true
+TELEGRAM_BOT_TOKEN=your_token
+TELEGRAM_CHAT_ID=your_chat_id
+
+# Explicit disable
+VPN_SENTINEL_TELEGRAM_ENABLED=false
+```
+
+#### Client ID Format
+
+When `VPN_SENTINEL_CLIENT_ID` is not set, the system auto-generates a unique identifier in the format `vpn-monitor-{12-random-digits}` (e.g., `vpn-monitor-847261950382`). For production deployments, it's recommended to set meaningful client IDs like `office-vpn-primary` or `home-synology-vpn`.
 
 ### Security Best Practices
 
