@@ -1,8 +1,9 @@
 """Dashboard server routes for VPN Sentinel."""
 from vpn_sentinel_common.server import dashboard_app
-from vpn_sentinel_common.log_utils import log_info
+from vpn_sentinel_common.log_utils import log_info, get_current_time
 from vpn_sentinel_common.server_info import get_server_info
 from vpn_sentinel_common.api_routes import client_status
+from vpn_sentinel_common.version import get_version
 from flask import render_template_string
 from datetime import datetime, timezone
 import os
@@ -51,15 +52,18 @@ def dashboard():
     dns_status = server_info.get('dns_status', 'Unknown')
     
     # Get version
-    version = os.getenv('VPN_SENTINEL_VERSION', 'dev')
+    version = get_version()
     
     # Get client statistics
     total_clients = len(client_status)
     online_clients = sum(1 for c in client_status.values() if c)
     offline_clients = total_clients - online_clients
     
-    # Get current time
-    current_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+    # Get current time (timezone-aware based on TZ environment variable)
+    current_dt = get_current_time()
+    # Format with timezone abbreviation
+    tz_name = current_dt.tzname() or 'UTC'
+    current_time = current_dt.strftime(f'%Y-%m-%d %H:%M:%S {tz_name}')
     
     # Build client rows HTML
     client_rows_html = ""
@@ -77,7 +81,17 @@ def dashboard():
             # Format last seen time
             try:
                 last_seen_dt = datetime.fromisoformat(last_seen.replace('Z', '+00:00'))
-                time_diff = datetime.now(timezone.utc) - last_seen_dt
+                # Use timezone-aware current time for comparison
+                current_dt = get_current_time()
+                # Convert to UTC for calculation if needed
+                if last_seen_dt.tzinfo is None:
+                    last_seen_dt = last_seen_dt.replace(tzinfo=timezone.utc)
+                if current_dt.tzinfo != timezone.utc:
+                    current_dt = current_dt.astimezone(timezone.utc)
+                if last_seen_dt.tzinfo != timezone.utc:
+                    last_seen_dt = last_seen_dt.astimezone(timezone.utc)
+                
+                time_diff = current_dt - last_seen_dt
                 if time_diff.total_seconds() < 60:
                     last_seen_str = "Just now"
                 elif time_diff.total_seconds() < 3600:
