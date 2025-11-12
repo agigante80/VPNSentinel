@@ -65,8 +65,8 @@ class TestVersioning(unittest.TestCase):
             # Should be a development version
             self.assertIn('-dev-', version, f"Expected dev version on develop branch, got: {version}")
         elif current_branch == 'main':
-            # Should be production version (clean tag) or pre-release (+commits)
-            self.assertTrue(version == '1.0.0' or version.startswith('1.0.0+'), 
+            # Should be production version (clean tag) or pre-release (-commits for Docker compatibility)
+            self.assertTrue(version == '1.0.0' or version.startswith('1.0.0-') or version.startswith('1.0.0+'), 
                           f"Expected production version on main branch, got: {version}")
         # For other branches, just ensure it's a valid version format (already checked above)
 
