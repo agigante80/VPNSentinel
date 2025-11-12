@@ -33,7 +33,7 @@ if [[ $GIT_DESCRIBE =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(.*)$ ]]; then
   # to avoid confusion when the tag itself contains a '+' (build metadata).
   COMMITS_AHEAD=$(echo "$GIT_DESCRIBE" | sed -n 's/.*-\([0-9]\+\)-g.*/\1/p')
       if [ -n "$COMMITS_AHEAD" ] && [ "$COMMITS_AHEAD" != "0" ]; then
-        VERSION="${BASE_VERSION}+${COMMITS_AHEAD}"
+        VERSION="${BASE_VERSION}-${COMMITS_AHEAD}"
       else
         VERSION="$BASE_VERSION"
       fi
