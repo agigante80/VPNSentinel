@@ -4,6 +4,10 @@
 # Build stage
 FROM python:3.12-alpine AS builder
 
+# Build arguments for version information
+ARG VERSION
+ARG COMMIT_HASH
+
 # Install build dependencies
 RUN apk add --no-cache \
     gcc \
@@ -24,10 +28,19 @@ RUN pip install --no-cache-dir --user --retries 10 --timeout 60 -e . flask werkz
 # Runtime stage
 FROM python:3.12-alpine
 
+# Build arguments for version information
+ARG VERSION
+ARG COMMIT_HASH
+
+# Set version environment variables
+ENV VERSION=${VERSION}
+ENV COMMIT_HASH=${COMMIT_HASH}
+
 # Install runtime dependencies
 RUN apk add --no-cache \
     curl \
     openssl \
+    tzdata \
     ca-certificates
 
 # Create non-root user
