@@ -22,10 +22,13 @@ def _sanitize_client_id(cid: str) -> str:
 
 
 def generate_client_id(env: Dict[str, str]) -> str:
-    """Return a client id either from env or generated reproducibly.
+    """Return a client id either from env or generated with random digits.
 
     Args:
         env: mapping of environment variables (use os.environ in production).
+    
+    Returns:
+        Client ID in format: vpn-monitor-{12-random-digits}
     """
     if env.get("VPN_SENTINEL_CLIENT_ID"):
         cid = env["VPN_SENTINEL_CLIENT_ID"]
@@ -33,10 +36,9 @@ def generate_client_id(env: Dict[str, str]) -> str:
             return _sanitize_client_id(cid)
         return cid
 
-    timestamp_part = str(int(time.time()))
-    timestamp_part = timestamp_part[-7:]
-    rand_part = f"{random.randint(100000,999999):06d}"
-    return f"vpn-client-{timestamp_part}{rand_part}"
+    # Generate 12 random digits for client ID
+    rand_digits = ''.join(str(random.randint(0, 9)) for _ in range(12))
+    return f"vpn-monitor-{rand_digits}"
 
 
 def load_config(env: Dict[str, str]) -> Dict[str, Any]:

@@ -19,6 +19,8 @@ from vpn_sentinel_common import telegram, telegram_commands
 
 def main():
     """Main entry point for the VPN Sentinel server."""
+    import os
+    
     # Log startup with version
     version = get_version()
     commit = get_commit_hash() or "unknown"
@@ -39,20 +41,28 @@ def main():
     api_port = ports['api_port']
     health_port = ports['health_port']
     dashboard_port = ports['dashboard_port']
+    
+    # Check if web dashboard is enabled
+    web_dashboard_enabled = os.getenv('VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED', 'true').lower() == 'true'
 
     # Start servers in threads
     api_thread = threading.Thread(target=run_flask_app, args=(api_app, api_port, 'API server'))
     health_thread = threading.Thread(target=run_flask_app, args=(health_app, health_port, 'Health server'))
-    dashboard_thread = threading.Thread(target=run_flask_app, args=(dashboard_app, dashboard_port, 'Dashboard server'))
-
+    
     api_thread.daemon = True
     health_thread.daemon = True
-    dashboard_thread.daemon = True
+
+    if web_dashboard_enabled:
+        dashboard_thread = threading.Thread(target=run_flask_app, args=(dashboard_app, dashboard_port, 'Dashboard server'))
+        dashboard_thread.daemon = True
+    else:
+        log_info('server', '⚠️ Web dashboard is disabled')
 
     try:
         api_thread.start()
         health_thread.start()
-        dashboard_thread.start()
+        if web_dashboard_enabled:
+            dashboard_thread.start()
 
         log_info('server', 'VPN Sentinel Server started successfully')
 

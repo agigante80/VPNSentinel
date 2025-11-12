@@ -85,52 +85,45 @@ class TestGenerateClientId:
 
     def test_generate_client_id_auto_generated(self):
         """Test client ID is auto-generated when not in env."""
-        with patch('vpn_sentinel_common.config.time.time', return_value=1699721234.567):
-            with patch('vpn_sentinel_common.config.random.randint', return_value=123456):
-                env = {}
-                result = generate_client_id(env)
-                # timestamp_part = last 7 digits of 1699721234 = 9721234
-                assert result == 'vpn-client-9721234123456'
+        with patch('vpn_sentinel_common.config.random.randint', return_value=5):
+            env = {}
+            result = generate_client_id(env)
+            # Should be vpn-monitor-{12 digits all 5}
+            assert result == 'vpn-monitor-555555555555'
 
     def test_generate_client_id_different_timestamps(self):
-        """Test different timestamps produce different IDs."""
-        with patch('vpn_sentinel_common.config.time.time', return_value=1699721234.0):
-            with patch('vpn_sentinel_common.config.random.randint', return_value=111111):
-                result1 = generate_client_id({})
-                # Last 7 digits of 1699721234 = 9721234
+        """Test different random values produce different IDs."""
+        with patch('vpn_sentinel_common.config.random.randint', return_value=1):
+            result1 = generate_client_id({})
+            # Should be vpn-monitor-{12 ones}
         
-        with patch('vpn_sentinel_common.config.time.time', return_value=1799721234.0):
-            with patch('vpn_sentinel_common.config.random.randint', return_value=111111):
-                result2 = generate_client_id({})
-                # Last 7 digits of 1799721234 = 9721234 (wait, same!)
+        with patch('vpn_sentinel_common.config.random.randint', return_value=9):
+            result2 = generate_client_id({})
+            # Should be vpn-monitor-{12 nines}
         
-        # Let's use a significantly different timestamp
-        with patch('vpn_sentinel_common.config.time.time', return_value=1600000000.0):
-            with patch('vpn_sentinel_common.config.random.randint', return_value=111111):
-                result3 = generate_client_id({})
-                # Last 7 digits of 1600000000 = 0000000
-        
-        assert result1 != result3
+        assert result1 == 'vpn-monitor-111111111111'
+        assert result2 == 'vpn-monitor-999999999999'
+        assert result1 != result2
 
     def test_generate_client_id_random_component(self):
         """Test random component makes IDs unique."""
-        with patch('vpn_sentinel_common.config.time.time', return_value=1699721234.567):
-            with patch('vpn_sentinel_common.config.random.randint', side_effect=[111111, 222222]):
-                result1 = generate_client_id({})
-                result2 = generate_client_id({})
+        # Mock randint to return different values for each of the 12 calls per ID
+        with patch('vpn_sentinel_common.config.random.randint', side_effect=[1]*12 + [2]*12):
+            result1 = generate_client_id({})
+            result2 = generate_client_id({})
             
             assert result1 != result2
-            assert result1.startswith('vpn-client-')
-            assert result2.startswith('vpn-client-')
+            assert result1.startswith('vpn-monitor-')
+            assert result2.startswith('vpn-monitor-')
 
     def test_generate_client_id_empty_string_auto_generates(self):
         """Test empty string in env triggers auto-generation."""
-        with patch('vpn_sentinel_common.config.time.time', return_value=1699721234.567):
-            with patch('vpn_sentinel_common.config.random.randint', return_value=999999):
-                env = {'VPN_SENTINEL_CLIENT_ID': ''}
-                result = generate_client_id(env)
-                # Empty string is falsy, should auto-generate
-                assert result.startswith('vpn-client-')
+        with patch('vpn_sentinel_common.config.random.randint', return_value=7):
+            env = {'VPN_SENTINEL_CLIENT_ID': ''}
+            result = generate_client_id(env)
+            # Empty string is falsy, should auto-generate
+            assert result.startswith('vpn-monitor-')
+            assert result == 'vpn-monitor-777777777777'
 
 
 class TestLoadConfig:
@@ -147,7 +140,7 @@ class TestLoadConfig:
         assert config['is_https'] is False
         assert config['timeout'] == 30
         assert config['interval'] == 300
-        assert config['client_id'].startswith('vpn-client-')
+        assert config['client_id'].startswith('vpn-monitor-')
         assert config['tls_cert_path'] == ''
         assert config['allow_insecure'] is False
         assert config['debug'] is False
@@ -339,7 +332,7 @@ class TestConfigIntegration:
                 config = load_config(env)
                 
                 # Should have auto-generated client ID
-                assert config['client_id'].startswith('vpn-client-')
+                assert config['client_id'].startswith('vpn-monitor-')
                 # Should respect custom timeout
                 assert config['timeout'] == 45
                 # Should detect HTTPS

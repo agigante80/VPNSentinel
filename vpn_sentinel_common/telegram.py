@@ -1,15 +1,34 @@
 """Telegram integration with notifications and bot commands."""
 import requests
 import os
+import sys
 import threading
 import time
 from datetime import datetime, timezone
 from typing import Optional, Dict, Callable
 from .log_utils import log_info, log_error, log_warn
 
+# Read configuration
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '')
-TELEGRAM_ENABLED = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
+TELEGRAM_ENABLED_ENV = os.getenv('VPN_SENTINEL_TELEGRAM_ENABLED', '').lower()
+
+# Determine if Telegram should be enabled
+if TELEGRAM_ENABLED_ENV == 'true':
+    # Explicit enable - validate credentials are present
+    if not TELEGRAM_BOT_TOKEN:
+        log_error('telegram', '❌ VPN_SENTINEL_TELEGRAM_ENABLED=true but TELEGRAM_BOT_TOKEN is not set')
+        sys.exit(1)
+    if not TELEGRAM_CHAT_ID:
+        log_error('telegram', '❌ VPN_SENTINEL_TELEGRAM_ENABLED=true but TELEGRAM_CHAT_ID is not set')
+        sys.exit(1)
+    TELEGRAM_ENABLED = True
+elif TELEGRAM_ENABLED_ENV == 'false':
+    # Explicit disable
+    TELEGRAM_ENABLED = False
+else:
+    # Auto-detect based on credentials presence
+    TELEGRAM_ENABLED = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
 
 # Track message offset for polling
 _last_update_id = 0
