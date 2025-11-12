@@ -70,15 +70,19 @@ EOF
 )
 
 echo "📦 Sending keepalive..."
-curl -s -w "\n📊 HTTP Status: %{http_code}\n⏱️  Response Time: %{time_total}s\n\n" \
+curl -s --max-time 10 -w "\n📊 HTTP Status: %{http_code}\n⏱️  Response Time: %{time_total}s\n\n" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: ${API_KEY}" \
   -d "${PAYLOAD}" \
   "${SERVER_URL}/keepalive"
 
 echo "📋 Checking server status..."
-curl -s -w "\n📊 HTTP Status: %{http_code}\n\n" \
+STATUS_OUTPUT=$(curl -s --max-time 10 -w "\n📊 HTTP Status: %{http_code}\n\n" \
   -H "X-API-Key: ${API_KEY}" \
-  "${SERVER_URL}/status" | jq . 2>/dev/null || cat
+  "${SERVER_URL}/status")
 
+# Try to format with jq, fallback to plain output
+echo "$STATUS_OUTPUT" | jq . 2>/dev/null || echo "$STATUS_OUTPUT"
+
+echo ""
 echo "✅ Test completed!"

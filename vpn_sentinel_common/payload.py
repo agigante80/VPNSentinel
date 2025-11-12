@@ -80,7 +80,7 @@ def post_payload(payload_text: str) -> int:
     req = urllib.request.Request(server_url, data=data, method="POST")
     req.add_header("Content-Type", "application/json")
     if api_key:
-        req.add_header("Authorization", f"Bearer {api_key}")
+        req.add_header("X-API-Key", api_key)
 
     try:
         # Respect TLS configuration: allow insecure or provide a CA bundle
