@@ -186,7 +186,7 @@ class TestPostPayload:
         'VPN_SENTINEL_API_KEY': 'secret-key'
     })
     def test_post_payload_includes_auth_header(self, mock_urlopen):
-        """Test Authorization header is included when API key set."""
+        """Test X-API-Key header is included when API key set."""
         mock_response = MagicMock()
         mock_response.getcode.return_value = 200
         mock_response.__enter__.return_value = mock_response
@@ -198,8 +198,8 @@ class TestPostPayload:
         
         assert result == 0
         request = mock_urlopen.call_args[0][0]
-        assert 'Authorization' in request.headers
-        assert 'Bearer secret-key' in request.headers['Authorization']
+        assert 'X-api-key' in request.headers
+        assert request.headers['X-api-key'] == 'secret-key'
     
     @patch('urllib.request.urlopen')
     @patch.dict(os.environ, {
