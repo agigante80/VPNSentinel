@@ -32,6 +32,9 @@ _client_first_seen = set()
 # Cache server's public IP (fetched once at startup)
 _server_public_ip = None
 
+# Client timeout configuration (minutes)
+CLIENT_TIMEOUT_MINUTES = int(os.getenv('VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES', '30'))
+
 
 def get_cached_server_ip():
     """Get server's public IP (cached)."""
@@ -218,3 +221,71 @@ def keepalive():
     except Exception as e:
         log_info('api', f"Error processing keepalive: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
+
+def cleanup_stale_clients():
+    """Remove clients that haven't sent a keepalive within the timeout period.
+    
+    This function runs in a background thread and periodically checks for stale clients.
+    Clients are considered stale if they haven't sent a keepalive within CLIENT_TIMEOUT_MINUTES.
+    """
+    import time
+    from datetime import datetime, timezone, timedelta
+    
+    log_info('cleanup', f'🧹 Starting stale client cleanup thread (timeout: {CLIENT_TIMEOUT_MINUTES} minutes)')
+    
+    # Check every 60 seconds
+    check_interval = 60
+    
+    while True:
+        try:
+            time.sleep(check_interval)
+            
+            if not client_status:
+                continue
+                
+            current_time = datetime.now(timezone.utc)
+            timeout_delta = timedelta(minutes=CLIENT_TIMEOUT_MINUTES)
+            stale_clients = []
+            
+            for client_id, client_data in list(client_status.items()):
+                last_seen_str = client_data.get('last_seen')
+                if not last_seen_str:
+                    continue
+                
+                try:
+                    # Parse ISO format timestamp
+                    last_seen = datetime.fromisoformat(last_seen_str.replace('Z', '+00:00'))
+                    
+                    # Ensure timezone-aware
+                    if last_seen.tzinfo is None:
+                        last_seen = last_seen.replace(tzinfo=timezone.utc)
+                    
+                    # Convert to UTC if not already
+                    if last_seen.tzinfo != timezone.utc:
+                        last_seen = last_seen.astimezone(timezone.utc)
+                    
+                    # Check if client is stale
+                    time_since_last_seen = current_time - last_seen
+                    if time_since_last_seen > timeout_delta:
+                        stale_clients.append((client_id, time_since_last_seen))
+                        
+                except (ValueError, AttributeError) as e:
+                    log_error('cleanup', f'Error parsing last_seen for {client_id}: {e}')
+                    continue
+            
+            # Remove stale clients
+            for client_id, time_since_last_seen in stale_clients:
+                minutes_ago = int(time_since_last_seen.total_seconds() / 60)
+                log_info('cleanup', f'🗑️ Removing stale client: {client_id} (last seen {minutes_ago} minutes ago)')
+                
+                # Remove from tracking sets
+                if client_id in _client_first_seen:
+                    _client_first_seen.discard(client_id)
+                
+                # Remove from client status
+                del client_status[client_id]
+                
+        except Exception as e:
+            log_error('cleanup', f'Error in cleanup thread: {e}')
+            time.sleep(check_interval)

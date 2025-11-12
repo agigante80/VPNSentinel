@@ -15,6 +15,7 @@ from vpn_sentinel_common.log_utils import log_info
 from vpn_sentinel_common.server_utils import run_flask_app, get_port_config
 from vpn_sentinel_common.version import get_version, get_commit_hash
 from vpn_sentinel_common import telegram, telegram_commands
+from vpn_sentinel_common.api_routes import cleanup_stale_clients
 
 
 def main():
@@ -44,6 +45,11 @@ def main():
     
     # Check if web dashboard is enabled
     web_dashboard_enabled = os.getenv('VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED', 'true').lower() == 'true'
+
+    # Start cleanup thread for stale clients
+    cleanup_thread = threading.Thread(target=cleanup_stale_clients)
+    cleanup_thread.daemon = True
+    cleanup_thread.start()
 
     # Start servers in threads
     api_thread = threading.Thread(target=run_flask_app, args=(api_app, api_port, 'API server'))
