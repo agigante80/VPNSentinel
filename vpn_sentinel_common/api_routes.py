@@ -1,14 +1,30 @@
 """API server routes for VPN Sentinel."""
 from vpn_sentinel_common.server import api_app
-from vpn_sentinel_common.log_utils import log_info, log_warn
+from vpn_sentinel_common.log_utils import log_info, log_warn, log_error
 from vpn_sentinel_common import telegram
 from vpn_sentinel_common.server_info import get_server_public_ip
+from vpn_sentinel_common.validation import (
+    get_client_ip,
+    validate_client_id,
+    validate_public_ip,
+    validate_location_string
+)
+from vpn_sentinel_common.security import check_rate_limit, check_ip_whitelist, ALLOWED_IPS
 from flask import jsonify, request
 import os
 
 
 # In-memory storage for client status (in production this would be a database)
 client_status = {}
+
+# Get API key from environment (required for authentication)
+API_KEY = os.getenv('VPN_SENTINEL_API_KEY', '')
+
+# Load IP whitelist from environment (comma-separated list)
+_allowed_ips_env = os.getenv('VPN_SENTINEL_SERVER_ALLOWED_IPS', '')
+if _allowed_ips_env:
+    ALLOWED_IPS.clear()
+    ALLOWED_IPS.extend([ip.strip() for ip in _allowed_ips_env.split(',') if ip.strip()])
 
 # Track if clients have ever connected (to avoid spam on first connect)
 _client_first_seen = set()
@@ -32,6 +48,66 @@ if not API_PATH.startswith('/'):
 print(f"DEBUG: API_PATH = {API_PATH}")
 
 
+@api_app.before_request
+def authenticate_request():
+    """Authenticate API requests using X-API-Key header.
+    
+    Security checks applied:
+    1. IP whitelist (if configured)
+    2. Rate limiting (30 requests/minute per IP)
+    3. API key validation
+    
+    All API endpoints require authentication except:
+    - Health endpoints (handled by separate health_app)
+    - Dashboard endpoints (handled by separate dashboard_app)
+    """
+    client_ip = get_client_ip()
+    
+    # 1. Check IP whitelist (if configured)
+    if not check_ip_whitelist(client_ip):
+        log_error('security', f'❌ IP blocked: {client_ip} not in whitelist | Path: {request.path}')
+        return jsonify({
+            'error': 'Access denied',
+            'message': 'Your IP address is not authorized'
+        }), 403
+    
+    # 2. Check rate limiting
+    if not check_rate_limit(client_ip):
+        log_warn('security', f'⚠️ Rate limit exceeded | IP: {client_ip} | Path: {request.path}')
+        return jsonify({
+            'error': 'Rate limit exceeded',
+            'message': 'Too many requests. Please try again later.'
+        }), 429
+    
+    # 3. Check API key authentication
+    # Skip authentication if no API key is configured (development mode only)
+    if not API_KEY:
+        log_warn('security', '⚠️ API_KEY not configured - authentication disabled (INSECURE!)')
+        return None
+    
+    # Get API key from request headers
+    provided_key = request.headers.get('X-API-Key', '')
+    
+    # Validate API key
+    if not provided_key:
+        log_error('security', f'❌ Authentication failed: No API key provided | IP: {client_ip} | Path: {request.path}')
+        return jsonify({
+            'error': 'Authentication required',
+            'message': 'X-API-Key header is required'
+        }), 401
+    
+    if provided_key != API_KEY:
+        log_error('security', f'❌ Authentication failed: Invalid API key | IP: {client_ip} | Path: {request.path}')
+        return jsonify({
+            'error': 'Authentication failed',
+            'message': 'Invalid API key'
+        }), 403
+    
+    # All security checks passed
+    log_info('security', f'✅ Authenticated request | IP: {client_ip} | Path: {request.path}')
+    return None
+
+
 @api_app.route(f'{API_PATH}/status', methods=['GET'])
 def get_status():
     """Get status of all connected clients."""
@@ -46,41 +122,47 @@ def keepalive():
         if not data:
             return jsonify({'error': 'No JSON data provided'}), 400
 
-        client_id = data.get('client_id')
-        if not client_id:
+        # Validate and sanitize client_id
+        client_id_raw = data.get('client_id')
+        if not client_id_raw:
             return jsonify({'error': 'client_id is required'}), 400
+        
+        client_id = validate_client_id(client_id_raw)
+        if client_id == 'unknown':
+            return jsonify({'error': 'Invalid client_id format'}), 400
 
-        # Extract client info (handle both flat and nested formats)
+        # Extract and validate client info (handle both flat and nested formats)
         from datetime import datetime, timezone
-        vpn_ip = data.get('public_ip') or data.get('ip', 'unknown')
+        vpn_ip_raw = data.get('public_ip') or data.get('ip', 'unknown')
+        vpn_ip = validate_public_ip(vpn_ip_raw)
 
-        # Extract location (nested or flat)
+        # Extract and validate location (nested or flat)
         location = data.get('location')
         if location and isinstance(location, dict) and 'country' in location:
             # Nested format
-            country = location.get('country', 'unknown')
-            city = location.get('city', 'unknown')
-            region = location.get('region', 'unknown')
-            provider = location.get('org', 'unknown')
-            timezone_str = location.get('timezone', 'unknown')
+            country = validate_location_string(location.get('country', 'unknown'), 'country')
+            city = validate_location_string(location.get('city', 'unknown'), 'city')
+            region = validate_location_string(location.get('region', 'unknown'), 'region')
+            provider = validate_location_string(location.get('org', 'unknown'), 'provider')
+            timezone_str = validate_location_string(location.get('timezone', 'unknown'), 'timezone')
         else:
             # Flat format
-            country = data.get('country', 'unknown')
-            city = data.get('city', 'unknown')
-            region = data.get('region', 'unknown')
-            provider = data.get('provider', 'unknown')
-            timezone_str = data.get('timezone', 'unknown')
+            country = validate_location_string(data.get('country', 'unknown'), 'country')
+            city = validate_location_string(data.get('city', 'unknown'), 'city')
+            region = validate_location_string(data.get('region', 'unknown'), 'region')
+            provider = validate_location_string(data.get('provider', 'unknown'), 'provider')
+            timezone_str = validate_location_string(data.get('timezone', 'unknown'), 'timezone')
 
-        # Extract DNS test (nested or flat)
+        # Extract and validate DNS test (nested or flat)
         dns_test = data.get('dns_test')
         if dns_test and isinstance(dns_test, dict) and 'location' in dns_test:
             # Nested format
-            dns_loc = dns_test.get('location', 'Unknown')
-            dns_colo = dns_test.get('colo', 'Unknown')
+            dns_loc = validate_location_string(dns_test.get('location', 'Unknown'), 'dns_loc')
+            dns_colo = validate_location_string(dns_test.get('colo', 'Unknown'), 'dns_colo')
         else:
             # Flat format
-            dns_loc = data.get('dns_loc', 'Unknown')
-            dns_colo = data.get('dns_colo', 'Unknown')
+            dns_loc = validate_location_string(data.get('dns_loc', 'Unknown'), 'dns_loc')
+            dns_colo = validate_location_string(data.get('dns_colo', 'Unknown'), 'dns_colo')
 
         # Check if client is new or IP changed
         is_new_client = client_id not in _client_first_seen
