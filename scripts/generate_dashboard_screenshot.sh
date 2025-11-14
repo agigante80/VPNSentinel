@@ -47,7 +47,7 @@ send_keepalive() {
     
     # Calculate timestamp for last_seen minutes ago
     local timestamp
-    if [[ "$OSTYPE" == "darwin"* ]]; then
+    if [ "$(uname)" = "Darwin" ]; then
         # macOS
         timestamp=$(date -u -v-"${last_seen}M" +"%Y-%m-%dT%H:%M:%SZ")
     else
@@ -55,7 +55,8 @@ send_keepalive() {
         timestamp=$(date -u -d "${last_seen} minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
     fi
     
-    local payload=$(cat <<EOF
+    local payload
+    payload=$(cat <<EOF
 {
     "client_id": "${client_id}",
     "timestamp": "${timestamp}",
@@ -136,13 +137,13 @@ sleep 15
 # Check for screenshot tools
 SCREENSHOT_CMD=""
 
-if command -v chromium-browser &> /dev/null; then
+if command -v chromium-browser > /dev/null 2>&1; then
     SCREENSHOT_CMD="chromium-browser --headless --disable-gpu --screenshot='${SCREENSHOT_PATH}' --window-size=1600,1100 --hide-scrollbars --virtual-time-budget=5000 '${DASHBOARD_URL}'"
-elif command -v chromium &> /dev/null; then
+elif command -v chromium > /dev/null 2>&1; then
     SCREENSHOT_CMD="chromium --headless --disable-gpu --screenshot='${SCREENSHOT_PATH}' --window-size=1600,1100 --hide-scrollbars --virtual-time-budget=5000 '${DASHBOARD_URL}'"
-elif command -v google-chrome &> /dev/null; then
+elif command -v google-chrome > /dev/null 2>&1; then
     SCREENSHOT_CMD="google-chrome --headless --disable-gpu --screenshot='${SCREENSHOT_PATH}' --window-size=1600,1100 --hide-scrollbars --virtual-time-budget=5000 '${DASHBOARD_URL}'"
-elif command -v firefox &> /dev/null; then
+elif command -v firefox > /dev/null 2>&1; then
     SCREENSHOT_CMD="firefox --headless --screenshot '${SCREENSHOT_PATH}' --window-size=1600,1100 '${DASHBOARD_URL}'"
 else
     echo "❌ No headless browser found (chromium, chrome, or firefox)"
