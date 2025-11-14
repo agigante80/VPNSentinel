@@ -212,11 +212,19 @@ def log_error(component: str, msg: str) -> None:
         print(f"ERROR [{component}] {msg}")
 
 
-def check_client_process(process_name: str = "vpn-sentinel-client.sh") -> str:
+def check_client_process(process_name: str = "vpn-sentinel-client") -> str:
     """Return 'healthy' if process is running, 'not_running' otherwise.
 
+    Searches for both Python (.py) and shell (.sh) client processes.
     Tries psutil first, then falls back to `pgrep -f` on POSIX systems.
     """
+    # Support both Python and shell client scripts
+    search_patterns = [
+        "vpn-sentinel-client.py",
+        "vpn-sentinel-client.sh",
+        process_name  # Custom pattern if provided
+    ]
+    
     try:
         if psutil:
             for p in psutil.process_iter(attrs=["cmdline", "name"]):
@@ -224,12 +232,20 @@ def check_client_process(process_name: str = "vpn-sentinel-client.sh") -> str:
                     cmd = " ".join(p.info.get("cmdline") or [])
                 except Exception:
                     cmd = ""
-                if process_name in cmd or process_name == p.info.get("name"):
-                    return "healthy"
-        # fallback to pgrep
-        res = subprocess.run(["pgrep", "-f", process_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if res.returncode == 0:
-            return "healthy"
+                # Check if any of the patterns match
+                for pattern in search_patterns:
+                    if pattern in cmd or pattern == p.info.get("name"):
+                        return "healthy"
+        
+        # fallback to pgrep - check each pattern
+        for pattern in search_patterns:
+            res = subprocess.run(
+                ["pgrep", "-f", pattern], 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL
+            )
+            if res.returncode == 0:
+                return "healthy"
     except Exception:
         pass
     return "not_running"
