@@ -73,9 +73,18 @@ VPN Sentinel provides **continuous, automated verification** with:
 - **Traffic Light Status Indicators**: Green (secure), Yellow (DNS issues), Red (VPN bypass)
 - **Server Information**: View server's public IP, location, and DNS status
 - **Client Table**: Comprehensive table with all connected clients
-- **Auto-refresh**: Updates every 30 seconds
+- **Real-time Log Viewer**: Built-in logs viewer with syntax highlighting and auto-refresh
+- **Auto-refresh**: Updates every 30 seconds (10s for logs)
 - **Responsive Design**: Works on mobile, tablet, and desktop
 - **Last Seen Timestamps**: "Just now", "5 min ago", "2h ago" format
+
+### Operational Excellence
+
+- **Structured Logging**: Unified log format across all components with timestamps and component tags
+- **Component-based Filtering**: Easy log filtering by component (api, dashboard, health, telegram, security)
+- **HTTP Access Logs**: All Flask endpoints log requests in standardized format with status codes
+- **Real-time Monitoring**: Dashboard logs viewer with color-coded severity levels
+- **Auto-detection**: Intelligent log file location detection across different deployment scenarios
 
 ### Flexible Architecture
 
@@ -186,6 +195,14 @@ VPN Sentinel uses a **client-server architecture** with network isolation to ens
   - Server IP caching (reduces API calls)
   - Rate limiting and security middleware
   - Auto-cleanup of stale clients
+  - **Structured HTTP Access Logs**: All Flask endpoints (API, Dashboard, Health) log requests with unified format:
+    ```
+    2025-11-14T17:23:45Z INFO [api] 🌐 127.0.0.1 "GET /api/v1/health HTTP/1.1" 200
+    2025-11-14T17:23:45Z INFO [dashboard] 🌐 127.0.0.1 "GET /dashboard HTTP/1.1" 200
+    2025-11-14T17:23:45Z INFO [health] 🌐 127.0.0.1 "GET /health HTTP/1.1" 200
+    ```
+  - **Component-based Logging**: Each server component (api, dashboard, health, telegram, security, etc.) uses consistent prefixes for easy filtering
+  - **Real-time Log Viewer**: Built-in dashboard endpoint (`/logs`) with syntax highlighting and auto-refresh
 
 ---
 
@@ -258,6 +275,13 @@ Access the web dashboard at: **http://server-ip:8080/dashboard**
   - Last seen time
   - VPN status (traffic light)
   - DNS leak status
+- **📋 Logs Viewer**: Real-time server logs with syntax highlighting
+  - Access via "🔍 View Logs" button in dashboard header
+  - Auto-refreshes every 10 seconds
+  - Color-coded log levels (ERROR=red, WARN=yellow, INFO=cyan, DEBUG=gray)
+  - Shows last 2000 lines with file statistics
+  - Auto-detects log files from multiple locations
+  - Auto-scrolls to bottom for latest entries
 
 ### Status Indicators
 
@@ -437,6 +461,42 @@ TELEGRAM_CHAT_ID=your_chat_id
 # Explicit disable
 VPN_SENTINEL_TELEGRAM_ENABLED=false
 ```
+
+#### Logging Configuration
+
+VPN Sentinel uses **structured logging** with consistent formatting across all components:
+
+```
+YYYY-MM-DDTHH:MM:SSZ LEVEL [component] 🌐 message
+```
+
+**Log Components**:
+- `[api]` - API server requests and keepalive processing
+- `[dashboard]` - Dashboard web requests
+- `[health]` - Health check endpoint requests
+- `[telegram]` - Telegram bot messages and commands
+- `[security]` - Security middleware, rate limiting, authentication
+- `[server]` - Server startup, configuration, lifecycle
+- `[server_info]` - Server geolocation and IP detection
+- `[vpn-info]` - Client VPN connection information
+- `[cleanup]` - Stale client cleanup operations
+
+**Log File Location**:
+
+Set `VPN_SENTINEL_LOG_FILE` to specify log file path:
+```bash
+VPN_SENTINEL_LOG_FILE=/var/log/vpn-sentinel/server.log
+```
+
+If not set, the system auto-detects from common locations:
+- `/tmp/vpn-sentinel-server.log`
+- `/var/log/vpn-sentinel/server.log`
+- Container stdout (viewable via `docker logs`)
+
+**Viewing Logs**:
+- **Dashboard**: Click "🔍 View Logs" button for real-time viewing with syntax highlighting
+- **CLI**: `docker logs vpn-sentinel-server` or `tail -f /tmp/vpn-sentinel-server.log`
+- **Filter by component**: `grep '\[api\]' /tmp/vpn-sentinel-server.log`
 
 #### Client ID Format
 
