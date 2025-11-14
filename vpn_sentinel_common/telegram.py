@@ -7,6 +7,7 @@ import time
 from datetime import datetime, timezone
 from typing import Optional, Dict, Callable
 from .log_utils import log_info, log_error, log_warn
+from .country_codes import compare_country_codes
 
 # Read configuration
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
@@ -136,7 +137,7 @@ def notify_client_connected(client_id: str, vpn_ip: str, location: str,
                             city: str, region: str, country: str,
                             provider: str, timezone: str,
                             dns_loc: str = "Unknown", dns_colo: str = "Unknown",
-                            server_ip: str = "Unknown") -> bool:
+                            server_ip: str = "Unknown", client_version: str = "Unknown") -> bool:
     """Send notification when a VPN client connects.
 
     Args:
@@ -151,6 +152,7 @@ def notify_client_connected(client_id: str, vpn_ip: str, location: str,
         dns_loc: DNS location code
         dns_colo: DNS colocation server
         server_ip: Server's public IP for comparison
+        client_version: Client version string
 
     Returns:
         True if notification sent successfully
@@ -163,7 +165,9 @@ def notify_client_connected(client_id: str, vpn_ip: str, location: str,
         dns_status = "🔴 Unable to verify - VPN not active"
     else:
         # VPN is working, check DNS leak
-        dns_leak = (dns_loc != "Unknown" and country != "Unknown" and dns_loc != country)
+        # Compare normalized country codes (handles "Romania" vs "RO")
+        dns_leak = (dns_loc != "Unknown" and country != "Unknown" and 
+                   not compare_country_codes(dns_loc, country))
         
         if dns_leak:
             status_emoji = "🟡"
@@ -187,6 +191,7 @@ def notify_client_connected(client_id: str, vpn_ip: str, location: str,
 {status_detail}
 
 Client: <code>{client_id}</code>
+📦 Version: <code>{client_version}</code>
 VPN IP: <code>{vpn_ip}</code>
 Server IP: <code>{server_ip}</code>
 📍 Location: {city}, {region}, {country}
@@ -206,7 +211,7 @@ def notify_ip_changed(client_id: str, old_ip: str, new_ip: str,
                       city: str, region: str, country: str,
                       provider: str, timezone: str,
                       dns_loc: str = "Unknown", dns_colo: str = "Unknown",
-                      server_ip: str = "Unknown") -> bool:
+                      server_ip: str = "Unknown", client_version: str = "Unknown") -> bool:
     """Send notification when a client's VPN IP changes.
 
     Args:
@@ -221,6 +226,7 @@ def notify_ip_changed(client_id: str, old_ip: str, new_ip: str,
         dns_loc: DNS location code
         dns_colo: DNS colocation server
         server_ip: Server's public IP for comparison
+        client_version: Client version string
 
     Returns:
         True if notification sent successfully
@@ -233,7 +239,9 @@ def notify_ip_changed(client_id: str, old_ip: str, new_ip: str,
         dns_status = "🔴 Unable to verify - VPN not active"
     else:
         # VPN is working, check DNS leak
-        dns_leak = (dns_loc != "Unknown" and country != "Unknown" and dns_loc != country)
+        # Compare normalized country codes (handles "Romania" vs "RO")
+        dns_leak = (dns_loc != "Unknown" and country != "Unknown" and 
+                   not compare_country_codes(dns_loc, country))
         
         if dns_leak:
             status_emoji = "🟡"
@@ -258,6 +266,7 @@ def notify_ip_changed(client_id: str, old_ip: str, new_ip: str,
 
 Previous IP: <code>{old_ip}</code>
 Client: <code>{client_id}</code>
+📦 Version: <code>{client_version}</code>
 VPN IP: <code>{new_ip}</code>
 Server IP: <code>{server_ip}</code>
 📍 Location: {city}, {region}, {country}
