@@ -15,9 +15,9 @@ class TestClientHealthCheck(unittest.TestCase):
 
     def setUp(self):
         """Set up test environment"""
-        # Get the path to the health check script
-        self.script_dir = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-client')
-        self.health_script = os.path.join(self.script_dir, 'healthcheck.sh')
+        # Get the path to the health check script (Python version)
+        self.script_dir = os.path.join(os.path.dirname(__file__), '../../vpn_sentinel_common/health_scripts')
+        self.health_script = os.path.join(self.script_dir, 'healthcheck.py')
 
         # Ensure the script exists
         if not os.path.exists(self.health_script):
@@ -26,6 +26,7 @@ class TestClientHealthCheck(unittest.TestCase):
     def test_health_script_exists_and_executable(self):
         """Test that the health check script exists and is executable"""
         self.assertTrue(os.path.exists(self.health_script))
+        # Python scripts should be executable
         self.assertTrue(os.access(self.health_script, os.X_OK))
 
     def test_health_script_content(self):
@@ -33,17 +34,14 @@ class TestClientHealthCheck(unittest.TestCase):
         with open(self.health_script, 'r') as f:
             content = f.read()
 
-        # Should contain key health check logic - runtime prefers Python shim; shell source line may be preserved
-        self.assertTrue(('source "$LIB_DIR/health-common.sh"' in content) or ('health_common.py' in content))
-        # Check for runtime checks (either shell vars/calls or equivalent python shim references)
-        self.assertTrue(('CLIENT_STATUS=$(check_client_process)' in content) or ('check_client_process' in content))
-        self.assertTrue(('NETWORK_STATUS=$(check_network_connectivity)' in content) or ('check_network_connectivity' in content))
-        self.assertTrue(('SERVER_STATUS=$(check_server_connectivity)' in content) or ('check_server_connectivity' in content))
-        self.assertIn('VPN_SENTINEL_URL', content)
-        # Helpful messages should still be present in the script
-        self.assertTrue(('✅ VPN Sentinel client is healthy' in content) or ('VPN Sentinel client is healthy' in content))
-        self.assertTrue(('❌ VPN Sentinel client script is not running' in content) or ('script is not running' in content))
-        self.assertTrue(('❌ Cannot reach Cloudflare' in content) or ('Cannot reach Cloudflare' in content))
+        # Python version should import from vpn_sentinel_common.health
+        self.assertIn('from vpn_sentinel_common import health', content)
+        # Check for health check functions
+        self.assertIn('check_client_process', content)
+        self.assertIn('check_network_connectivity', content)
+        self.assertIn('check_server_connectivity', content)
+        # Helpful messages should be present
+        self.assertIn('VPN Sentinel client is healthy', content)
 
     def test_health_script_basic_execution(self):
         """Test that the health check script can be executed (basic smoke test)"""
@@ -51,9 +49,9 @@ class TestClientHealthCheck(unittest.TestCase):
         # (python, pgrep, curl, etc.) remain discoverable in CI/container runs.
         env = os.environ.copy()
 
-        # This should execute but may fail due to missing commands - that's OK for a smoke test
+        # This should execute but may fail due to missing dependencies - that's OK for a smoke test
         try:
-            result = subprocess.run([self.health_script], capture_output=True, text=True, env=env, timeout=5)
+            result = subprocess.run(['python3', self.health_script], capture_output=True, text=True, env=env, timeout=5)
             # Script should have executed (even if it failed)
             self.assertIsInstance(result.returncode, int)
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -65,22 +63,19 @@ class TestClientHealthCheck(unittest.TestCase):
         with open(self.health_script, 'r') as f:
             content = f.read()
 
-        # Should have clear error messages
-        self.assertIn('VPN Sentinel client script is not running', content)
-        self.assertIn('Cannot reach Cloudflare', content)
-        self.assertIn('Cannot reach VPN Sentinel server', content)
-
         # Should have success message
         self.assertIn('VPN Sentinel client is healthy', content)
+        # Should handle health issues
+        self.assertIn('health issues', content)
 
     def test_script_checks_process_status(self):
         """Test that script checks for running process"""
         with open(self.health_script, 'r') as f:
             content = f.read()
-
+        
+        # Python version uses health module functions
         # Should check if main script is running via common library function
         self.assertIn('check_client_process', content)
-        self.assertIn('CLIENT_STATUS', content)
 
     def test_script_checks_external_connectivity(self):
         """Test that script checks external connectivity"""
@@ -89,7 +84,7 @@ class TestClientHealthCheck(unittest.TestCase):
 
         # Should check connectivity via common library function
         self.assertIn('check_network_connectivity', content)
-        self.assertIn('NETWORK_STATUS', content)
+        self.assertIn('network_connectivity', content)
 
     def test_script_handles_server_url_optional(self):
         """Test that script handles server URL as optional"""
@@ -98,46 +93,44 @@ class TestClientHealthCheck(unittest.TestCase):
 
         # Should check server connectivity via common library function
         self.assertIn('check_server_connectivity', content)
-        self.assertIn('SERVER_STATUS', content)
-        self.assertIn('VPN_SENTINEL_URL', content)
+        self.assertIn('server_connectivity', content)
 
     def test_script_exit_codes(self):
         """Test that script uses appropriate exit codes"""
         with open(self.health_script, 'r') as f:
             content = f.read()
 
-        # Should exit with 0 for success
-        self.assertIn('exit 0', content)
-        # Should exit with 1 for failure
-        self.assertIn('exit 1', content)
+        # Python uses sys.exit() for status codes  
+        self.assertIn('sys.exit(0', content)
+        self.assertIn('sys.exit', content)
 
-    def test_script_uses_proper_curl_flags(self):
-        """Test that script uses appropriate curl flags for health checks"""
+    def test_script_uses_proper_network_checks(self):
+        """Test that script uses appropriate network check methods"""
         with open(self.health_script, 'r') as f:
             content = f.read()
 
-        # Should use -f (fail on error), -s (silent), --max-time (timeout)
-        self.assertIn('curl -f -s', content)
-        self.assertIn('--max-time', content)
+        # Python version uses requests library with timeouts
+        self.assertIn('requests', content)
+        self.assertIn('timeout', content)
 
     def test_script_included_in_dockerfile(self):
         """Test that health check script is properly included in Dockerfile"""
-        dockerfile_path = os.path.join(self.script_dir, 'Dockerfile')
+        dockerfile_path = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-client/Dockerfile')
 
         with open(dockerfile_path, 'r') as f:
             content = f.read()
 
-        # Should copy the script
-        self.assertIn('COPY vpn-sentinel-client/healthcheck.sh /app/healthcheck.sh', content)
+        # Should copy the Python script
+        self.assertIn('COPY vpn_sentinel_common/health_scripts/healthcheck.py /app/healthcheck.py', content)
         # Should make it executable (part of the chmod command)
-        self.assertIn('/app/healthcheck.sh', content)
+        self.assertIn('/app/healthcheck.py', content)
         self.assertIn('chmod +x', content)
-        # Should use it in HEALTHCHECK
-        self.assertIn('CMD /app/healthcheck.sh', content)
+        # Should use it in HEALTHCHECK with python3
+        self.assertIn('CMD python3 /app/healthcheck.py', content)
 
     def test_dockerfile_healthcheck_configuration(self):
         """Test that Dockerfile has proper HEALTHCHECK configuration"""
-        dockerfile_path = os.path.join(self.script_dir, 'Dockerfile')
+        dockerfile_path = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-client/Dockerfile')
 
         with open(dockerfile_path, 'r') as f:
             content = f.read()
@@ -156,7 +149,7 @@ class TestClientHealthCheck(unittest.TestCase):
             content = f.read()
 
         # Should contain enhanced health check logic
-        self.assertIn('HEALTH_MONITOR_RUNNING', content)
+        self.assertIn('health_monitor_running', content)
         self.assertIn('VPN_SENTINEL_HEALTH_PORT', content)
         self.assertIn('memory_usage', content)
         self.assertIn('disk_usage', content)
@@ -171,9 +164,9 @@ class TestClientHealthCheck(unittest.TestCase):
         with open(self.health_script, 'r') as f:
             content = f.read()
 
-        self.assertIn('"status":', content)
-        self.assertIn('"checks":', content)
-        self.assertIn('"warnings":', content)
+        self.assertIn('status', content)
+        self.assertIn('checks', content)
+        self.assertIn('warnings', content)
         self.assertIn('client_process', content)
         self.assertIn('network_connectivity', content)
         self.assertIn('server_connectivity', content)

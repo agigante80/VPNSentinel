@@ -160,25 +160,19 @@ def start_health_monitor(config: dict) -> subprocess.Popen:
         Popen object for the health monitor process
     """
     try:
-        # Find the health monitor script
+        # Find the health monitor script (Python version only)
         # Check for the wrapper in vpn_sentinel_common/health_scripts first (works in both container and dev)
         repo_root = Path(__file__).parent.parent
         py_monitor = repo_root / "vpn_sentinel_common" / "health_scripts" / "health_monitor_wrapper.py"
-        sh_monitor = repo_root / "vpn_sentinel_common" / "health_scripts" / "health-monitor.sh"
 
         # Fallback to /app locations if running in container with different structure
         container_py_monitor = Path("/app/vpn_sentinel_common/health_scripts/health_monitor_wrapper.py")
-        container_sh_monitor = Path("/app/vpn_sentinel_common/health_scripts/health-monitor.sh")
 
         monitor_path = None
         if py_monitor.exists():
             monitor_path = py_monitor
-        elif sh_monitor.exists():
-            monitor_path = sh_monitor
         elif container_py_monitor.exists():
             monitor_path = container_py_monitor
-        elif container_sh_monitor.exists():
-            monitor_path = container_sh_monitor
 
         if not monitor_path:
             log_warn("client", "⚠️ Health monitor script not found")
