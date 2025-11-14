@@ -15,7 +15,8 @@ def test_check_client_process_monkeypatch(monkeypatch):
         return FakeCompleted()
 
     monkeypatch.setattr(subprocess, 'run', fake_run)
-    res = health.check_client_process('vpn-sentinel-client.sh')
+    # Test with Python client (default behavior should find either)
+    res = health.check_client_process()
     assert res == 'healthy'
 
 
