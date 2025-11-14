@@ -198,7 +198,12 @@ class TestClientHealthMonitor(unittest.TestCase):
             py_content = pf.read()
 
         # Should check for client process using pgrep inside the Python module
-        self.assertIn("pgrep -f 'vpn-sentinel-client.sh'", py_content)
+        # Now checks for both .py and .sh client scripts
+        self.assertTrue(
+            "pgrep -f 'vpn-sentinel-client.py'" in py_content or 
+            "pgrep -f 'vpn-sentinel-client.sh'" in py_content,
+            "Should check for client process"
+        )
         self.assertIn('client_process', py_content)
         self.assertIn('healthy', py_content)
         self.assertIn('not_running', py_content)
