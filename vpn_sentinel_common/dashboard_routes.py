@@ -468,11 +468,40 @@ def dashboard():
                     gap: 10px;
                 }}
             }}
+            
+            .logs-button {{
+                position: absolute;
+                top: 20px;
+                left: 30px;
+                z-index: 10;
+            }}
+            
+            .btn {{
+                padding: 10px 20px;
+                border: none;
+                border-radius: 8px;
+                font-size: 0.95em;
+                cursor: pointer;
+                text-decoration: none;
+                display: inline-block;
+                transition: all 0.3s ease;
+                background: rgba(255, 255, 255, 0.15);
+                color: white;
+                backdrop-filter: blur(10px);
+                font-weight: 500;
+            }}
+            
+            .btn:hover {{
+                background: rgba(255, 255, 255, 0.25);
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            }}
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
+                <a href="/logs" class="btn logs-button">🔍 View Logs</a>
                 <div class="server-info">
                     <h4>🖥️ Server Details</h4>
                     <div class="info-row">
@@ -588,3 +617,302 @@ def dashboard():
 def dashboard_slash():
     """Dashboard with trailing slash."""
     return dashboard()
+
+
+@dashboard_app.route('/logs')
+def server_logs():
+    """Display server logs."""
+    import sys
+    from io import StringIO
+    
+    # Try multiple log file locations in order of preference
+    log_file = os.getenv('VPN_SENTINEL_LOG_FILE', None)
+    
+    # Common log file locations to check
+    possible_log_files = [
+        log_file,
+        '/tmp/vpn-sentinel-server.log',
+        '/var/log/vpn-sentinel/server.log',
+        '/var/log/vpn-sentinel.log',
+        './vpn-sentinel-server.log',
+        'server.log',
+    ]
+    
+    logs_content = ""
+    log_source = "Standard Output"
+    found_log = None
+    
+    # Try each possible log file location
+    for possible_file in possible_log_files:
+        if possible_file and os.path.exists(possible_file):
+            found_log = possible_file
+            break
+    
+    if found_log:
+        try:
+            # Read last 2000 lines from log file
+            with open(found_log, 'r') as f:
+                lines = f.readlines()
+                # Show last 2000 lines, or all if less than 2000
+                display_lines = lines[-2000:]
+                
+                # Get file stats
+                total_lines = len(lines)
+                displayed_lines = len(display_lines)
+                
+                # Add header with file info
+                file_size = os.path.getsize(found_log)
+                file_size_str = f"{file_size:,} bytes" if file_size < 1024*1024 else f"{file_size/(1024*1024):.2f} MB"
+                
+                logs_content = f"=== Showing last {displayed_lines} of {total_lines} total lines | File size: {file_size_str} ===\n\n"
+                logs_content += ''.join(display_lines)
+                
+            log_source = f"Log File: {found_log}"
+            
+            # If log file is empty
+            if not display_lines or not logs_content.strip():
+                logs_content = f"Log file exists but is empty: {found_log}\n\n"
+                logs_content += "Server may have just started or logs are being written elsewhere."
+        except Exception as e:
+            logs_content = f"Error reading log file {found_log}: {str(e)}\n\n"
+            logs_content += "Check file permissions or disk space."
+    else:
+        # If no log file found, show helpful message
+        logs_content = "No log file found. Server logs are being sent to standard output (stdout).\n\n"
+        logs_content += "To enable persistent file logging, redirect output when starting the server:\n"
+        logs_content += "  python3 vpn-sentinel-server.py > /var/log/vpn-sentinel.log 2>&1 &\n\n"
+        logs_content += "Or set VPN_SENTINEL_LOG_FILE environment variable:\n"
+        logs_content += "  export VPN_SENTINEL_LOG_FILE=/var/log/vpn-sentinel/server.log\n\n"
+        logs_content += "Checked locations:\n"
+        for loc in possible_log_files:
+            if loc:
+                logs_content += f"  - {loc} (not found)\n"
+        logs_content += "\nRecent activity is visible in the dashboard's client status table."
+    
+    version = get_version()
+    current_dt = get_current_time()
+    tz_name = current_dt.tzname() or 'UTC'
+    current_time = current_dt.strftime(f'%Y-%m-%d %H:%M:%S {tz_name}')
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>VPN Sentinel - Server Logs</title>
+        <style>
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }}
+            
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                padding: 20px;
+            }}
+            
+            .container {{
+                max-width: 1600px;
+                margin: 0 auto;
+                background: rgba(255, 255, 255, 0.95);
+                border-radius: 15px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+                overflow: hidden;
+            }}
+            
+            .header {{
+                background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+                color: white;
+                padding: 30px;
+                text-align: center;
+            }}
+            
+            .header h1 {{
+                font-size: 2.5em;
+                margin-bottom: 10px;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            }}
+            
+            .header .subtitle {{
+                font-size: 1.1em;
+                opacity: 0.9;
+            }}
+            
+            .controls {{
+                padding: 20px 30px;
+                background: #f8f9fa;
+                border-bottom: 1px solid #e0e0e0;
+                display: flex;
+                gap: 15px;
+                align-items: center;
+            }}
+            
+            .btn {{
+                padding: 10px 20px;
+                border: none;
+                border-radius: 8px;
+                font-size: 1em;
+                cursor: pointer;
+                text-decoration: none;
+                display: inline-block;
+                transition: all 0.3s ease;
+            }}
+            
+            .btn-primary {{
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+            }}
+            
+            .btn-primary:hover {{
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            }}
+            
+            .btn-secondary {{
+                background: #6c757d;
+                color: white;
+            }}
+            
+            .btn-secondary:hover {{
+                background: #5a6268;
+                transform: translateY(-2px);
+            }}
+            
+            .log-info {{
+                flex: 1;
+                text-align: right;
+                color: #666;
+                font-size: 0.9em;
+            }}
+            
+            .logs-container {{
+                padding: 30px;
+                background: #1e1e1e;
+                color: #d4d4d4;
+                font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                font-size: 0.9em;
+                line-height: 1.6;
+                max-height: calc(100vh - 300px);
+                overflow-y: auto;
+            }}
+            
+            .logs-container pre {{
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                margin: 0;
+            }}
+            
+            .log-line {{
+                padding: 2px 0;
+            }}
+            
+            .log-error {{
+                color: #f48771;
+                font-weight: bold;
+            }}
+            
+            .log-warn {{
+                color: #dcdcaa;
+            }}
+            
+            .log-info {{
+                color: #4ec9b0;
+            }}
+            
+            .log-success {{
+                color: #6a9955;
+            }}
+            
+            .footer {{
+                background: #f8f9fa;
+                padding: 20px;
+                text-align: center;
+                color: #666;
+                font-size: 0.9em;
+                border-top: 1px solid #e0e0e0;
+            }}
+            
+            .version-badge {{
+                background: rgba(102, 126, 234, 0.2);
+                color: #667eea;
+                padding: 3px 8px;
+                border-radius: 5px;
+                font-size: 0.85em;
+                font-weight: 600;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🔍 Server Logs</h1>
+                <p class="subtitle">VPN Sentinel Monitoring System</p>
+            </div>
+            
+            <div class="controls">
+                <a href="/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
+                <a href="/logs" class="btn btn-primary">🔄 Refresh</a>
+                <div class="log-info">
+                    <strong>Source:</strong> {log_source}
+                </div>
+            </div>
+            
+            <div class="logs-container">
+                <pre>{logs_content}</pre>
+            </div>
+            
+            <div class="footer">
+                <p>
+                    🔒 <strong>VPN Sentinel</strong> <span class="version-badge">v{version}</span> | 
+                    Server Time: {current_time}
+                </p>
+            </div>
+        </div>
+        
+        <script>
+            // Highlight log levels with colors
+            function highlightLogs() {{
+                const pre = document.querySelector('.logs-container pre');
+                if (!pre) return;
+                
+                const lines = pre.textContent.split('\\n');
+                const highlighted = lines.map(line => {{
+                    // Color-code based on log level
+                    if (line.includes('ERROR') || line.includes('❌')) {{
+                        return `<span style="color: #f48771; font-weight: bold;">${{line}}</span>`;
+                    }} else if (line.includes('WARN') || line.includes('⚠️')) {{
+                        return `<span style="color: #dcdcaa;">${{line}}</span>`;
+                    }} else if (line.includes('INFO') || line.includes('✅') || line.includes('🚀') || line.includes('🌐')) {{
+                        return `<span style="color: #4ec9b0;">${{line}}</span>`;
+                    }} else if (line.includes('DEBUG')) {{
+                        return `<span style="color: #858585;">${{line}}</span>`;
+                    }} else if (line.includes('===')) {{
+                        return `<span style="color: #569cd6; font-weight: bold;">${{line}}</span>`;
+                    }} else {{
+                        return line;
+                    }}
+                }}).join('\\n');
+                
+                pre.innerHTML = highlighted;
+            }}
+            
+            // Auto-refresh every 10 seconds
+            setTimeout(function() {{
+                window.location.reload();
+            }}, 10000);
+            
+            // Auto-scroll to bottom and highlight logs on load
+            window.addEventListener('load', function() {{
+                highlightLogs();
+                const logsContainer = document.querySelector('.logs-container');
+                logsContainer.scrollTop = logsContainer.scrollHeight;
+            }});
+        </script>
+    </body>
+    </html>
+    """
+    return render_template_string(html)

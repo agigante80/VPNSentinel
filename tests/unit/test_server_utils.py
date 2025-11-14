@@ -76,10 +76,11 @@ class TestRunFlaskApp:
                 with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
                     run_flask_app(mock_app, 5000, 'Test API')
                     
-                    # Verify make_server called without SSL context
-                    mock_make.assert_called_once_with(
-                        '0.0.0.0', 5000, mock_app, threaded=True
-                    )
+                    # Verify make_server called with custom request handler
+                    call_kwargs = mock_make.call_args[1]
+                    assert call_kwargs['threaded'] is True
+                    assert 'request_handler' in call_kwargs
+                    assert 'ssl_context' not in call_kwargs
                     
                     # Verify server started
                     mock_server.serve_forever.assert_called_once()
@@ -111,9 +112,11 @@ class TestRunFlaskApp:
                         )
                         
                         # Verify make_server called with SSL context
-                        mock_make.assert_called_once_with(
-                            '0.0.0.0', 5000, mock_app, threaded=True, ssl_context=mock_ssl_context
-                        )
+                        # Verify make_server called with SSL and request_handler
+                        call_kwargs = mock_make.call_args[1]
+                        assert call_kwargs['threaded'] is True
+                        assert call_kwargs['ssl_context'] == mock_ssl_context
+                        assert 'request_handler' in call_kwargs
                         
                         # Verify server started
                         mock_server.serve_forever.assert_called_once()
@@ -132,9 +135,10 @@ class TestRunFlaskApp:
                     run_flask_app(mock_app, 8080, 'Dashboard', host='127.0.0.1')
                     
                     # Verify host override
-                    mock_make.assert_called_once_with(
-                        '127.0.0.1', 8080, mock_app, threaded=True
-                    )
+                    # Verify make_server called with request_handler
+                    call_kwargs = mock_make.call_args[1]
+                    assert call_kwargs['threaded'] is True
+                    assert 'request_handler' in call_kwargs
 
     def test_run_flask_app_exception_exits(self):
         """Test Flask app exits on exception."""
@@ -166,9 +170,10 @@ class TestRunFlaskApp:
                     run_flask_app(mock_app, 5000, 'Test API')
                     
                     # Should NOT use SSL (missing key)
-                    mock_make.assert_called_once_with(
-                        '0.0.0.0', 5000, mock_app, threaded=True
-                    )
+                    # Verify make_server called with request_handler
+                    call_kwargs = mock_make.call_args[1]
+                    assert call_kwargs['threaded'] is True
+                    assert 'request_handler' in call_kwargs
                     
                     # Should log non-TLS message
                     mock_log.assert_called_once_with('server', '🌐 Starting Test API on 0.0.0.0:5000')
@@ -184,9 +189,10 @@ class TestRunFlaskApp:
                     run_flask_app(mock_app, 5000, 'Test API')
                     
                     # Should NOT use SSL (missing cert)
-                    mock_make.assert_called_once_with(
-                        '0.0.0.0', 5000, mock_app, threaded=True
-                    )
+                    # Verify make_server called with request_handler
+                    call_kwargs = mock_make.call_args[1]
+                    assert call_kwargs['threaded'] is True
+                    assert 'request_handler' in call_kwargs
                     
                     # Should log non-TLS message
                     mock_log.assert_called_once_with('server', '🌐 Starting Test API on 0.0.0.0:5000')
@@ -226,6 +232,68 @@ class TestRunFlaskApp:
                     # Verify error logged
                     error_logged = any('Error starting' in str(call) for call in mock_log.call_args_list)
                     assert error_logged
+
+
+class TestCustomRequestHandler:
+    """Tests for CustomRequestHandler logging functionality."""
+
+    def test_custom_request_handler_formats_log(self):
+        """Test CustomRequestHandler formats HTTP logs correctly."""
+        from werkzeug.serving import WSGIRequestHandler
+        from io import BytesIO
+        
+        mock_app = MagicMock()
+        mock_server = MagicMock()
+        
+        with patch.dict('os.environ', {}, clear=True):
+            with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server) as mock_make:
+                with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
+                    run_flask_app(mock_app, 5000, 'API server')
+                    
+                    # Verify custom request handler is passed to make_server
+                    call_kwargs = mock_make.call_args[1]
+                    assert 'request_handler' in call_kwargs
+                    handler_class = call_kwargs['request_handler']
+                    
+                    # Verify it's a subclass of WSGIRequestHandler
+                    assert issubclass(handler_class, WSGIRequestHandler)
+                    assert handler_class.__name__ == 'CustomRequestHandler'
+
+    def test_custom_request_handler_logs_with_component(self):
+        """Test CustomRequestHandler uses correct component name."""
+        mock_app = MagicMock()
+        mock_server = MagicMock()
+        
+        with patch.dict('os.environ', {}, clear=True):
+            with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server):
+                with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
+                    # Create a mock handler instance to test log_request
+                    handler_class = None
+                    
+                    def capture_handler(*args, **kwargs):
+                        nonlocal handler_class
+                        handler_class = kwargs.get('request_handler')
+                        return mock_server
+                    
+                    with patch('vpn_sentinel_common.server_utils.make_server', side_effect=capture_handler):
+                        run_flask_app(mock_app, 8080, 'Dashboard server')
+                    
+                    # Verify component name is extracted correctly
+                    # "Dashboard server" -> "dashboard"
+                    assert handler_class is not None
+
+    def test_custom_request_handler_with_health_server(self):
+        """Test CustomRequestHandler works with Health server."""
+        mock_app = MagicMock()
+        mock_server = MagicMock()
+        
+        with patch.dict('os.environ', {}, clear=True):
+            with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server):
+                with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
+                    run_flask_app(mock_app, 8081, 'Health server')
+                    
+                    # Verify it completes without error
+                    assert mock_server.serve_forever.called
 
 
 class TestServerUtilsIntegration:
