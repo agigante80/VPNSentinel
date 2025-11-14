@@ -39,12 +39,15 @@ echo ""
 # Function to send keepalive
 send_keepalive() {
     local client_id="$1"
-    local public_ip="$2"
-    local dns_ip="$3"
-    local location="$4"
-    local provider="$5"
-    local dns_location="${6:-$location}"  # DNS location (defaults to same as location)
-    local last_seen="${7:-0}"
+    local client_version="$2"
+    local public_ip="$3"
+    local city="$4"
+    local region="$5"
+    local country="$6"
+    local provider="$7"
+    local dns_country="$8"
+    local dns_colo="$9"
+    local last_seen="${10:-0}"
     
     # Calculate timestamp for last_seen minutes ago
     local timestamp
@@ -62,14 +65,13 @@ send_keepalive() {
     "client_id": "${client_id}",
     "timestamp": "${timestamp}",
     "public_ip": "${public_ip}",
-    "country": "${location}",
+    "city": "${city}",
+    "region": "${region}",
+    "country": "${country}",
     "provider": "${provider}",
-    "dns_test": {
-        "dns_ip": "${dns_ip}",
-        "dns_location": "${dns_location}",
-        "dns_provider": "${provider}"
-    },
-    "client_version": "1.2.0"
+    "dns_loc": "${dns_country}",
+    "dns_colo": "${dns_colo}",
+    "client_version": "${client_version}"
 }
 EOF
 )
@@ -79,52 +81,76 @@ EOF
         -d "${payload}" \
         "${BASE_URL}${API_PATH}/keepalive" > /dev/null
     
-    echo "  ✓ ${client_id} (${location})"
+    echo "  ✓ ${client_id} (${city}, ${country})"
 }
 
 echo "📡 Populating server with demo clients..."
 echo ""
 
 # Get server IP for red status detection
-SERVER_IP=$(curl -sf http://localhost:5000/api/v1/status 2>/dev/null | grep -o '"server_ip":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+# We'll fetch the dashboard to get the actual server IP displayed there
+echo "   Fetching server information from dashboard..."
+SERVER_IP=$(curl -sf "${DASHBOARD_URL}" 2>/dev/null | grep -oP 'Server IP:\s*<code>\K[^<]+' || echo "unknown")
+if [ "${SERVER_IP}" = "unknown" ] || [ -z "${SERVER_IP}" ]; then
+    # Fallback: try to get from ipinfo.io
+    SERVER_IP=$(curl -sf https://ipinfo.io/ip 2>/dev/null || echo "203.0.113.10")
+fi
 echo "   Server IP: ${SERVER_IP}"
 echo ""
 
-# Client 1: Green (Healthy) - Netherlands VPN, DNS matches location
+# Client 1: Green (Healthy) - USA VPN, DNS matches location
+# vpn-media-usa 1.0.0-dev-8aa4ecc 45.130.86.7 New York City, New York, US AS42201 PVDataNet AB DNS US / EWR
 send_keepalive \
-    "office-vpn-primary" \
-    "185.220.100.245" \
-    "185.220.101.50" \
-    "Netherlands" \
-    "PrivacyVPN" \
+    "vpn-media-usa" \
+    "1.0.0-dev-8aa4ecc" \
+    "45.130.86.7" \
+    "New York City" \
+    "New York" \
+    "US" \
+    "AS42201 PVDataNet AB" \
+    "US" \
+    "EWR" \
     "0"
 
-# Client 2: Green (Healthy) - Germany VPN, DNS matches location  
+# Client 2: Green (Healthy) - Bulgaria VPN, DNS matches location
+# vpn-media Unknown 185.94.192.162 Sofia, Sofia-city, Bulgaria M LTD Sofia Infrastructure DNS BG / FRA
 send_keepalive \
-    "datacenter-vpn-backup" \
-    "193.25.101.200" \
-    "193.25.102.10" \
-    "Germany" \
-    "SecureNet" \
+    "vpn-media" \
+    "Unknown" \
+    "185.94.192.162" \
+    "Sofia" \
+    "Sofia-city" \
+    "BG" \
+    "M LTD Sofia Infrastructure" \
+    "BG" \
+    "FRA" \
     "1"
 
-# Client 3: Yellow (DNS Leak) - Sweden VPN but US DNS (Google)
+# Client 3: Yellow (DNS Leak) - Netherlands VPN but US DNS leak
 send_keepalive \
-    "home-network-vpn" \
-    "91.200.12.45" \
-    "8.8.8.8" \
-    "Sweden" \
-    "FastVPN" \
-    "United States" \
+    "office-vpn-primary" \
+    "1.2.0" \
+    "185.220.100.245" \
+    "Amsterdam" \
+    "North Holland" \
+    "NL" \
+    "PrivacyGuard BV" \
+    "US" \
+    "IAD" \
     "3"
 
-# Client 4: Red (VPN Bypass) - Same IP as server or home IP leak
+# Client 4: Red (VPN Bypass) - Same IP as server (home ISP connection leaked)
+# This simulates when VPN fails and client connects with home IP
 send_keepalive \
-    "mobile-vpn-device" \
+    "home-network-leaked" \
+    "1.1.5" \
     "${SERVER_IP}" \
-    "${SERVER_IP}" \
-    "United States" \
-    "Comcast Cable" \
+    "Chicago" \
+    "Illinois" \
+    "US" \
+    "Comcast Cable Communications" \
+    "US" \
+    "ORD" \
     "7"
 
 echo ""
