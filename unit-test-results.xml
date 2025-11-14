@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="1.378" timestamp="2025-11-11T21:52:23.626803+01:00" hostname="17-R4"><testcase classname="" name="tests.unit.test_dashboard_routes" time="0.000"><error message="collection failure">tests/unit/test_dashboard_routes.py:13: in &lt;module&gt;
+    from dashboard_routes import dashboard_app, get_client_health_status
+vpn_sentinel_common/dashboard_routes.py:5: in &lt;module&gt;
+    from vpn_sentinel_common.api_routes import client_status
+vpn_sentinel_common/api_routes.py:35: in &lt;module&gt;
+    @api_app.route(f'{API_PATH}/status', methods=['GET'])
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3/dist-packages/flask/sansio/scaffold.py:366: in decorator
+    self.add_url_rule(rule, endpoint, f, **options)
+/usr/lib/python3/dist-packages/flask/sansio/scaffold.py:46: in wrapper_func
+    return f(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3/dist-packages/flask/sansio/app.py:661: in add_url_rule
+    raise AssertionError(
+E   AssertionError: View function mapping is overwriting an existing endpoint function: get_status</error></testcase></testsuite></testsuites>

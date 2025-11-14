@@ -172,6 +172,9 @@ def keepalive():
         old_ip = client_status.get(client_id, {}).get('ip', None) if not is_new_client else None
         ip_changed = old_ip and old_ip != vpn_ip
 
+        # Extract client version (optional field)
+        client_version = validate_location_string(data.get('client_version', 'Unknown'), 'version')
+        
         # Update client status
         client_status[client_id] = {
             'last_seen': datetime.now(timezone.utc).isoformat(),
@@ -183,7 +186,8 @@ def keepalive():
             'region': region,
             'timezone': timezone_str,
             'dns_loc': dns_loc,
-            'dns_colo': dns_colo
+            'dns_colo': dns_colo,
+            'client_version': client_version
         }
 
         # Get server IP for comparison
@@ -203,13 +207,13 @@ def keepalive():
             telegram.notify_client_connected(
                 client_id, vpn_ip, f"{city}, {region}, {country}",
                 city, region, country, provider, timezone_str,
-                dns_loc, dns_colo, server_ip
+                dns_loc, dns_colo, server_ip, client_version
             )
         elif ip_changed:
             telegram.notify_ip_changed(
                 client_id, old_ip, vpn_ip,
                 city, region, country, provider, timezone_str,
-                dns_loc, dns_colo, server_ip
+                dns_loc, dns_colo, server_ip, client_version
             )
 
         return jsonify({

@@ -14,11 +14,22 @@ from typing import Any, Dict
 
 def build_payload_from_env() -> Dict[str, Any]:
     ts = datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S%z")
+    
+    # Try to get version from environment or version module
+    client_version = os.environ.get("VPN_SENTINEL_CLIENT_VERSION", "Unknown")
+    if client_version == "Unknown":
+        try:
+            from .version import get_version
+            client_version = get_version()
+        except Exception:
+            client_version = "Unknown"
+    
     payload = {
         "client_id": os.environ.get("CLIENT_ID", os.environ.get("VPN_SENTINEL_CLIENT_ID", "")),
         "timestamp": ts,
         "public_ip": os.environ.get("PUBLIC_IP", "unknown"),
         "status": "alive",
+        "client_version": client_version,
         "location": {
             "country": os.environ.get("COUNTRY", "Unknown"),
             "city": os.environ.get("CITY", "Unknown"),

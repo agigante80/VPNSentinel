@@ -4,6 +4,7 @@ from vpn_sentinel_common.log_utils import log_info, get_current_time
 from vpn_sentinel_common.server_info import get_server_info
 from vpn_sentinel_common.api_routes import client_status
 from vpn_sentinel_common.version import get_version
+from vpn_sentinel_common.country_codes import compare_country_codes
 from flask import render_template_string
 from datetime import datetime, timezone
 import os
@@ -27,10 +28,10 @@ def get_client_health_status(client, server_ip):
     if client_ip == server_ip or client_ip == 'unknown' or client_ip == 'Unknown':
         return ('status-danger', '🔴', 'VPN Bypass Detected!', '🔴')
     
-    # Check DNS leak (compare dns_loc with country)
+    # Check DNS leak (compare normalized country codes)
     dns_leak = False
     if dns_loc != 'Unknown' and country != 'Unknown':
-        dns_leak = (dns_loc != country)
+        dns_leak = not compare_country_codes(dns_loc, country)
     
     # YELLOW: Different IP but DNS leak or undetectable DNS
     if dns_leak or dns_loc == 'Unknown':
@@ -77,6 +78,7 @@ def dashboard():
             last_seen = client.get('last_seen', 'Never')
             dns_loc = client.get('dns_loc', 'Unknown')
             dns_colo = client.get('dns_colo', 'Unknown')
+            client_version = client.get('client_version', 'Unknown')
             
             # Format last seen time
             try:
@@ -106,6 +108,7 @@ def dashboard():
             client_rows_html += f"""
             <tr>
                 <td><strong>{client_id}</strong></td>
+                <td><span class="version-badge-small">{client_version}</span></td>
                 <td><span class="ip-address">{client_ip}</span></td>
                 <td class="location">{location}</td>
                 <td class="location">{provider}</td>
@@ -124,7 +127,7 @@ def dashboard():
     else:
         client_rows_html = """
         <tr>
-            <td colspan="7" class="no-clients">
+            <td colspan="8" class="no-clients">
                 <div class="no-clients-icon">🔌</div>
                 <h3>No VPN Clients Connected</h3>
                 <p>Waiting for VPN clients to connect and report their status...</p>
@@ -403,6 +406,17 @@ def dashboard():
                 margin: 0 5px;
             }}
             
+            .version-badge-small {{
+                display: inline-block;
+                background: #95a5a6;
+                color: white;
+                padding: 2px 8px;
+                border-radius: 8px;
+                font-size: 0.75em;
+                font-weight: 600;
+                font-family: 'Courier New', monospace;
+            }}
+            
             .legend {{
                 display: flex;
                 justify-content: center;
@@ -522,6 +536,7 @@ def dashboard():
                         <thead>
                             <tr>
                                 <th>Client ID</th>
+                                <th>Version</th>
                                 <th>VPN IP</th>
                                 <th>Location</th>
                                 <th>Provider</th>
