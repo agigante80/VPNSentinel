@@ -25,18 +25,18 @@ def probe_url(url, timeout=5, retries=5, backoff_factor=0.5):
 
 
 def kill_health_monitor_processes():
-    """Attempt to kill any running health-monitor.sh processes (best-effort)."""
-    try:
-        subprocess.run(['pkill', '-f', 'health-monitor.sh'], capture_output=True)
-    except Exception:
-        pass
-
-    # Also attempt to kill python-based monitors and any process listening on
+    """Attempt to kill any running health monitor Python processes (best-effort)."""
+    # Kill python-based monitors and any process listening on
     # the health port. Limit actions to processes owned by current user to
     # avoid interfering with unrelated system services.
     try:
-        # Kill the python monitor module if present
+        # Kill the python monitor modules if present
         subprocess.run(['pkill', '-f', 'health-monitor.py'], capture_output=True)
+    except Exception:
+        pass
+
+    try:
+        subprocess.run(['pkill', '-f', 'health_monitor_wrapper.py'], capture_output=True)
     except Exception:
         pass
 

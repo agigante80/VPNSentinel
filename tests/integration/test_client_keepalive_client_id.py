@@ -26,7 +26,7 @@ class TestClientKeepaliveClientID(unittest.TestCase):
     def setUp(self):
         self.client_process = None
         self.client_script = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-client/vpn-sentinel-client.py')
-        self.health_monitor_script = os.path.join(os.path.dirname(__file__), '../../vpn_sentinel_common/health_scripts/health-monitor.sh')
+        self.health_monitor_script = os.path.join(os.path.dirname(__file__), '../../vpn_sentinel_common/health_scripts/health_monitor_wrapper.py')
 
         if not ensure_scripts_exist(self.client_script, self.health_monitor_script):
             self.skipTest('Required scripts not found')
