@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # Generate dashboard screenshot with demo data showing different client statuses
 # Creates: 1 red (VPN bypass), 1 yellow (DNS leak), 2 green (healthy)
 
