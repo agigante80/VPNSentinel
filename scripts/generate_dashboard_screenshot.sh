@@ -172,7 +172,7 @@ echo ""
 if command -v chromium-browser > /dev/null 2>&1; then
     SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chromium-browser.png"
     echo "  🌐 chromium-browser..."
-    chromium-browser --headless=new --disable-gpu --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars "${DASHBOARD_URL}"
+    chromium-browser --headless=new --disable-gpu --disable-software-rasterizer --disable-features=PaintHolding --run-all-compositor-stages-before-draw --hide-scrollbars --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
     if [ -f "${SCREENSHOT_FILE}" ]; then
         FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
         echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
@@ -188,7 +188,7 @@ fi
 if command -v chromium > /dev/null 2>&1; then
     SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chromium.png"
     echo "  🌐 chromium..."
-    chromium --headless=new --disable-gpu --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars "${DASHBOARD_URL}"
+    chromium --headless=new --disable-gpu --disable-software-rasterizer --disable-features=PaintHolding --run-all-compositor-stages-before-draw --hide-scrollbars --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
     if [ -f "${SCREENSHOT_FILE}" ]; then
         FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
         echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
@@ -206,7 +206,7 @@ fi
 if command -v google-chrome > /dev/null 2>&1; then
     SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chrome.png"
     echo "  🌐 google-chrome..."
-    google-chrome --headless=new --disable-gpu --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars "${DASHBOARD_URL}"
+    google-chrome --headless=new --disable-gpu --disable-software-rasterizer --disable-features=PaintHolding --run-all-compositor-stages-before-draw --hide-scrollbars --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
     if [ -f "${SCREENSHOT_FILE}" ]; then
         FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
         echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
@@ -224,7 +224,7 @@ fi
 if command -v firefox > /dev/null 2>&1; then
     SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-firefox.png"
     echo "  🌐 firefox..."
-    firefox --headless --screenshot "${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
+    firefox --headless --screenshot "${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars "${DASHBOARD_URL}"
     if [ -f "${SCREENSHOT_FILE}" ]; then
         FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
         echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
