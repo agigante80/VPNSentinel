@@ -161,18 +161,84 @@ echo ""
 echo "⏳ Waiting for server to calculate client statuses (15 seconds)..."
 sleep 15
 
-# Check for screenshot tools
-SCREENSHOT_CMD=""
+# Take screenshots with all available browsers
+SCREENSHOTS_TAKEN=0
+BROWSER_NAMES=()
 
+echo "📸 Capturing screenshots with all available browsers..."
+echo ""
+
+# Try chromium-browser
 if command -v chromium-browser > /dev/null 2>&1; then
-    SCREENSHOT_CMD="chromium-browser --headless --disable-gpu --screenshot='${SCREENSHOT_PATH}' --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=5000 '${DASHBOARD_URL}'"
-elif command -v chromium > /dev/null 2>&1; then
-    SCREENSHOT_CMD="chromium --headless --disable-gpu --screenshot='${SCREENSHOT_PATH}' --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=5000 '${DASHBOARD_URL}'"
-elif command -v google-chrome > /dev/null 2>&1; then
-    SCREENSHOT_CMD="google-chrome --headless --disable-gpu --screenshot='${SCREENSHOT_PATH}' --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=5000 '${DASHBOARD_URL}'"
-elif command -v firefox > /dev/null 2>&1; then
-    SCREENSHOT_CMD="firefox --headless --screenshot '${SCREENSHOT_PATH}' --window-size=1400,1000 '${DASHBOARD_URL}'"
-else
+    SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chromium-browser.png"
+    echo "  🌐 chromium-browser..."
+    chromium-browser --headless --disable-gpu --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=5000 "${DASHBOARD_URL}"
+    if [ -f "${SCREENSHOT_FILE}" ]; then
+        FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
+        echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
+        SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
+        BROWSER_NAMES+=("chromium-browser")
+        # Copy as default
+        cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
+    fi
+    echo ""
+fi
+
+# Try chromium
+if command -v chromium > /dev/null 2>&1; then
+    SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chromium.png"
+    echo "  🌐 chromium..."
+    chromium --headless --disable-gpu --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=5000 "${DASHBOARD_URL}"
+    if [ -f "${SCREENSHOT_FILE}" ]; then
+        FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
+        echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
+        SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
+        BROWSER_NAMES+=("chromium")
+        # Copy as default if first
+        if [ $SCREENSHOTS_TAKEN -eq 1 ]; then
+            cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
+        fi
+    fi
+    echo ""
+fi
+
+# Try google-chrome
+if command -v google-chrome > /dev/null 2>&1; then
+    SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chrome.png"
+    echo "  🌐 google-chrome..."
+    google-chrome --headless --disable-gpu --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=5000 "${DASHBOARD_URL}"
+    if [ -f "${SCREENSHOT_FILE}" ]; then
+        FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
+        echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
+        SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
+        BROWSER_NAMES+=("chrome")
+        # Copy as default if first
+        if [ $SCREENSHOTS_TAKEN -eq 1 ]; then
+            cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
+        fi
+    fi
+    echo ""
+fi
+
+# Try firefox
+if command -v firefox > /dev/null 2>&1; then
+    SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-firefox.png"
+    echo "  🌐 firefox..."
+    firefox --headless --screenshot "${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
+    if [ -f "${SCREENSHOT_FILE}" ]; then
+        FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
+        echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
+        SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
+        BROWSER_NAMES+=("firefox")
+        # Copy as default if first
+        if [ $SCREENSHOTS_TAKEN -eq 1 ]; then
+            cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
+        fi
+    fi
+    echo ""
+fi
+
+if [ $SCREENSHOTS_TAKEN -eq 0 ]; then
     echo "❌ No headless browser found (chromium, chrome, or firefox)"
     echo ""
     echo "Install one of:"
@@ -187,28 +253,18 @@ else
     exit 0
 fi
 
-echo "📸 Capturing screenshot..."
-echo "   URL: ${DASHBOARD_URL}"
-echo "   Output: ${SCREENSHOT_PATH}"
+echo "✅ ${SCREENSHOTS_TAKEN} screenshot(s) captured!"
 echo ""
-
-# Take screenshot
-eval "${SCREENSHOT_CMD}"
-
-if [ -f "${SCREENSHOT_PATH}" ]; then
-    FILE_SIZE=$(du -h "${SCREENSHOT_PATH}" | cut -f1)
-    echo ""
-    echo "✅ Screenshot saved successfully!"
-    echo "   File: ${SCREENSHOT_PATH}"
-    echo "   Size: ${FILE_SIZE}"
-    echo ""
-    echo "Preview with:"
-    echo "   xdg-open '${SCREENSHOT_PATH}'  # Linux"
-    echo "   open '${SCREENSHOT_PATH}'      # macOS"
-else
-    echo "❌ Screenshot failed"
-    exit 1
-fi
+echo "Screenshots saved:"
+for browser in "${BROWSER_NAMES[@]}"; do
+    echo "  - docs/images/dashboard-screenshot-${browser}.png"
+done
+echo ""
+echo "Default screenshot: ${SCREENSHOT_PATH}"
+echo ""
+echo "Preview with:"
+echo "  xdg-open '${ROOT_DIR}/docs/images/dashboard-screenshot-*.png'  # Linux (all)"
+echo "  open '${ROOT_DIR}/docs/images/dashboard-screenshot-*.png'      # macOS (all)"
 
 echo ""
 echo "🎉 Dashboard screenshot generation complete!"
