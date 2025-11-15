@@ -165,13 +165,13 @@ sleep 15
 SCREENSHOT_CMD=""
 
 if command -v chromium-browser > /dev/null 2>&1; then
-    SCREENSHOT_CMD="chromium-browser --headless --disable-gpu --screenshot='${SCREENSHOT_PATH}' --window-size=1500,1000 --hide-scrollbars --virtual-time-budget=5000 '${DASHBOARD_URL}'"
+    SCREENSHOT_CMD="chromium-browser --headless --disable-gpu --screenshot='${SCREENSHOT_PATH}' --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=5000 '${DASHBOARD_URL}'"
 elif command -v chromium > /dev/null 2>&1; then
-    SCREENSHOT_CMD="chromium --headless --disable-gpu --screenshot='${SCREENSHOT_PATH}' --window-size=1500,1000 --hide-scrollbars --virtual-time-budget=5000 '${DASHBOARD_URL}'"
+    SCREENSHOT_CMD="chromium --headless --disable-gpu --screenshot='${SCREENSHOT_PATH}' --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=5000 '${DASHBOARD_URL}'"
 elif command -v google-chrome > /dev/null 2>&1; then
-    SCREENSHOT_CMD="google-chrome --headless --disable-gpu --screenshot='${SCREENSHOT_PATH}' --window-size=1500,1000 --hide-scrollbars --virtual-time-budget=5000 '${DASHBOARD_URL}'"
+    SCREENSHOT_CMD="google-chrome --headless --disable-gpu --screenshot='${SCREENSHOT_PATH}' --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=5000 '${DASHBOARD_URL}'"
 elif command -v firefox > /dev/null 2>&1; then
-    SCREENSHOT_CMD="firefox --headless --screenshot '${SCREENSHOT_PATH}' --window-size=1500,1000 '${DASHBOARD_URL}'"
+    SCREENSHOT_CMD="firefox --headless --screenshot '${SCREENSHOT_PATH}' --window-size=1400,1000 '${DASHBOARD_URL}'"
 else
     echo "❌ No headless browser found (chromium, chrome, or firefox)"
     echo ""
