@@ -172,7 +172,7 @@ echo ""
 if command -v chromium-browser > /dev/null 2>&1; then
     SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chromium-browser.png"
     echo "  🌐 chromium-browser..."
-    chromium-browser --headless --disable-gpu --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=15000 --run-all-compositor-stages-before-draw "${DASHBOARD_URL}"
+    chromium-browser --headless --disable-gpu --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=15000 --run-all-compositor-stages-before-draw --disable-software-rasterizer --disable-features=PaintHolding "${DASHBOARD_URL}"
     if [ -f "${SCREENSHOT_FILE}" ]; then
         FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
         echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
@@ -188,7 +188,7 @@ fi
 if command -v chromium > /dev/null 2>&1; then
     SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chromium.png"
     echo "  🌐 chromium..."
-    chromium --headless --disable-gpu --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=15000 --run-all-compositor-stages-before-draw "${DASHBOARD_URL}"
+    chromium --headless --disable-gpu --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=15000 --run-all-compositor-stages-before-draw --disable-software-rasterizer --disable-features=PaintHolding "${DASHBOARD_URL}"
     if [ -f "${SCREENSHOT_FILE}" ]; then
         FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
         echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
@@ -206,7 +206,7 @@ fi
 if command -v google-chrome > /dev/null 2>&1; then
     SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chrome.png"
     echo "  🌐 google-chrome..."
-    google-chrome --headless --disable-gpu --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=15000 --run-all-compositor-stages-before-draw "${DASHBOARD_URL}"
+    google-chrome --headless --disable-gpu --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars --virtual-time-budget=15000 --run-all-compositor-stages-before-draw --disable-software-rasterizer --disable-features=PaintHolding "${DASHBOARD_URL}"
     if [ -f "${SCREENSHOT_FILE}" ]; then
         FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
         echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
