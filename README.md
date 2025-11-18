@@ -483,39 +483,56 @@ YYYY-MM-DDTHH:MM:SSZ LEVEL [component] 🌐 message
 
 **Log File Configuration**:
 
-By default, logs are written to **stdout** (visible via `docker logs`). To enable persistent file logging, set `VPN_SENTINEL_LOG_FILE`:
+**File logging is enabled by default!** Logs are written to **both stdout and file**:
+- 📄 Default file: `/tmp/vpn-sentinel-server.log`
+- 🖥️ Stdout: Visible via `docker logs vpn-sentinel-server`
+
+**Customizing Log Location**:
 
 ```bash
-# Environment variable
+# Custom log file location
 VPN_SENTINEL_LOG_FILE=/app/logs/server.log
 
-# Docker Compose example
+# Docker Compose example with persistent logs
 services:
   vpn-sentinel-server:
     image: agigante80/vpn-sentinel-server:latest
     volumes:
-      - ./logs:/app/logs  # Mount logs directory
+      - ./logs:/app/logs  # Mount logs directory for persistence
     environment:
       - VPN_SENTINEL_LOG_FILE=/app/logs/server.log
+
+# Disable file logging (stdout only)
+VPN_SENTINEL_LOG_FILE=""
 ```
 
-With file logging enabled:
-- ✅ Logs are written to **both stdout and file** (dual output)
+**Features**:
+- ✅ Dual output: **stdout + file** (both always in sync)
+- ✅ **Automatic log rotation** prevents unlimited disk growth
+  - Default: 10 MB per file, 5 backup files (60 MB total max)
+  - Customize: `VPN_SENTINEL_LOG_MAX_SIZE` and `VPN_SENTINEL_LOG_MAX_BACKUPS`
 - ✅ Dashboard "🔍 View Logs" button shows file contents with syntax highlighting
 - ✅ Log directory is created automatically if it doesn't exist
 - ✅ Graceful handling of file write errors (continues logging to stdout)
+- ✅ Works out-of-the-box with no configuration needed
 
-**Auto-Detection**: If `VPN_SENTINEL_LOG_FILE` is not set, the dashboard checks these locations:
-- `/tmp/vpn-sentinel-server.log`
-- `/var/log/vpn-sentinel/server.log`
-- `/var/log/vpn-sentinel.log`
-- `./vpn-sentinel-server.log`
+**Log Rotation Behavior**:
+When the log file reaches 10 MB, it's automatically rotated:
+```
+vpn-sentinel-server.log       ← Current log (newest)
+vpn-sentinel-server.log.1     ← Previous rotation
+vpn-sentinel-server.log.2
+vpn-sentinel-server.log.3
+vpn-sentinel-server.log.4
+vpn-sentinel-server.log.5     ← Oldest backup
+```
+Oldest logs are deleted when max backups is reached, keeping disk usage bounded.
 
 **Viewing Logs**:
 - **Dashboard**: Click "🔍 View Logs" button for real-time viewing with auto-refresh
 - **CLI (Docker)**: `docker logs -f vpn-sentinel-server`
-- **CLI (File)**: `tail -f /app/logs/server.log`
-- **Filter by component**: `grep '\[api\]' /app/logs/server.log`
+- **CLI (File)**: `tail -f /tmp/vpn-sentinel-server.log`
+- **Filter by component**: `grep '\[api\]' /tmp/vpn-sentinel-server.log`
 
 #### Client ID Format
 
