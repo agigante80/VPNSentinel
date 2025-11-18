@@ -412,6 +412,9 @@ This is a critical security issue.
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | *(auto)* | Telegram notifications: `true` (require credentials), `false` (disable), unset (auto-enable if credentials present) |
 | `TELEGRAM_BOT_TOKEN` | - | Telegram bot token (required if TELEGRAM_ENABLED=true) |
 | `TELEGRAM_CHAT_ID` | - | Telegram chat ID (required if TELEGRAM_ENABLED=true) |
+| `VPN_SENTINEL_LOG_FILE` | `/tmp/vpn-sentinel-server.log` | Log file path. Set to `""` to disable file logging (stdout only) |
+| `VPN_SENTINEL_LOG_MAX_SIZE` | `10485760` | Maximum log file size in bytes (10 MB) before rotation |
+| `VPN_SENTINEL_LOG_MAX_BACKUPS` | `5` | Number of rotated backup files to keep (total ~60 MB max) |
 | `VPN_SENTINEL_LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARN, ERROR) |
 
 #### Client Configuration
