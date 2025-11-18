@@ -481,22 +481,41 @@ YYYY-MM-DDTHH:MM:SSZ LEVEL [component] 🌐 message
 - `[vpn-info]` - Client VPN connection information
 - `[cleanup]` - Stale client cleanup operations
 
-**Log File Location**:
+**Log File Configuration**:
 
-Set `VPN_SENTINEL_LOG_FILE` to specify log file path:
+By default, logs are written to **stdout** (visible via `docker logs`). To enable persistent file logging, set `VPN_SENTINEL_LOG_FILE`:
+
 ```bash
-VPN_SENTINEL_LOG_FILE=/var/log/vpn-sentinel/server.log
+# Environment variable
+VPN_SENTINEL_LOG_FILE=/app/logs/server.log
+
+# Docker Compose example
+services:
+  vpn-sentinel-server:
+    image: agigante80/vpn-sentinel-server:latest
+    volumes:
+      - ./logs:/app/logs  # Mount logs directory
+    environment:
+      - VPN_SENTINEL_LOG_FILE=/app/logs/server.log
 ```
 
-If not set, the system auto-detects from common locations:
+With file logging enabled:
+- ✅ Logs are written to **both stdout and file** (dual output)
+- ✅ Dashboard "🔍 View Logs" button shows file contents with syntax highlighting
+- ✅ Log directory is created automatically if it doesn't exist
+- ✅ Graceful handling of file write errors (continues logging to stdout)
+
+**Auto-Detection**: If `VPN_SENTINEL_LOG_FILE` is not set, the dashboard checks these locations:
 - `/tmp/vpn-sentinel-server.log`
 - `/var/log/vpn-sentinel/server.log`
-- Container stdout (viewable via `docker logs`)
+- `/var/log/vpn-sentinel.log`
+- `./vpn-sentinel-server.log`
 
 **Viewing Logs**:
-- **Dashboard**: Click "🔍 View Logs" button for real-time viewing with syntax highlighting
-- **CLI**: `docker logs vpn-sentinel-server` or `tail -f /tmp/vpn-sentinel-server.log`
-- **Filter by component**: `grep '\[api\]' /tmp/vpn-sentinel-server.log`
+- **Dashboard**: Click "🔍 View Logs" button for real-time viewing with auto-refresh
+- **CLI (Docker)**: `docker logs -f vpn-sentinel-server`
+- **CLI (File)**: `tail -f /app/logs/server.log`
+- **Filter by component**: `grep '\[api\]' /app/logs/server.log`
 
 #### Client ID Format
 

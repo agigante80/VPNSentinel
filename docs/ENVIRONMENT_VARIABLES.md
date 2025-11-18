@@ -25,6 +25,11 @@ This document lists all environment variables used by VPN Sentinel components.
 | `VPN_SENTINEL_API_PATH` | `/api/v1` | Base path for API endpoints |
 | `VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES` | `30` | Minutes of inactivity before removing a client from dashboard |
 
+### Logging
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VPN_SENTINEL_LOG_FILE` | _(empty)_ | Path to log file for persistent logging. If not set, logs go to stdout only. |
+
 ### Version Information
 | Variable | Default | Description |
 |----------|---------|-------------|
