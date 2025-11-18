@@ -137,8 +137,11 @@ def perform_health_checks():
     # Network connectivity
     results['network_connectivity'] = check_network_connectivity()
 
-    # Server connectivity
-    results['server_connectivity'] = check_server_connectivity()
+    # Server connectivity - Set to 'not_checked' instead of checking
+    # RATIONALE: Client already proves server connectivity by successfully POSTing keepalives.
+    # The old check made unauthenticated HEAD/GET requests to server root causing 401 errors in logs.
+    # If keepalive succeeds, server is reachable. This check is redundant and noisy.
+    results['server_connectivity'] = 'not_checked'
 
     # DNS leak detection
     results['dns_leak_detection'] = check_dns_leak_detection()
