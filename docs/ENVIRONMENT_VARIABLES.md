@@ -28,7 +28,9 @@ This document lists all environment variables used by VPN Sentinel components.
 ### Logging
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VPN_SENTINEL_LOG_FILE` | _(empty)_ | Path to log file for persistent logging. If not set, logs go to stdout only. |
+| `VPN_SENTINEL_LOG_FILE` | `/tmp/vpn-sentinel-server.log` | Path to log file for persistent logging. Set to empty string `""` to disable file logging (stdout only). |
+| `VPN_SENTINEL_LOG_MAX_SIZE` | `10485760` (10 MB) | Maximum size in bytes before log rotation. Prevents unlimited disk usage. |
+| `VPN_SENTINEL_LOG_MAX_BACKUPS` | `5` | Number of rotated backup files to keep. Total disk usage: ~60 MB (10 MB × 6 files). |
 
 ### Version Information
 | Variable | Default | Description |
