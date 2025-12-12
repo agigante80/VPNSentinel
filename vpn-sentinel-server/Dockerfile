@@ -23,7 +23,7 @@ COPY pyproject.toml .
 COPY vpn_sentinel_common/ ./vpn_sentinel_common/
 
 # Install Python dependencies and Flask with retry logic
-RUN pip install --no-cache-dir --user --retries 10 --timeout 60 -e . flask werkzeug
+RUN pip install --no-cache-dir --user --retries 10 --timeout 60 -e . 'flask>=3.1.0' 'werkzeug>=3.1.0'
 
 # Runtime stage
 FROM python:3.12-alpine
