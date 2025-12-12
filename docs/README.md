@@ -50,7 +50,8 @@ bash scripts/smoke/run_local_smoke.sh
 
 ### Core Documentation
 - **[Project Overview](./PROJECT_OVERVIEW.md)** - Purpose, goals, features, and technology stack
-- **[Architecture](./ARCHITECTURE.md)** - System design, components, and data flow
+- **[Architecture](./ARCHITECTURE.md)** - System design, components, data flow, and CI/CD pipeline
+- **[Versioning Strategy](./VERSIONING.md)** - Semantic versioning, release process, and version management
 - **[Testing & Reliability](./TESTING_AND_RELIABILITY.md)** - Testing strategy, frameworks, and CI/CD
 
 ### Development Guides

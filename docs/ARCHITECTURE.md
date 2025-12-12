@@ -610,6 +610,239 @@ livenessProbe:
 
 ---
 
+## CI/CD Pipeline Architecture
+
+### Overview
+
+VPN Sentinel uses **GitHub Actions** for automated continuous integration and deployment with dynamic versioning, multi-platform Docker builds, and comprehensive quality gates.
+
+### Pipeline Stages
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     CI/CD Pipeline Flow                         │
+└─────────────────────────────────────────────────────────────────┘
+
+1. Version Generation (get_version.sh)
+   ├── Main branch (tagged): 1.0.0
+   ├── Main branch (untagged): 1.0.0-main-abc1234
+   ├── Development branch: 1.0.0-dev-abc1234
+   └── Feature branches: 1.0.0-feature-name-abc1234
+
+2. Code Quality
+   ├── Lint (flake8, pylint)
+   └── Unit Tests (pytest + coverage)
+
+3. Docker Test Build
+   ├── Server container validation
+   └── Client container validation
+
+4. Security Scanning
+   ├── Trivy vulnerability scan (SARIF format)
+   └── Upload to GitHub Security tab
+
+5. Docker Build & Publish (main/development only)
+   ├── Multi-platform builds (amd64, arm64)
+   ├── Docker Hub publishing
+   ├── GHCR publishing
+   └── Version tagging with OCI labels
+
+6. Update Docker Hub Descriptions (main only)
+   ├── Validate short description (≤100 chars)
+   └── Update repository overview
+
+7. GitHub Release (main + tagged only)
+   ├── Generate changelog from commits
+   └── Create release with version tag
+
+8. Integration Tests (development only)
+   └── Test with docker-compose.test.yaml
+```
+
+### Versioning Strategy
+
+**Dynamic Version Generation** using `get_version.sh`:
+
+| Context | Version Format | Example | Docker Tags |
+|---------|---------------|---------|-------------|
+| Main (tagged) | `MAJOR.MINOR.PATCH` | `1.0.0` | `:1.0.0`, `:latest` |
+| Main (untagged) | `MAJOR.MINOR.PATCH-main-HASH` | `1.0.0-main-abc1234` | `:1.0.0-main-abc1234` |
+| Development | `MAJOR.MINOR.PATCH-dev-HASH` | `1.0.0-dev-abc1234` | `:1.0.0-dev-abc1234`, `:development` |
+| Feature branch | `MAJOR.MINOR.PATCH-branch-HASH` | `1.0.0-auth-fix-abc1234` | `:1.0.0-auth-fix-abc1234` |
+
+**Base Version**: Read from `VERSION` file in repository root
+
+**Version Environment Variables** in Docker:
+```dockerfile
+ARG VERSION=unknown
+ARG COMMIT_HASH=unknown
+ENV VERSION=${VERSION}
+ENV COMMIT_HASH=${COMMIT_HASH}
+```
+
+**OCI Labels**:
+- `org.opencontainers.image.version` - Full semantic version
+- `org.opencontainers.image.revision` - Git commit SHA
+- `org.opencontainers.image.source` - GitHub repository URL
+- `org.opencontainers.image.created` - Build timestamp
+
+### Trigger Conditions
+
+| Event | Branches | Jobs Executed |
+|-------|----------|---------------|
+| Push | `main` | All stages + Release |
+| Push | `development` | All stages (no release) + Integration tests |
+| Push | Feature/hotfix | Quality + Test + Build validation |
+| Pull Request | Any → `main`/`development` | Quality + Test + Build validation |
+| Manual | Any | Configurable (can include release) |
+
+### Multi-Image Build
+
+**Two Docker Images** built in parallel:
+
+1. **VPN Sentinel Server** (`agigante80/vpn-sentinel-server`)
+   - Context: Repository root
+   - Dockerfile: `vpn-sentinel-server/Dockerfile`
+   - Platforms: `linux/amd64`, `linux/arm64`
+   - Size: ~80MB
+
+2. **VPN Sentinel Client** (`agigante80/vpn-sentinel-client`)
+   - Context: Repository root
+   - Dockerfile: `vpn-sentinel-client/Dockerfile`
+   - Platforms: `linux/amd64`, `linux/arm64`
+   - Size: ~50MB
+
+**Build Arguments**:
+```yaml
+build-args: |
+  VERSION=${{ needs.version.outputs.version }}
+  COMMIT_HASH=${{ needs.version.outputs.commit_hash }}
+```
+
+### Security Integration
+
+**Trivy Vulnerability Scanning**:
+- Scans both server and client images
+- Severity levels: CRITICAL, HIGH, MEDIUM
+- Output formats:
+  - SARIF → GitHub Security tab
+  - Table → Workflow logs
+- Fail on: CRITICAL/HIGH vulnerabilities
+
+**Secret Management**:
+- `DOCKER_USERNAME` - Docker Hub username
+- `DOCKER_TOKEN` - Docker Hub access token
+- `GITHUB_TOKEN` - Automatic (GitHub Actions)
+
+### Registry Publishing
+
+**Docker Hub**:
+- Repository: `agigante80/vpn-sentinel-{server,client}`
+- Authentication: `DOCKER_USERNAME` + `DOCKER_TOKEN`
+- Description updates: Automated on main branch releases
+
+**GitHub Container Registry (GHCR)**:
+- Repository: `ghcr.io/agigante80/vpn-sentinel-{server,client}`
+- Authentication: `GITHUB_TOKEN` (automatic)
+- Visibility: Public
+
+### Caching Strategy
+
+**GitHub Actions Cache**:
+- Docker layer caching (BuildKit)
+- Python pip dependencies
+- Node.js modules (if applicable)
+- Cache key: `type=gha` (GitHub Actions cache backend)
+
+**Benefits**:
+- 3-5x faster builds after first run
+- Reduced bandwidth usage
+- Consistent build environment
+
+### Deployment Flow
+
+```
+Development Workflow:
+  Feature Branch → PR → Code Review → Merge to development
+                                      ├── Run all tests
+                                      ├── Build dev images
+                                      ├── Publish to Docker Hub/GHCR with :development tag
+                                      └── Run integration tests
+
+Release Workflow:
+  Development → PR → Code Review → Merge to main
+                                   ├── Run all tests
+                                   ├── Build production images
+                                   ├── Security scan
+                                   ├── Tag version (v1.0.0)
+                                   ├── Publish with :latest + :1.0.0 tags
+                                   ├── Update Docker Hub descriptions
+                                   └── Create GitHub Release
+```
+
+### Monitoring & Observability
+
+**Pipeline Monitoring**:
+- GitHub Actions dashboard for workflow status
+- Email notifications on failures
+- Pull request status checks
+- Security tab for vulnerability reports
+
+**Metrics**:
+- Build duration per stage
+- Test coverage percentage
+- Image sizes (server/client)
+- Vulnerability counts by severity
+
+### Workflow Configuration
+
+**File**: `.github/workflows/ci-cd.yml`
+
+**Job Dependencies**:
+```
+version (always runs first)
+  ├─→ lint
+  ├─→ test
+  └─→ docker-test-build
+       └─→ security-scan
+            └─→ docker-publish (main/development only)
+                 ├─→ update-dockerhub-descriptions (main only)
+                 ├─→ release (main + tagged only)
+                 └─→ integration-test (development only)
+```
+
+**Manual Trigger Options**:
+- `release_type`: skip, patch, minor, major
+- `release_notes`: Optional custom release notes
+
+### Best Practices
+
+**Version Management**:
+- Always use `fetch-depth: 0` for full Git history
+- Sanitize branch names for Docker compatibility
+- Include commit hash in development builds
+- Use semantic versioning for releases
+
+**Docker Publishing**:
+- Build once, tag multiple times
+- Multi-platform builds for broad compatibility
+- Layer caching for faster builds
+- OCI labels for metadata
+
+**Security**:
+- Scan every build (not just releases)
+- Upload SARIF to GitHub Security tab
+- Fail pipelines on critical vulnerabilities
+- Rotate secrets regularly
+
+**Quality Gates**:
+- Lint must pass before tests
+- Tests must pass before builds
+- Security scan must pass before publish
+- Manual approval for production releases (optional)
+
+---
+
 ## Technology Decisions
 
 ### Why Flask?
