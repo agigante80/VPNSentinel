@@ -674,8 +674,10 @@ def server_logs():
                 logs_content = f"Log file exists but is empty: {found_log}\n\n"
                 logs_content += "Server may have just started or logs are being written elsewhere."
         except Exception as e:
-            logs_content = f"Error reading log file {found_log}: {str(e)}\n\n"
-            logs_content += "Check file permissions or disk space."
+            # Log error internally but don't expose details to user
+            log_info("dashboard", f"Error reading log file {found_log}: {str(e)}")
+            logs_content = f"Error reading log file. Check file permissions or disk space.\n\n"
+            logs_content += "Server logs may not be accessible to the dashboard."
     else:
         # If no log file found, show helpful message
         logs_content = "No log file found. Server logs are being sent to standard output (stdout).\n\n"

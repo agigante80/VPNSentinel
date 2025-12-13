@@ -1,0 +1,28 @@
+name: "CodeQL Config"
+
+# Paths to exclude from scanning
+paths-ignore:
+  - tests/**
+  - '**/__pycache__/**'
+  - '**/htmlcov/**'
+  - '**/node_modules/**'
+
+# Query filters
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+# Query filters to suppress false positives
+query-filters:
+  # Suppress incomplete URL sanitization warnings in test files
+  # These are false positives - tests intentionally check URL substrings
+  - exclude:
+      id: py/incomplete-url-substring-sanitization
+      paths:
+        - tests/**
+
+  # Stack trace exposure in tests is acceptable for debugging
+  - exclude:
+      id: py/stack-trace-exposure
+      paths:
+        - tests/**
