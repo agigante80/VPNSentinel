@@ -12,8 +12,7 @@ ARG COMMIT_HASH
 RUN apk add --no-cache \
     gcc \
     musl-dev \
-    libffi-dev \
-    openssl-dev
+    libffi-dev
 
 # Set work directory
 WORKDIR /app
@@ -41,7 +40,6 @@ ENV COMMIT_HASH=${COMMIT_HASH}
 # Install runtime dependencies
 RUN apk add --no-cache \
     curl \
-    openssl \
     tzdata \
     ca-certificates
 
