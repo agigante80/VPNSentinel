@@ -38,8 +38,8 @@ if [[ $GIT_DESCRIBE =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(.*)$ ]]; then
         VERSION="$BASE_VERSION"
       fi
     fi
-  elif [ "$BRANCH" = "develop" ]; then
-    # Develop branch - always use dev suffix with commit hash
+  elif [ "$BRANCH" = "development" ]; then
+    # Development branch - always use dev suffix with commit hash
     COMMIT_HASH=$(git rev-parse --short HEAD)
     VERSION="${BASE_VERSION}-dev-${COMMIT_HASH}"
   else
