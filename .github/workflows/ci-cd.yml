@@ -116,7 +116,7 @@ jobs:
           pylint vpn_sentinel_common/ || true
 
   # ============================================================================
-  # Stage 3: Unit Testing
+  # Stage 2: Unit Tests
   # ============================================================================
   test:
     name: Run Tests
@@ -125,6 +125,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Required for version script to access Git tags
 
       - name: Set up Python
         uses: actions/setup-python@v6
