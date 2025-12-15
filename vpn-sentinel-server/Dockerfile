@@ -2,7 +2,7 @@
 # Multi-stage build for a lightweight Python server container
 
 # Build stage
-FROM python:3.12-alpine AS builder
+FROM python:3.13-alpine AS builder
 
 # Build arguments for version information
 ARG VERSION
@@ -27,7 +27,7 @@ RUN pip install --no-cache-dir --upgrade pip>=25.3 && \
     pip install --no-cache-dir --user --retries 10 --timeout 60 -e . 'flask>=3.1.0' 'werkzeug>=3.1.0'
 
 # Runtime stage
-FROM python:3.12-alpine
+FROM python:3.13-alpine
 
 # Build arguments for version information
 ARG VERSION
