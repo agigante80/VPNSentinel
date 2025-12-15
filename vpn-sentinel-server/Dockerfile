@@ -12,8 +12,7 @@ ARG COMMIT_HASH
 RUN apk add --no-cache \
     gcc \
     musl-dev \
-    libffi-dev \
-    openssl-dev
+    libffi-dev
 
 # Set work directory
 WORKDIR /app
@@ -39,9 +38,8 @@ ENV VERSION=${VERSION}
 ENV COMMIT_HASH=${COMMIT_HASH}
 
 # Install runtime dependencies
+# Note: curl removed as it's not available in Alpine 3.23+ (libcurl is in base image)
 RUN apk add --no-cache \
-    curl \
-    openssl \
     tzdata \
     ca-certificates
 
@@ -73,9 +71,9 @@ USER vpnuser
 ENV PATH="/home/vpnuser/.local/bin:$PATH"
 ENV PYTHONPATH="/app"
 
-# Health check
+# Health check (using wget since curl is not available in Alpine 3.23+)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD sh -c 'health_port=${VPN_SENTINEL_SERVER_HEALTH_PORT:-8081}; curl -f http://127.0.0.1:$health_port/health || exit 1'
+    CMD sh -c 'health_port=${VPN_SENTINEL_SERVER_HEALTH_PORT:-8081}; wget -q -O - http://127.0.0.1:$health_port/health || exit 1'
 
 # Default command - run the server
 CMD ["python", "./vpn-sentinel-server.py"]
