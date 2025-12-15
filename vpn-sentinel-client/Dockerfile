@@ -84,7 +84,9 @@ RUN apk add --no-cache curl python3 py3-pip bash jq tzdata bind-tools \
     && jq --version
 
 # Install Flask for health monitor
+# Upgrade pip first to fix CVE-2025-8869
 RUN python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade 'pip>=25.3' \
     && /opt/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 flask \
     && echo "✅ Python packages installed: flask"
 

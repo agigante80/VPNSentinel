@@ -2,15 +2,15 @@
 # Install with: pip install -r tests/requirements.txt
 
 # Core testing framework
-pytest>=7.4.0
-pytest-cov>=4.1.0
+pytest>=8.3.0
+pytest-cov>=6.0.0
 pytest-mock>=3.11.0
 pytest-asyncio>=0.21.0
 
 # HTTP testing
 requests-mock>=1.11.0
 pytest-httpserver>=1.0.8
-requests>=2.31.0
+requests>=2.32.3
 
 # Flask testing
 pytest-flask>=1.2.0
@@ -26,7 +26,7 @@ faker>=19.0.0
 psutil>=6.0.0
 
 # Coverage reporting
-coverage>=7.3.0
+coverage>=7.6.0
 
 # Code quality (optional but recommended)
 flake8>=6.0.0

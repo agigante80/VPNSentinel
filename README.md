@@ -1,8 +1,10 @@
 # VPN Sentinel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Docker](https://img.shields.io/badge/Docker-Compose-blue)](https://docs.docker.com/compose/)
-[![Python](https://img.shields.io/badge/Python-3.11+-green)](https://python.org)
+[![CI/CD Pipeline](https://github.com/agigante80/VPNSentinel/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/agigante80/VPNSentinel/actions/workflows/ci-cd.yml)
+[![Docker Server](https://img.shields.io/docker/v/agigante80/vpn-sentinel-server?label=server&logo=docker)](https://hub.docker.com/r/agigante80/vpn-sentinel-server)
+[![Docker Client](https://img.shields.io/docker/v/agigante80/vpn-sentinel-client?label=client&logo=docker)](https://hub.docker.com/r/agigante80/vpn-sentinel-client)
+[![Python](https://img.shields.io/badge/Python-3.12+-green?logo=python)](https://python.org)
 
 **Real-time VPN monitoring with DNS leak detection, traffic light status indicators, and instant Telegram notifications. Know immediately when your VPN fails.**
 
