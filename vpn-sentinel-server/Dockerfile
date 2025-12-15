@@ -38,8 +38,8 @@ ENV VERSION=${VERSION}
 ENV COMMIT_HASH=${COMMIT_HASH}
 
 # Install runtime dependencies
+# Note: curl removed as it's not available in Alpine 3.23+ (libcurl is in base image)
 RUN apk add --no-cache \
-    curl \
     tzdata \
     ca-certificates
 
