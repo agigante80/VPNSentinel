@@ -56,6 +56,7 @@ bash scripts/smoke/run_local_smoke.sh
 
 ### Development Guides
 - **[AI Interaction Guide](./AI_INTERACTION_GUIDE.md)** - Rules for AI-assisted development, local testing enforcement
+- **[Python Lifecycle](./PYTHON_LIFECYCLE.md)** - Python version selection, release cycle, and upgrade guidelines
 - **[Refactoring Plan](./REFACTORING_PLAN.md)** - Ongoing improvements and completed tasks
 - **[Improvement Areas](./IMPROVEMENT_AREAS.md)** - Known technical debt and recommendations
 
