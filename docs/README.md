@@ -62,6 +62,7 @@ bash scripts/smoke/run_local_smoke.sh
 
 ### Security & Planning
 - **[Security & Privacy](./SECURITY_AND_PRIVACY.md)** - Security policies, AI safety, incident response
+- **[CodeQL Security](./CODEQL_SECURITY.md)** - Code scanning configuration, alert management, suppression rationale
 - **[Roadmap](./ROADMAP.md)** - Future improvements and priority timeline
 
 ---
