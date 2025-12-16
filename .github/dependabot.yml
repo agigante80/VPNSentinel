@@ -31,11 +31,12 @@ updates:
     commit-message:
       prefix: "docker"
       include: "scope"
-    # Ignore unstable Python versions (3.14, 3.15, etc.)
+    # Ignore unstable Python versions (3.13+)
+    # Stay on 3.12 LTS until 3.13 is proven stable in production
     ignore:
       - dependency-name: "python"
-        update-types: ["version-update:semver-major"]
-        versions: ["3.14", "3.15", "3.16", "3.17", "3.18"]
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+        versions: ["3.13", "3.14", "3.15", "3.16", "3.17", "3.18"]
       
   - package-ecosystem: "docker"
     directory: "/vpn-sentinel-client"
@@ -51,11 +52,12 @@ updates:
     commit-message:
       prefix: "docker"
       include: "scope"
-    # Ignore unstable Python versions (3.14, 3.15, etc.)
+    # Ignore unstable Python versions (3.13+)
+    # Stay on 3.12 LTS until 3.13 is proven stable in production
     ignore:
       - dependency-name: "python"
-        update-types: ["version-update:semver-major"]
-        versions: ["3.14", "3.15", "3.16", "3.17", "3.18"]
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+        versions: ["3.13", "3.14", "3.15", "3.16", "3.17", "3.18"]
 
   # GitHub Actions (if re-added in future)
   - package-ecosystem: "github-actions"
