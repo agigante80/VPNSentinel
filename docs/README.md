@@ -56,11 +56,13 @@ bash scripts/smoke/run_local_smoke.sh
 
 ### Development Guides
 - **[AI Interaction Guide](./AI_INTERACTION_GUIDE.md)** - Rules for AI-assisted development, local testing enforcement
+- **[Python Lifecycle](./PYTHON_LIFECYCLE.md)** - Python version selection, release cycle, and upgrade guidelines
 - **[Refactoring Plan](./REFACTORING_PLAN.md)** - Ongoing improvements and completed tasks
 - **[Improvement Areas](./IMPROVEMENT_AREAS.md)** - Known technical debt and recommendations
 
 ### Security & Planning
 - **[Security & Privacy](./SECURITY_AND_PRIVACY.md)** - Security policies, AI safety, incident response
+- **[CodeQL Security](./CODEQL_SECURITY.md)** - Code scanning configuration, alert management, suppression rationale
 - **[Roadmap](./ROADMAP.md)** - Future improvements and priority timeline
 
 ---
