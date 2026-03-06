@@ -360,12 +360,3 @@ See `vpn_sentinel_common/telegram.py` for full API documentation:
 - `register_command(command, handler)` - Register custom command
 - `start_polling()` - Start bot polling loop
 
-## 🎯 Next Steps
-
-1. ✅ Configure bot token and chat ID
-2. ✅ Run test script to verify setup
-3. ✅ Start server and receive startup notification
-4. ✅ Test bot commands
-5. ✅ Connect client and receive notifications
-6. 📖 Review logs for any issues
-7. 🎉 Enjoy automated VPN monitoring!

@@ -200,47 +200,9 @@ python3 -m flake8 --max-line-length=120 vpn_sentinel_common/
 
 ## Test Coverage
 
-### Current Coverage (as of 2025-11-11)
+### Current Coverage
 
-| Module | Lines | Coverage | Status |
-|--------|-------|----------|--------|
-| **Perfect Coverage (100%)** |
-| `vpn_sentinel_common/config.py` | 45 | 100% | ✅ Perfect |
-| `vpn_sentinel_common/monitor.py` | 45 | 100% | ✅ Perfect |
-| `vpn_sentinel_common/security.py` | 27 | 100% | ✅ Perfect |
-| `vpn_sentinel_common/server_utils.py` | 22 | 100% | ✅ Perfect |
-| `vpn_sentinel_common/utils.py` | 25 | 100% | ✅ Perfect |
-| `vpn_sentinel_common/validation.py` | 49 | 100% | ✅ Perfect |
-| `vpn_sentinel_common/version.py` | 24 | 100% | ✅ Perfect |
-| `vpn_sentinel_common/health_routes.py` | 13 | 100% | ✅ Perfect |
-| **Excellent Coverage (95-99%)** |
-| `vpn_sentinel_common/api_routes.py` | 67 | 99% | ✅ Excellent |
-| `vpn_sentinel_common/server_info.py` | 62 | 98% | ✅ Excellent |
-| `vpn_sentinel_common/health_monitor.py` | 33 | 97% | ✅ Excellent |
-| `vpn_sentinel_common/geolocation.py` | 51 | 96% | ✅ Excellent |
-| `vpn_sentinel_common/dashboard_routes.py` | 61 | ~95% | ✅ Excellent |
-| **Good Coverage (90-94%)** |
-| `vpn_sentinel_common/payload.py` | 63 | 94% | ✅ Good |
-| `vpn_sentinel_common/network.py` | 30 | 93% | ✅ Good |
-| `vpn_sentinel_common/log_utils.py` | 21 | 90% | ✅ Good |
-| **Needs Improvement** |
-| `vpn_sentinel_common/health.py` | 178 | 69% | ⚠️ Needs work |
-| `vpn_sentinel_common/telegram.py` | 145 | 16% | ⚠️ Critical |
-| `vpn_sentinel_common/telegram_commands.py` | 49 | 0% | ❌ Critical |
-
-**Overall Coverage**: 70% (301 of 1019 lines uncovered)
-
-**Recent Improvements** (2025-11):
-- Added 291 new unit tests across 17 test files
-- Improved 16 modules from 0-41% to 90-100% coverage
-- Improved 16 modules from 0-41% to 90-100% coverage
-- Fixed critical JSON parsing bug in api_routes.py
-- 10 modules achieved perfect 100% coverage
-
-**Coverage Goals**:
-- Common library: >85% (achieved for 16/19 modules ✅)
-- Overall: 70% (up from 34% ✅)
-- Target: 80%+ for all modules (16/19 complete ✅)
+Generate a live coverage report to see current numbers:
 
 ### View Coverage Report
 
@@ -536,13 +498,7 @@ jobs:
 - Changing API contracts
 - Adding dependencies
 
-**Test checklist**:
-- [ ] Unit test for new function
-- [ ] Integration test for new endpoint
-- [ ] Test error conditions
-- [ ] Test edge cases
-- [ ] Update fixtures if needed
-- [ ] Document test purpose
+**Test checklist**: add a unit test for the new function, an integration test for any new endpoint, tests for error conditions and edge cases, updated fixtures if needed, and a docstring explaining the test's purpose.
 
 ### Updating Existing Tests
 
@@ -553,35 +509,6 @@ jobs:
 - External API changes
 - Test flakiness detected
 
-**Update checklist**:
-- [ ] Review affected tests
-- [ ] Update assertions
-- [ ] Update mocks
-- [ ] Verify all tests still pass
-- [ ] Document changes in test docstring
+**Update checklist**: review affected tests, update assertions and mocks, verify all tests still pass, and document changes in the test docstring.
 
----
 
-## Future Improvements
-
-### Planned Enhancements
-
-- [ ] **Load Testing**: Add k6/Locust tests for performance
-- [ ] **Security Testing**: Add bandit security scans
-- [ ] **Contract Testing**: Add Pact for API contracts
-- [ ] **E2E Testing**: Add Playwright for dashboard
-- [ ] **Chaos Testing**: Test failure scenarios
-- [ ] **Mutation Testing**: Add mutpy for test quality
-
-### Known Gaps
-
-- ⚠️ No load testing (performance under stress unknown)
-- ⚠️ Limited dashboard testing (only integration tests)
-- ⚠️ No security regression tests
-- ⚠️ No chaos engineering tests
-
----
-
-**Last Updated**: 2025-01-15  
-**Test Suite Version**: 1.0.0  
-**Total Tests**: 151 (115 unit + 36 integration)
