@@ -55,15 +55,11 @@ bash scripts/smoke/run_local_smoke.sh
 - **[Testing & Reliability](./TESTING_AND_RELIABILITY.md)** - Testing strategy, frameworks, and CI/CD
 
 ### Development Guides
-- **[AI Interaction Guide](./AI_INTERACTION_GUIDE.md)** - Rules for AI-assisted development, local testing enforcement
 - **[Python Lifecycle](./PYTHON_LIFECYCLE.md)** - Python version selection, release cycle, and upgrade guidelines
-- **[Refactoring Plan](./REFACTORING_PLAN.md)** - Ongoing improvements and completed tasks
-- **[Improvement Areas](./IMPROVEMENT_AREAS.md)** - Known technical debt and recommendations
 
-### Security & Planning
+### Security
 - **[Security & Privacy](./SECURITY_AND_PRIVACY.md)** - Security policies, AI safety, incident response
 - **[CodeQL Security](./CODEQL_SECURITY.md)** - Code scanning configuration, alert management, suppression rationale
-- **[Roadmap](./ROADMAP.md)** - Future improvements and priority timeline
 
 ---
 
@@ -87,7 +83,6 @@ python3 -m flake8 --max-line-length=120 vpn_sentinel_common/
 
 ### AI-Assisted Development
 When using AI assistants (GitHub Copilot, ChatGPT, etc.):
-- Follow the **[AI Interaction Guide](./AI_INTERACTION_GUIDE.md)**
 - **Always run tests locally** before committing
 - **Update documentation** when code changes
 - **Never expose secrets** in code or logs
@@ -153,11 +148,10 @@ See **[Architecture](./ARCHITECTURE.md#telegram-integration)** for setup instruc
 
 For issues, questions, or contributions:
 1. Check existing **[documentation](./)**
-2. Review **[Improvement Areas](./IMPROVEMENT_AREAS.md)**
-3. Open a GitHub issue with details
+2. Open a GitHub issue with details
 
 ---
 
-**Last Updated**: 2025-11-11  
-**Version**: 1.0.0-dev  
+**Last Updated**: 2026-03-06  
+**Version**: 1.1.3  
 **Status**: Production Ready
