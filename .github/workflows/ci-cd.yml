@@ -201,8 +201,8 @@ jobs:
           build-args: |
             VERSION=${{ needs.version.outputs.version }}
             COMMIT_HASH=${{ needs.version.outputs.commit_hash }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=buildkit-${{ matrix.component.name }}
+          cache-to: type=gha,mode=max,scope=buildkit-${{ matrix.component.name }}
 
       - name: Inspect image
         run: |
@@ -238,7 +238,7 @@ jobs:
           build-args: |
             VERSION=${{ needs.version.outputs.version }}
             COMMIT_HASH=${{ needs.version.outputs.commit_hash }}
-          cache-from: type=gha
+          cache-from: type=gha,scope=buildkit-${{ matrix.component }}
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -332,7 +332,7 @@ jobs:
         with:
           context: ${{ matrix.component.context }}
           file: ${{ matrix.component.dockerfile }}
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.ref == 'refs/heads/main' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
@@ -345,8 +345,8 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=buildkit-${{ matrix.component.name }}
+          cache-to: type=gha,mode=max,scope=buildkit-${{ matrix.component.name }}
 
   # ============================================================================
   # Stage 7: Update Docker Hub Descriptions
