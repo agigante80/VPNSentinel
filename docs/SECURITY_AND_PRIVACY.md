@@ -491,34 +491,4 @@ Before committing code that affects security:
 
 ---
 
-## Security Roadmap
-
-### Short-term (Next 3 months)
-
-- [ ] Add `bandit` to CI/CD pipeline
-- [ ] Implement per-client API keys
-- [ ] Add security audit log
-- [ ] Improve error messages (no info leakage)
-- [ ] Add HTTPS support natively
-
-### Medium-term (6-12 months)
-
-- [ ] Add OAuth2 authentication
-- [ ] Implement RBAC (role-based access)
-- [ ] Add request signing
-- [ ] Implement audit logging
-- [ ] Add security headers (HSTS, CSP)
-
-### Long-term (12+ months)
-
-- [ ] Add multi-factor authentication
-- [ ] Implement end-to-end encryption
-- [ ] Add hardware security module (HSM) support
-- [ ] Achieve SOC 2 compliance
-- [ ] Third-party security audit
-
----
-
-**Last Updated**: 2025-01-15  
-**Security Contact**: security@example.com  
-**Bug Bounty**: Not currently available
+**Security Contact**: security@example.com

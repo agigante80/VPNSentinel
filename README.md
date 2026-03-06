@@ -410,26 +410,70 @@ This is a critical security issue.
 | `VPN_SENTINEL_SERVER_API_PORT` | `5000` | API server port |
 | `VPN_SENTINEL_SERVER_HEALTH_PORT` | `8081` | Health check port |
 | `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | `8080` | Web dashboard port |
-| `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable/disable web dashboard (set to `false` to reduce resources) |
+| `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable/disable web dashboard |
+| `VPN_SENTINEL_SERVER_ALLOWED_IPS` | *(empty)* | Comma-separated IP allowlist for API access (empty = allow all) |
+| `VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES` | `30` | Minutes of client inactivity before removing from dashboard |
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | *(auto)* | Telegram notifications: `true` (require credentials), `false` (disable), unset (auto-enable if credentials present) |
 | `TELEGRAM_BOT_TOKEN` | - | Telegram bot token (required if TELEGRAM_ENABLED=true) |
 | `TELEGRAM_CHAT_ID` | - | Telegram chat ID (required if TELEGRAM_ENABLED=true) |
+| `VPN_SENTINEL_TLS_CERT_PATH` | *(empty)* | Path to TLS certificate file (enables HTTPS) |
+| `VPN_SENTINEL_TLS_KEY_PATH` | *(empty)* | Path to TLS private key file (enables HTTPS) |
 | `VPN_SENTINEL_LOG_FILE` | `/tmp/vpn-sentinel-server.log` | Log file path. Set to `""` to disable file logging (stdout only) |
 | `VPN_SENTINEL_LOG_MAX_SIZE` | `10485760` | Maximum log file size in bytes (10 MB) before rotation |
 | `VPN_SENTINEL_LOG_MAX_BACKUPS` | `5` | Number of rotated backup files to keep (total ~60 MB max) |
-| `VPN_SENTINEL_LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARN, ERROR) |
+| `VPN_SENTINEL_MONITOR_INTERVAL` | `30` | Server health monitor polling interval (seconds) |
+| `VERSION` | `1.0.0-dev` | Application version string (injected at build time) |
+| `COMMIT_HASH` | *(auto-detected)* | Git commit hash for versioning |
+| `ENVIRONMENT` | `production` | Runtime environment: `production`, `development`, `testing` |
 
 #### Client Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VPN_SENTINEL_CLIENT_ID` | *(auto-generated)* | Unique client identifier (format: `vpn-monitor-{12-random-digits}`) |
-| `VPN_SENTINEL_SERVER_URL` | `http://server:5000` | Server API URL |
-| `VPN_SENTINEL_API_KEY` | *(required)* | API key (must match server) |
+| `VPN_SENTINEL_URL` | `http://your-server-url:5000` | Base URL of the VPN Sentinel server |
 | `VPN_SENTINEL_API_PATH` | `/api/v1` | API path prefix (must match server configuration) |
-| `VPN_SENTINEL_CHECK_INTERVAL` | `60` | Health check interval (seconds) |
-| `VPN_SENTINEL_CLIENT_HEALTH_MONITOR_ENABLED` | `false` | Enable dedicated health monitor |
-| `VPN_SENTINEL_CLIENT_HEALTH_MONITOR_PORT` | `8082` | Health monitor port |
+| `VPN_SENTINEL_API_KEY` | *(required)* | API key (must match server) |
+| `VPN_SENTINEL_CLIENT_ID` | *(auto-generated)* | Unique client identifier (format: `vpn-monitor-{12-random-digits}`) |
+| `VPN_SENTINEL_INTERVAL` | `300` | Keepalive send interval in seconds (default: 5 minutes) |
+| `VPN_SENTINEL_TIMEOUT` | `30` | HTTP request timeout in seconds |
+| `VPN_SENTINEL_GEOLOCATION_SERVICE` | `auto` | Geolocation provider: `auto`, `ipinfo.io`, `ip-api.com`, or `ipwhois.app` |
+| `VPN_SENTINEL_DEBUG` | `false` | Enable debug logging |
+| `VPN_SENTINEL_TLS_CERT_PATH` | *(empty)* | Path to client TLS certificate file |
+| `VPN_SENTINEL_ALLOW_INSECURE` | `false` | Allow insecure TLS connections (development only) |
+| `VPN_SENTINEL_HEALTH_MONITOR` | `true` | Enable the client-side health monitor sidecar |
+| `VPN_SENTINEL_HEALTH_PORT` | `8082` | Health monitor HTTP port |
+| `VPN_SENTINEL_HEALTH_PIDFILE` | `/tmp/vpn-sentinel-health-monitor.pid` | PID file for the health monitor process |
+
+### Example Configurations
+
+**Development client:**
+```bash
+export VPN_SENTINEL_URL="http://localhost:5000"
+export VPN_SENTINEL_CLIENT_ID="dev-laptop"
+export VPN_SENTINEL_INTERVAL="60"
+export VPN_SENTINEL_DEBUG="true"
+export VPN_SENTINEL_GEOLOCATION_SERVICE="ipinfo.io"
+```
+
+**Production server:**
+```bash
+export VPN_SENTINEL_SERVER_API_PORT="5000"
+export VPN_SENTINEL_SERVER_HEALTH_PORT="8081"
+export VPN_SENTINEL_SERVER_DASHBOARD_PORT="8080"
+export VPN_SENTINEL_API_KEY="$(openssl rand -hex 32)"
+export VPN_SENTINEL_TLS_CERT_PATH="/certs/server.crt"
+export VPN_SENTINEL_TLS_KEY_PATH="/certs/server.key"
+export TELEGRAM_BOT_TOKEN="your-bot-token"
+export TELEGRAM_CHAT_ID="your-chat-id"
+```
+
+**Secure HTTPS client:**
+```bash
+export VPN_SENTINEL_URL="https://vpn-sentinel.example.com:5000"
+export VPN_SENTINEL_CLIENT_ID="office-vpn-primary"
+export VPN_SENTINEL_API_KEY="matching-server-api-key"
+export VPN_SENTINEL_TLS_CERT_PATH="/certs/client.crt"
+```
 
 ### Configuration Notes
 
