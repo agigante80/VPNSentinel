@@ -191,7 +191,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Test build ${{ matrix.component.name }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.component.context }}
           file: ${{ matrix.component.dockerfile }}
@@ -228,7 +228,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build image for scanning
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: vpn-sentinel-${{ matrix.component }}/Dockerfile
@@ -328,7 +328,7 @@ jobs:
           echo "🏷️  Tags: ${TAGS}"
 
       - name: Build and push ${{ matrix.component.name }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.component.context }}
           file: ${{ matrix.component.dockerfile }}
