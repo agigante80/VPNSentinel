@@ -20,7 +20,7 @@ freezegun>=1.2.2
 
 # Test data generation
 factory-boy>=3.3.0
-faker>=19.0.0
+faker>=40.15.0
 
 # System monitoring (for health checks)
 psutil>=6.0.0
