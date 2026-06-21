@@ -9,11 +9,11 @@ import sys
 import time
 from pathlib import Path
 
-# Add the parent directory to sys.path so we can import vpn_sentinel_common
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# When run as a script, add src/ to sys.path so absolute imports work
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from vpn_sentinel_common.monitor import Monitor
-from vpn_sentinel_common.log_utils import log_info
+from vpn_sentinel.common.monitor import Monitor
+from vpn_sentinel.common.log_utils import log_info
 
 
 def heartbeat_callback(heartbeat):

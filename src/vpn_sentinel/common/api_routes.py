@@ -1,15 +1,15 @@
 """API server routes for VPN Sentinel."""
-from vpn_sentinel_common.server import api_app
-from vpn_sentinel_common.log_utils import log_info, log_warn, log_error
-from vpn_sentinel_common import telegram
-from vpn_sentinel_common.server_info import get_server_public_ip
-from vpn_sentinel_common.validation import (
+from .server import api_app
+from .log_utils import log_info, log_warn, log_error
+from . import telegram
+from .server_info import get_server_public_ip
+from .validation import (
     get_client_ip,
     validate_client_id,
     validate_public_ip,
     validate_location_string
 )
-from vpn_sentinel_common.security import check_rate_limit, check_ip_whitelist, ALLOWED_IPS
+from .security import check_rate_limit, check_ip_whitelist, ALLOWED_IPS
 from flask import jsonify, request
 import os
 

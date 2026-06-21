@@ -2,7 +2,7 @@
 import os
 import tempfile
 import pytest
-from vpn_sentinel_common.log_utils import log_info, log_error, log_warn
+from vpn_sentinel.common.log_utils import log_info, log_error, log_warn
 
 
 class TestFileLogging:
@@ -15,9 +15,9 @@ class TestFileLogging:
         
         # Need to reload module to pick up new env var
         import importlib
-        import vpn_sentinel_common.log_utils
-        importlib.reload(vpn_sentinel_common.log_utils)
-        from vpn_sentinel_common.log_utils import log_info
+        import vpn_sentinel.common.log_utils
+        importlib.reload(vpn_sentinel.common.log_utils)
+        from vpn_sentinel.common.log_utils import log_info
         
         # Log some messages
         log_info("test", "Test message 1")
@@ -37,9 +37,9 @@ class TestFileLogging:
         
         # Reload module
         import importlib
-        import vpn_sentinel_common.log_utils
-        importlib.reload(vpn_sentinel_common.log_utils)
-        from vpn_sentinel_common.log_utils import log_info
+        import vpn_sentinel.common.log_utils
+        importlib.reload(vpn_sentinel.common.log_utils)
+        from vpn_sentinel.common.log_utils import log_info
         
         log_info("test", "Test default file message")
         
@@ -55,9 +55,9 @@ class TestFileLogging:
         
         # Reload module
         import importlib
-        import vpn_sentinel_common.log_utils
-        importlib.reload(vpn_sentinel_common.log_utils)
-        from vpn_sentinel_common.log_utils import log_info
+        import vpn_sentinel.common.log_utils
+        importlib.reload(vpn_sentinel.common.log_utils)
+        from vpn_sentinel.common.log_utils import log_info
         
         log_info("test", "Test stdout only message")
         
@@ -73,9 +73,9 @@ class TestFileLogging:
         
         # Reload module
         import importlib
-        import vpn_sentinel_common.log_utils
-        importlib.reload(vpn_sentinel_common.log_utils)
-        from vpn_sentinel_common.log_utils import log_info
+        import vpn_sentinel.common.log_utils
+        importlib.reload(vpn_sentinel.common.log_utils)
+        from vpn_sentinel.common.log_utils import log_info
         
         log_info("test", "Test message")
         
@@ -95,9 +95,9 @@ class TestFileLogging:
         
         # Reload module - this should handle the error gracefully
         import importlib
-        import vpn_sentinel_common.log_utils
-        importlib.reload(vpn_sentinel_common.log_utils)
-        from vpn_sentinel_common.log_utils import log_info
+        import vpn_sentinel.common.log_utils
+        importlib.reload(vpn_sentinel.common.log_utils)
+        from vpn_sentinel.common.log_utils import log_info
         
         # Should not raise exception, still logs to stdout
         log_info("test", "Test message after error")
@@ -116,9 +116,9 @@ class TestFileLogging:
         
         # Reload module to pick up new env vars
         import importlib
-        import vpn_sentinel_common.log_utils
-        importlib.reload(vpn_sentinel_common.log_utils)
-        from vpn_sentinel_common.log_utils import log_info
+        import vpn_sentinel.common.log_utils
+        importlib.reload(vpn_sentinel.common.log_utils)
+        from vpn_sentinel.common.log_utils import log_info
         
         # Write enough logs to trigger rotation
         for i in range(50):
@@ -149,9 +149,9 @@ class TestFileLogging:
         
         # Reload module
         import importlib
-        import vpn_sentinel_common.log_utils
-        importlib.reload(vpn_sentinel_common.log_utils)
-        from vpn_sentinel_common.log_utils import log_info
+        import vpn_sentinel.common.log_utils
+        importlib.reload(vpn_sentinel.common.log_utils)
+        from vpn_sentinel.common.log_utils import log_info
         
         log_info("test", "Test with default rotation config")
         
@@ -159,6 +159,6 @@ class TestFileLogging:
         assert log_file.exists()
         
         # Check defaults are loaded correctly
-        from vpn_sentinel_common import log_utils
+        from vpn_sentinel.common import log_utils
         assert log_utils.MAX_LOG_SIZE_BYTES == 10 * 1024 * 1024  # 10 MB
         assert log_utils.MAX_LOG_BACKUPS == 5

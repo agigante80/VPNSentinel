@@ -9,10 +9,10 @@ Usage:
 import sys
 import os
 
-# Add vpn_sentinel_common to path
+# Add vpn_sentinel.common to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from vpn_sentinel_common import telegram
+from vpn_sentinel.common import telegram
 
 
 def main():

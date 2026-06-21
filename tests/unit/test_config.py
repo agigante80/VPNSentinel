@@ -1,11 +1,11 @@
-"""Unit tests for vpn_sentinel_common.config module.
+"""Unit tests for vpn_sentinel.common.config module.
 
 Tests configuration loading and client ID generation.
 """
 import pytest
 import time
 from unittest.mock import patch
-from vpn_sentinel_common.config import (
+from vpn_sentinel.common.config import (
     _sanitize_client_id,
     generate_client_id,
     load_config
@@ -85,7 +85,7 @@ class TestGenerateClientId:
 
     def test_generate_client_id_auto_generated(self):
         """Test client ID is auto-generated when not in env."""
-        with patch('vpn_sentinel_common.config.random.randint', return_value=5):
+        with patch('vpn_sentinel.common.config.random.randint', return_value=5):
             env = {}
             result = generate_client_id(env)
             # Should be vpn-monitor-{12 digits all 5}
@@ -93,11 +93,11 @@ class TestGenerateClientId:
 
     def test_generate_client_id_different_timestamps(self):
         """Test different random values produce different IDs."""
-        with patch('vpn_sentinel_common.config.random.randint', return_value=1):
+        with patch('vpn_sentinel.common.config.random.randint', return_value=1):
             result1 = generate_client_id({})
             # Should be vpn-monitor-{12 ones}
         
-        with patch('vpn_sentinel_common.config.random.randint', return_value=9):
+        with patch('vpn_sentinel.common.config.random.randint', return_value=9):
             result2 = generate_client_id({})
             # Should be vpn-monitor-{12 nines}
         
@@ -108,7 +108,7 @@ class TestGenerateClientId:
     def test_generate_client_id_random_component(self):
         """Test random component makes IDs unique."""
         # Mock randint to return different values for each of the 12 calls per ID
-        with patch('vpn_sentinel_common.config.random.randint', side_effect=[1]*12 + [2]*12):
+        with patch('vpn_sentinel.common.config.random.randint', side_effect=[1]*12 + [2]*12):
             result1 = generate_client_id({})
             result2 = generate_client_id({})
             
@@ -118,7 +118,7 @@ class TestGenerateClientId:
 
     def test_generate_client_id_empty_string_auto_generates(self):
         """Test empty string in env triggers auto-generation."""
-        with patch('vpn_sentinel_common.config.random.randint', return_value=7):
+        with patch('vpn_sentinel.common.config.random.randint', return_value=7):
             env = {'VPN_SENTINEL_CLIENT_ID': ''}
             result = generate_client_id(env)
             # Empty string is falsy, should auto-generate
@@ -323,8 +323,8 @@ class TestConfigIntegration:
 
     def test_config_complete_workflow(self):
         """Test complete configuration workflow."""
-        with patch('vpn_sentinel_common.config.time.time', return_value=1699721234.567):
-            with patch('vpn_sentinel_common.config.random.randint', return_value=123456):
+        with patch('vpn_sentinel.common.config.time.time', return_value=1699721234.567):
+            with patch('vpn_sentinel.common.config.random.randint', return_value=123456):
                 env = {
                     'VPN_SENTINEL_URL': 'https://vpn.example.com',
                     'VPN_SENTINEL_TIMEOUT': '45'

@@ -12,7 +12,7 @@ import tempfile
 # Add common library to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
-from vpn_sentinel_common.payload import build_payload_from_env, post_payload
+from vpn_sentinel.common.payload import build_payload_from_env, post_payload
 
 
 class TestBuildPayloadFromEnv:

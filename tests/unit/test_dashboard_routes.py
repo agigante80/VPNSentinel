@@ -2,22 +2,17 @@
 Unit tests for Dashboard routes (dashboard_routes.py)
 Tests dashboard rendering, client health status, traffic light logic.
 """
+import os
 import pytest
 from unittest.mock import patch, MagicMock, Mock
-import sys
-import os
-
-# Add common library to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../vpn_sentinel_common'))
-
 # Mock api_routes to prevent Flask route registration conflicts
 # This must be done BEFORE importing dashboard_routes
 mock_api_routes = Mock()
 mock_api_routes.client_status = {}
 
-with patch.dict('sys.modules', {'vpn_sentinel_common.api_routes': mock_api_routes}):
-    import dashboard_routes
-    from dashboard_routes import dashboard_app, get_client_health_status
+with patch.dict('sys.modules', {'vpn_sentinel.common.api_routes': mock_api_routes}):
+    from vpn_sentinel.common import dashboard_routes
+    from vpn_sentinel.common.dashboard_routes import dashboard_app, get_client_health_status
 
 
 @pytest.fixture

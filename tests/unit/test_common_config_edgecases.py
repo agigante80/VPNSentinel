@@ -2,7 +2,7 @@ import os
 import json
 import pytest
 
-from vpn_sentinel_common import config as cfg
+from vpn_sentinel.common import config as cfg
 
 
 def test_api_path_normalization_leading_missing_slash():

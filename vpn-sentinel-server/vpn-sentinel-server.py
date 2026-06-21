@@ -9,13 +9,13 @@ import threading
 # Add the app directory to Python path
 sys.path.insert(0, '/app')
 
-from vpn_sentinel_common.server import api_app, health_app, dashboard_app
-from vpn_sentinel_common import api_routes, health_routes, dashboard_routes  # noqa: F401
-from vpn_sentinel_common.log_utils import log_info
-from vpn_sentinel_common.server_utils import run_flask_app, get_port_config
-from vpn_sentinel_common.version import get_version, get_commit_hash
-from vpn_sentinel_common import telegram, telegram_commands
-from vpn_sentinel_common.api_routes import cleanup_stale_clients
+from vpn_sentinel.common.server import api_app, health_app, dashboard_app
+from vpn_sentinel.common import api_routes, health_routes, dashboard_routes  # noqa: F401
+from vpn_sentinel.common.log_utils import log_info
+from vpn_sentinel.common.server_utils import run_flask_app, get_port_config
+from vpn_sentinel.common.version import get_version, get_commit_hash
+from vpn_sentinel.common import telegram, telegram_commands
+from vpn_sentinel.common.api_routes import cleanup_stale_clients
 
 
 def main():

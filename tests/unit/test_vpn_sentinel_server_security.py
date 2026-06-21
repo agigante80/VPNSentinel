@@ -1,4 +1,4 @@
-from vpn_sentinel_common import security
+from vpn_sentinel.common import security
 from flask import Flask
 
 

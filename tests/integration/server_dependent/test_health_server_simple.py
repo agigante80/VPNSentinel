@@ -18,7 +18,7 @@ def test_health_app():
     """Test the health app functionality by importing the Flask test client"""
     try:
         # Import from the common server module
-        from vpn_sentinel_common.server import health_app
+        from vpn_sentinel.common.server import health_app
 
         # Configure for testing
         health_app.config['TESTING'] = True

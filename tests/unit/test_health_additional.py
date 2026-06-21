@@ -1,4 +1,4 @@
-"""Additional unit tests for vpn_sentinel_common.health module to reach 80%+ coverage.
+"""Additional unit tests for vpn_sentinel.common.health module to reach 80%+ coverage.
 
 These tests focus on edge cases, error paths, and fallback logic not covered by existing tests.
 """
@@ -6,7 +6,7 @@ import pytest
 import subprocess
 import os
 from unittest.mock import patch, Mock, MagicMock
-from vpn_sentinel_common import health
+from vpn_sentinel.common import health
 
 
 class TestMakeHealthEdgeCases:
@@ -157,7 +157,7 @@ class TestValidateHealthEdgeCases:
 class TestHttpGetFallback:
     """Test _http_get fallback to urllib when requests unavailable."""
 
-    @patch('vpn_sentinel_common.health.requests', None)
+    @patch('vpn_sentinel.common.health.requests', None)
     @patch('urllib.request.urlopen')
     def test_http_get_urllib_success(self, mock_urlopen):
         """Test _http_get falls back to urllib successfully."""
@@ -172,7 +172,7 @@ class TestHttpGetFallback:
         assert result == "success"
         mock_urlopen.assert_called_once()
 
-    @patch('vpn_sentinel_common.health.requests', None)
+    @patch('vpn_sentinel.common.health.requests', None)
     @patch('urllib.request.urlopen')
     def test_http_get_urllib_timeout(self, mock_urlopen):
         """Test _http_get urllib timeout is handled."""
@@ -182,7 +182,7 @@ class TestHttpGetFallback:
         
         assert result is None
 
-    @patch('vpn_sentinel_common.health.requests')
+    @patch('vpn_sentinel.common.health.requests')
     def test_http_get_requests_non_200_status(self, mock_requests):
         """Test _http_get returns None for non-successful status codes."""
         mock_response = Mock()
@@ -193,7 +193,7 @@ class TestHttpGetFallback:
         
         assert result is None
 
-    @patch('vpn_sentinel_common.health.requests')
+    @patch('vpn_sentinel.common.health.requests')
     def test_http_get_requests_exception(self, mock_requests):
         """Test _http_get handles requests exception."""
         mock_requests.get.side_effect = Exception("network error")
@@ -234,7 +234,7 @@ class TestLoggingFunctions:
 class TestCheckClientProcessFallbacks:
     """Test check_client_process fallback paths."""
 
-    @patch('vpn_sentinel_common.health.psutil')
+    @patch('vpn_sentinel.common.health.psutil')
     @patch('subprocess.run')
     def test_check_client_process_pgrep_not_running(self, mock_run, mock_psutil):
         """Test check_client_process when pgrep returns non-zero."""
@@ -248,7 +248,7 @@ class TestCheckClientProcessFallbacks:
         
         assert result == "not_running"
 
-    @patch('vpn_sentinel_common.health.psutil')
+    @patch('vpn_sentinel.common.health.psutil')
     @patch('subprocess.run')
     def test_check_client_process_exception_fallback(self, mock_run, mock_psutil):
         """Test check_client_process handles exceptions gracefully."""
@@ -260,7 +260,7 @@ class TestCheckClientProcessFallbacks:
         
         assert result == "not_running"
 
-    @patch('vpn_sentinel_common.health.psutil')
+    @patch('vpn_sentinel.common.health.psutil')
     def test_check_client_process_psutil_cmdline_exception(self, mock_psutil):
         """Test check_client_process handles process cmdline exceptions."""
         mock_process = Mock()
@@ -277,7 +277,7 @@ class TestCheckClientProcessFallbacks:
 class TestCheckServerConnectivity:
     """Test check_server_connectivity edge cases."""
 
-    @patch('vpn_sentinel_common.health.requests')
+    @patch('vpn_sentinel.common.health.requests')
     def test_check_server_connectivity_head_request(self, mock_requests):
         """Test check_server_connectivity uses HEAD request first."""
         mock_response = Mock()
@@ -289,7 +289,7 @@ class TestCheckServerConnectivity:
         assert result == "healthy"
         mock_requests.head.assert_called_once()
 
-    @patch('vpn_sentinel_common.health.requests')
+    @patch('vpn_sentinel.common.health.requests')
     def test_check_server_connectivity_head_fails_tries_get(self, mock_requests):
         """Test check_server_connectivity falls back to GET if HEAD fails."""
         mock_head_response = Mock()
@@ -305,8 +305,8 @@ class TestCheckServerConnectivity:
         assert result == "healthy"
         mock_requests.get.assert_called_once()
 
-    @patch('vpn_sentinel_common.health.requests', None)
-    @patch('vpn_sentinel_common.health._http_get')
+    @patch('vpn_sentinel.common.health.requests', None)
+    @patch('vpn_sentinel.common.health._http_get')
     def test_check_server_connectivity_urllib_fallback(self, mock_http_get):
         """Test check_server_connectivity falls back to urllib."""
         mock_http_get.return_value = "body content"
@@ -315,7 +315,7 @@ class TestCheckServerConnectivity:
         
         assert result == "healthy"
 
-    @patch('vpn_sentinel_common.health.requests')
+    @patch('vpn_sentinel.common.health.requests')
     def test_check_server_connectivity_exception(self, mock_requests):
         """Test check_server_connectivity handles exceptions."""
         mock_requests.head.side_effect = Exception("network error")
@@ -328,7 +328,7 @@ class TestCheckServerConnectivity:
 class TestGetSystemInfoFallbacks:
     """Test get_system_info fallback paths."""
 
-    @patch('vpn_sentinel_common.health.psutil', None)
+    @patch('vpn_sentinel.common.health.psutil', None)
     @patch('os.path.exists')
     @patch('builtins.open', create=True)
     def test_get_system_info_proc_meminfo(self, mock_open, mock_exists):
@@ -347,7 +347,7 @@ MemAvailable:    8192000 kB
         assert "memory_percent" in info
         assert info["memory_percent"] != "unknown"
 
-    @patch('vpn_sentinel_common.health.psutil', None)
+    @patch('vpn_sentinel.common.health.psutil', None)
     @patch('os.path.exists')
     def test_get_system_info_no_proc_meminfo(self, mock_exists):
         """Test get_system_info when /proc/meminfo doesn't exist."""
@@ -360,7 +360,7 @@ MemAvailable:    8192000 kB
         assert info["memory_percent"] == "unknown"
         assert info["disk_percent"] == "unknown"
 
-    @patch('vpn_sentinel_common.health.psutil', None)
+    @patch('vpn_sentinel.common.health.psutil', None)
     @patch('subprocess.check_output')
     def test_get_system_info_df_exception(self, mock_check):
         """Test get_system_info handles df command exceptions."""
@@ -371,7 +371,7 @@ MemAvailable:    8192000 kB
         assert "disk_percent" in info
         # Should have unknown or fallback value
 
-    @patch('vpn_sentinel_common.health.psutil')
+    @patch('vpn_sentinel.common.health.psutil')
     def test_get_system_info_general_exception(self, mock_psutil):
         """Test get_system_info handles general exceptions."""
         mock_psutil.virtual_memory.side_effect = Exception("psutil error")

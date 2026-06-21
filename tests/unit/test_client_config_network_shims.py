@@ -10,8 +10,8 @@ def _load_module_from(path: str, name: str):
     return mod
 
 
-from vpn_sentinel_common import network as net
-from vpn_sentinel_common import config as cfg
+from vpn_sentinel.common import network as net
+from vpn_sentinel.common import config as cfg
 
 
 def test_config_load_defaults():

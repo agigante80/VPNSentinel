@@ -119,7 +119,7 @@ Usage examples:
 or using the Python module directly:
 
 ```bash
-python3 -m vpn_sentinel_common.health_scripts.healthcheck --json
+python3 -m vpn_sentinel.common.health_scripts.healthcheck --json
 ```
 
 JSON schema (summary)
@@ -161,7 +161,7 @@ Testing and troubleshooting
 
 ```bash
 # start the monitor in foreground
-VPN_SENTINEL_HEALTH_PORT=8082 python3 -m vpn_sentinel_common.health_scripts.health_monitor_wrapper
+VPN_SENTINEL_HEALTH_PORT=8082 python3 -m vpn_sentinel.common.health_scripts.health_monitor_wrapper
 # then query endpoints with curl from another shell
 curl http://localhost:8082/client/health
 ```
@@ -197,7 +197,7 @@ Notes
 The health monitor wrapper supports a safe `--stop` option which will read the pidfile (see `VPN_SENTINEL_HEALTH_PIDFILE`) and attempt to stop the referenced process only if it is owned by the invoking user and looks like the health monitor. This is useful for operators and CI to reliably stop a previously-started monitor:
 
 ```bash
-VPN_SENTINEL_HEALTH_PIDFILE=/tmp/vpn-sentinel-health-monitor.pid python3 -m vpn_sentinel_common.health_scripts.health_monitor_wrapper --stop
+VPN_SENTINEL_HEALTH_PIDFILE=/tmp/vpn-sentinel-health-monitor.pid python3 -m vpn_sentinel.common.health_scripts.health_monitor_wrapper --stop
 ```
 
 By default the wrapper uses `/tmp/vpn-sentinel-health-monitor.pid` but you can override this path via the `VPN_SENTINEL_HEALTH_PIDFILE` environment variable (useful in tests and smoke scripts to set a predictable file location).

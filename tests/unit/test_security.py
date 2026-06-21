@@ -10,7 +10,7 @@ import os
 # Add common library to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
-from vpn_sentinel_common import security
+from vpn_sentinel.common import security
 
 
 class TestRateLimiting:

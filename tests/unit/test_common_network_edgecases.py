@@ -1,6 +1,6 @@
 import json
 
-from vpn_sentinel_common import network as net
+from vpn_sentinel.common import network as net
 
 
 def test_parse_geolocation_empty_and_ipapi():

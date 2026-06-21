@@ -18,7 +18,7 @@ def test_build_payload_prints_valid_json(monkeypatch):
     monkeypatch.setenv("PUBLIC_IP", "1.2.3.4")
     monkeypatch.setenv("COUNTRY", "US")
     # Call canonical implementation directly
-    from vpn_sentinel_common.payload import build_payload_from_env
+    from vpn_sentinel.common.payload import build_payload_from_env
     data = build_payload_from_env()
     assert data["client_id"] == "test-client"
     assert data["public_ip"] == "1.2.3.4"
@@ -29,7 +29,7 @@ def test_post_payload_writes_capture_file(tmp_path, monkeypatch):
     # Ensure the canonical post implementation writes to our capture path
     monkeypatch.setenv("VPN_SENTINEL_TEST_CAPTURE_PATH", str(cap))
     # Build a simple payload and post via canonical functions
-    from vpn_sentinel_common.payload import build_payload_from_env, post_payload
+    from vpn_sentinel.common.payload import build_payload_from_env, post_payload
     ptxt = json.dumps(build_payload_from_env())
     rc = post_payload(ptxt)
     assert rc == 0

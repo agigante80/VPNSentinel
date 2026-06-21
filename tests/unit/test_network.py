@@ -1,9 +1,9 @@
-"""Unit tests for vpn_sentinel_common.network module.
+"""Unit tests for vpn_sentinel.common.network module.
 
 Tests network helper functions including geolocation parsing and DNS trace parsing.
 """
 import pytest
-from vpn_sentinel_common.network import parse_geolocation, parse_dns_trace
+from vpn_sentinel.common.network import parse_geolocation, parse_dns_trace
 
 
 class TestParseGeolocation:

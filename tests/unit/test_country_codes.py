@@ -1,6 +1,6 @@
 """Tests for country code normalization utilities."""
 import pytest
-from vpn_sentinel_common.country_codes import (
+from vpn_sentinel.common.country_codes import (
     normalize_country_code,
     compare_country_codes
 )

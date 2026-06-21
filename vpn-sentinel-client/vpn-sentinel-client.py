@@ -2,7 +2,7 @@
 """VPN Sentinel Client - Python implementation using shared libraries.
 
 This script replaces the Bash vpn-sentinel-client.sh with a clean Python
-implementation that leverages the vpn_sentinel_common libraries.
+implementation that leverages the vpn_sentinel.common libraries.
 """
 import os
 import sys
@@ -12,14 +12,14 @@ import subprocess
 import json
 from pathlib import Path
 
-# Add the parent directory to sys.path so we can import vpn_sentinel_common
+# Add the parent directory to sys.path so we can import vpn_sentinel.common
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from vpn_sentinel_common.config import load_config
-from vpn_sentinel_common.geolocation import get_geolocation
-from vpn_sentinel_common.network import parse_dns_trace
-from vpn_sentinel_common.payload import build_payload_from_env, post_payload
-from vpn_sentinel_common.log_utils import log_info, log_warn, log_error
+from vpn_sentinel.common.config import load_config
+from vpn_sentinel.common.geolocation import get_geolocation
+from vpn_sentinel.common.network import parse_dns_trace
+from vpn_sentinel.common.payload import build_payload_from_env, post_payload
+from vpn_sentinel.common.log_utils import log_info, log_warn, log_error
 
 
 def get_dns_info() -> dict:
@@ -161,12 +161,12 @@ def start_health_monitor(config: dict) -> subprocess.Popen:
     """
     try:
         # Find the health monitor script (Python version only)
-        # Check for the wrapper in vpn_sentinel_common/health_scripts first (works in both container and dev)
+        # Check for the wrapper in vpn_sentinel.common/health_scripts first (works in both container and dev)
         repo_root = Path(__file__).parent.parent
-        py_monitor = repo_root / "vpn_sentinel_common" / "health_scripts" / "health_monitor_wrapper.py"
+        py_monitor = repo_root / "vpn_sentinel.common" / "health_scripts" / "health_monitor_wrapper.py"
 
         # Fallback to /app locations if running in container with different structure
-        container_py_monitor = Path("/app/vpn_sentinel_common/health_scripts/health_monitor_wrapper.py")
+        container_py_monitor = Path("/app/vpn_sentinel.common/health_scripts/health_monitor_wrapper.py")
 
         monitor_path = None
         if py_monitor.exists():
