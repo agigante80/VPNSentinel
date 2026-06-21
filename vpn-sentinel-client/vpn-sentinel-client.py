@@ -161,12 +161,12 @@ def start_health_monitor(config: dict) -> subprocess.Popen:
     """
     try:
         # Find the health monitor script (Python version only)
-        # Check for the wrapper in vpn_sentinel.common/health_scripts first (works in both container and dev)
+        # Check for the wrapper in src/vpn_sentinel/common/health_scripts first (works in both container and dev)
         repo_root = Path(__file__).parent.parent
-        py_monitor = repo_root / "vpn_sentinel.common" / "health_scripts" / "health_monitor_wrapper.py"
+        py_monitor = repo_root / "src" / "vpn_sentinel" / "common" / "health_scripts" / "health_monitor_wrapper.py"
 
         # Fallback to /app locations if running in container with different structure
-        container_py_monitor = Path("/app/vpn_sentinel.common/health_scripts/health_monitor_wrapper.py")
+        container_py_monitor = Path("/app/src/vpn_sentinel/common/health_scripts/health_monitor_wrapper.py")
 
         monitor_path = None
         if py_monitor.exists():

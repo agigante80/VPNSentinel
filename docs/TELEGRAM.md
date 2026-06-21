@@ -350,7 +350,7 @@ telegram.send_telegram_message("Your message", silent=True)
 
 ## 📚 API Reference
 
-See `vpn_sentinel.common/telegram.py` for full API documentation:
+See `src/vpn_sentinel/common/telegram.py` for full API documentation:
 
 - `notify_server_started(alert_threshold_min, check_interval_min)` - Server startup
 - `notify_client_connected(client_id, vpn_ip, ...)` - Client connection

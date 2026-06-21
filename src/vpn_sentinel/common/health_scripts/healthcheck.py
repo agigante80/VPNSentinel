@@ -11,8 +11,8 @@ import subprocess
 import time
 from pathlib import Path
 
-# Add the parent directory to sys.path so we can import vpn_sentinel.common
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add src/ to sys.path so standalone execution can import vpn_sentinel.common
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
 from vpn_sentinel.common import health
 from vpn_sentinel.common.log_utils import log_info, log_warn, log_error

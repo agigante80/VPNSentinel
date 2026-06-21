@@ -24,7 +24,7 @@ def test_health_shim_cli_outputs_json():
     script = Path(__file__).resolve().parents[2] / 'src' / 'vpn_sentinel' / 'common' / 'health_scripts' / 'healthcheck.py'
     assert script.exists(), f"Could not find {script}"
     env = os.environ.copy()
-    env['PYTHONPATH'] = str(Path(__file__).resolve().parents[2])
+    env['PYTHONPATH'] = str(Path(__file__).resolve().parents[2] / 'src')
     p = subprocess.run([sys.executable, str(script), '--json'], capture_output=True, text=True, env=env)
     out = p.stdout.strip()
     # Find the JSON part (it comes after the human-readable output)

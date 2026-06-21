@@ -10,8 +10,8 @@ import subprocess
 import time
 from pathlib import Path
 
-# Add the parent directory to sys.path so we can import vpn_sentinel.common
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add src/ to sys.path so standalone execution can import vpn_sentinel.common
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
 # Health monitor main function will be called via subprocess
 
@@ -164,7 +164,7 @@ def start_monitor():
         health_monitor_path = Path(__file__).parent / 'health_monitor.py'
         cmd = [python_exe, str(health_monitor_path)]
         env = os.environ.copy()
-        env['PYTHONPATH'] = str(Path(__file__).parent.parent)
+        env['PYTHONPATH'] = str(Path(__file__).resolve().parent.parent.parent.parent)
 
         process = subprocess.Popen(cmd, env=env)
         process.wait()

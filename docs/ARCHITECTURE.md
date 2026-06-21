@@ -154,7 +154,7 @@ vpn-sentinel-client:
 
 ---
 
-### 3. Common Library (`vpn_sentinel.common/`)
+### 3. Common Library (`src/vpn_sentinel/common/`)
 
 **Purpose**: Shared utilities between client and server
 

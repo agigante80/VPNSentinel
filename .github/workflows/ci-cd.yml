@@ -102,7 +102,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "Running flake8..."
-          flake8 vpn-sentinel-server/ vpn_sentinel.common/ \
+          flake8 vpn-sentinel-server/ src/vpn_sentinel/common/ \
             --count \
             --select=E9,F63,F7,F82 \
             --show-source \
@@ -113,7 +113,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "Running pylint..."
-          pylint vpn_sentinel.common/ || true
+          pylint src/vpn_sentinel/common/ || true
 
   # ============================================================================
   # Stage 2: Unit Tests
