@@ -6,9 +6,6 @@ Starts the multi-app Flask server with API, health, and dashboard endpoints.
 import sys
 import threading
 
-# Add the app directory to Python path
-sys.path.insert(0, '/app')
-
 from vpn_sentinel.common.server import api_app, health_app, dashboard_app
 from vpn_sentinel.common import api_routes, health_routes, dashboard_routes  # noqa: F401
 from vpn_sentinel.common.log_utils import log_info
@@ -21,7 +18,7 @@ from vpn_sentinel.common.api_routes import cleanup_stale_clients
 def main():
     """Main entry point for the VPN Sentinel server."""
     import os
-    
+
     # Log startup with version
     version = get_version()
     commit = get_commit_hash() or "unknown"
@@ -42,7 +39,7 @@ def main():
     api_port = ports['api_port']
     health_port = ports['health_port']
     dashboard_port = ports['dashboard_port']
-    
+
     # Check if web dashboard is enabled
     web_dashboard_enabled = os.getenv('VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED', 'true').lower() == 'true'
 
@@ -54,12 +51,14 @@ def main():
     # Start servers in threads
     api_thread = threading.Thread(target=run_flask_app, args=(api_app, api_port, 'API server'))
     health_thread = threading.Thread(target=run_flask_app, args=(health_app, health_port, 'Health server'))
-    
+
     api_thread.daemon = True
     health_thread.daemon = True
 
     if web_dashboard_enabled:
-        dashboard_thread = threading.Thread(target=run_flask_app, args=(dashboard_app, dashboard_port, 'Dashboard server'))
+        dashboard_thread = threading.Thread(
+            target=run_flask_app, args=(dashboard_app, dashboard_port, 'Dashboard server')
+        )
         dashboard_thread.daemon = True
     else:
         log_info('server', '⚠️ Web dashboard is disabled')

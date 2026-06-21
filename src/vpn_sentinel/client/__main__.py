@@ -12,9 +12,6 @@ import subprocess
 import json
 from pathlib import Path
 
-# Add the parent directory to sys.path so we can import vpn_sentinel.common
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from vpn_sentinel.common.config import load_config
 from vpn_sentinel.common.geolocation import get_geolocation
 from vpn_sentinel.common.network import parse_dns_trace
