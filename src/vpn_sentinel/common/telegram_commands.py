@@ -47,7 +47,6 @@ def handle_ping(chat_id: str, message_text: str) -> None:
 
     with client_status_lock:
         active_count = len(client_status)
-    """Handle /ping command - Show bot status."""
     server_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     response = f"""🏓 <b>Pong!</b>
