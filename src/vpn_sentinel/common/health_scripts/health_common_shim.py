@@ -12,8 +12,8 @@ from vpn_sentinel.common.health_scripts.healthcheck import (
     get_system_info,
     perform_health_checks,
     determine_overall_health,
-    print_json,
 )
+from vpn_sentinel.common.health_scripts.healthcheck import print_json  # noqa: F401  # re-export
 
 
 def main():

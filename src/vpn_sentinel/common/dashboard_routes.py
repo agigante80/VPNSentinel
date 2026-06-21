@@ -103,7 +103,7 @@ def dashboard():
                 else:
                     hours = int(time_diff.total_seconds() / 3600)
                     last_seen_str = f"{hours}h ago"
-            except:
+            except Exception:
                 last_seen_str = last_seen
 
             client_rows_html += f"""
@@ -149,14 +149,15 @@ def dashboard():
                 padding: 0;
                 box-sizing: border-box;
             }}
-            
+
             body {{
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                    Oxygen, Ubuntu, Cantarell, sans-serif;
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 min-height: 100vh;
                 padding: 20px;
             }}
-            
+
             .container {{
                 max-width: 1400px;
                 margin: 0 auto;
@@ -165,7 +166,7 @@ def dashboard():
                 box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
                 overflow: hidden;
             }}
-            
+
             .header {{
                 background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
                 color: white;
@@ -173,18 +174,18 @@ def dashboard():
                 text-align: center;
                 position: relative;
             }}
-            
+
             .header h1 {{
                 font-size: 2.5em;
                 margin-bottom: 10px;
                 text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
             }}
-            
+
             .header .subtitle {{
                 font-size: 1.1em;
                 opacity: 0.9;
             }}
-            
+
             .server-info {{
                 position: absolute;
                 top: 20px;
@@ -196,29 +197,29 @@ def dashboard():
                 text-align: right;
                 backdrop-filter: blur(10px);
             }}
-            
+
             .server-info h4 {{
                 margin: 0 0 8px 0;
                 font-size: 1em;
                 opacity: 0.9;
             }}
-            
+
             .server-info .info-row {{
                 display: flex;
                 justify-content: space-between;
                 margin-bottom: 4px;
                 min-width: 250px;
             }}
-            
+
             .server-info .info-label {{
                 opacity: 0.8;
             }}
-            
+
             .server-info .info-value {{
                 font-weight: bold;
                 color: #ecf0f1;
             }}
-            
+
             .stats {{
                 display: flex;
                 justify-content: center;
@@ -226,36 +227,36 @@ def dashboard():
                 margin-top: 20px;
                 flex-wrap: wrap;
             }}
-            
+
             .stat-card {{
                 background: rgba(255, 255, 255, 0.2);
                 backdrop-filter: blur(10px);
                 padding: 15px 25px;
                 border-radius: 10px;
             }}
-            
+
             .stat-number {{
                 font-size: 2em;
                 font-weight: bold;
                 display: block;
             }}
-            
+
             .stat-label {{
                 font-size: 0.9em;
                 opacity: 0.8;
             }}
-            
+
             .content {{
                 padding: 30px;
             }}
-            
+
             .refresh-info {{
                 text-align: center;
                 margin-bottom: 25px;
                 color: #666;
                 font-size: 0.95em;
             }}
-            
+
             .auto-refresh {{
                 display: inline-block;
                 background: #3498db;
@@ -265,50 +266,50 @@ def dashboard():
                 font-size: 0.85em;
                 animation: pulse 2s infinite;
             }}
-            
+
             @keyframes pulse {{
                 0% {{ opacity: 1; }}
                 50% {{ opacity: 0.7; }}
                 100% {{ opacity: 1; }}
             }}
-            
+
             .table-container {{
                 overflow-x: auto;
                 border-radius: 10px;
                 box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
             }}
-            
+
             table {{
                 width: 100%;
                 border-collapse: collapse;
                 background: white;
                 min-width: 800px;
             }}
-            
+
             thead {{
                 background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
                 color: white;
             }}
-            
+
             th, td {{
                 padding: 15px 12px;
                 text-align: left;
                 border-bottom: 1px solid #eee;
             }}
-            
+
             th {{
                 font-weight: 600;
                 text-transform: uppercase;
                 font-size: 0.85em;
                 letter-spacing: 0.5px;
             }}
-            
+
             tbody tr:hover {{
                 background: #f8f9fa;
                 transform: translateY(-1px);
                 transition: all 0.2s ease;
             }}
-            
+
             .status-badge {{
                 padding: 6px 12px;
                 border-radius: 20px;
@@ -317,22 +318,22 @@ def dashboard():
                 text-transform: uppercase;
                 white-space: nowrap;
             }}
-            
+
             .status-ok {{
                 background: #2ecc71;
                 color: white;
             }}
-            
+
             .status-warning {{
                 background: #f39c12;
                 color: white;
             }}
-            
+
             .status-danger {{
                 background: #e74c3c;
                 color: white;
             }}
-            
+
             .ip-address {{
                 font-family: 'Courier New', monospace;
                 background: #f8f9fa;
@@ -340,44 +341,44 @@ def dashboard():
                 border-radius: 4px;
                 font-size: 0.9em;
             }}
-            
+
             .location {{
                 font-size: 0.9em;
                 color: #666;
             }}
-            
+
             .time-info {{
                 font-size: 0.85em;
                 color: #888;
             }}
-            
+
             .text-center {{
                 text-align: center;
             }}
-            
+
             .dns-badge {{
                 font-size: 1.5em;
                 display: block;
                 margin-bottom: 4px;
             }}
-            
+
             .dns-details {{
                 font-size: 0.75em;
                 color: #888;
             }}
-            
+
             .no-clients {{
                 text-align: center;
                 padding: 60px 20px;
                 color: #666;
             }}
-            
+
             .no-clients-icon {{
                 font-size: 4em;
                 margin-bottom: 20px;
                 opacity: 0.5;
             }}
-            
+
             .footer {{
                 text-align: center;
                 padding: 20px;
@@ -385,17 +386,17 @@ def dashboard():
                 font-size: 0.9em;
                 border-top: 1px solid #eee;
             }}
-            
+
             .footer a {{
                 color: #3498db;
                 text-decoration: none;
                 font-weight: 600;
             }}
-            
+
             .footer a:hover {{
                 text-decoration: underline;
             }}
-            
+
             .version-badge {{
                 display: inline-block;
                 background: #3498db;
@@ -406,7 +407,7 @@ def dashboard():
                 font-weight: bold;
                 margin: 0 5px;
             }}
-            
+
             .version-badge-small {{
                 display: inline-block;
                 background: #95a5a6;
@@ -417,7 +418,7 @@ def dashboard():
                 font-weight: 600;
                 font-family: 'Courier New', monospace;
             }}
-            
+
             .legend {{
                 display: flex;
                 justify-content: center;
@@ -427,35 +428,35 @@ def dashboard():
                 background: #f8f9fa;
                 border-radius: 10px;
             }}
-            
+
             .legend-item {{
                 display: flex;
                 align-items: center;
                 gap: 8px;
                 font-size: 0.9em;
             }}
-            
+
             @media (max-width: 768px) {{
                 .header {{
                     padding: 20px 15px;
                 }}
-                
+
                 .header h1 {{
                     font-size: 2em;
                 }}
-                
+
                 .stats {{
                     gap: 15px;
                 }}
-                
+
                 .stat-card {{
                     padding: 10px 15px;
                 }}
-                
+
                 .content {{
                     padding: 20px 15px;
                 }}
-                
+
                 .server-info {{
                     position: static;
                     margin: 0 auto 20px auto;
@@ -463,20 +464,20 @@ def dashboard():
                     right: auto;
                     top: auto;
                 }}
-                
+
                 .legend {{
                     flex-direction: column;
                     gap: 10px;
                 }}
             }}
-            
+
             .logs-button {{
                 position: absolute;
                 top: 20px;
                 left: 30px;
                 z-index: 10;
             }}
-            
+
             .btn {{
                 padding: 10px 20px;
                 border: none;
@@ -491,7 +492,7 @@ def dashboard():
                 backdrop-filter: blur(10px);
                 font-weight: 500;
             }}
-            
+
             .btn:hover {{
                 background: rgba(255, 255, 255, 0.25);
                 transform: translateY(-2px);
@@ -522,7 +523,7 @@ def dashboard():
                         <span class="info-value">{dns_status}</span>
                     </div>
                 </div>
-                
+
                 <h1>🔒 VPN Sentinel Dashboard</h1>
                 <div class="subtitle">Real-time VPN Client Monitoring</div>
                 <div class="stats">
@@ -540,12 +541,12 @@ def dashboard():
                     </div>
                 </div>
             </div>
-            
+
             <div class="content">
                 <div class="refresh-info">
                     <span class="auto-refresh">🔄 Auto-refresh: 30s</span> | Last updated: {current_time}
                 </div>
-                
+
                 <div class="legend">
                     <div class="legend-item">
                         <span>🟢</span>
@@ -560,7 +561,7 @@ def dashboard():
                         <span><strong>Danger:</strong> Same IP as Server / VPN Bypass</span>
                     </div>
                 </div>
-                
+
                 <div class="table-container">
                     <table>
                         <thead>
@@ -581,27 +582,29 @@ def dashboard():
                     </table>
                 </div>
             </div>
-            
+
             <div class="footer">
                 <p>
-                    🔒 <strong>VPN Sentinel</strong> <span class="version-badge">v{version}</span> | 
-                    Server Time: {current_time} | 
+                    🔒 <strong>VPN Sentinel</strong> <span class="version-badge">v{version}</span> |
+                    Server Time: {current_time} |
                     Dashboard Port: 8080
                 </p>
                 <p style="margin-top: 10px;">
                     <a href="https://github.com/agigante80/VPNSentinel" target="_blank" rel="noopener noreferrer">
                         ⭐ View on GitHub
-                    </a> | 
-                    <a href="https://github.com/agigante80/VPNSentinel/issues" target="_blank" rel="noopener noreferrer">
+                    </a> |
+                    <a href="https://github.com/agigante80/VPNSentinel/issues"
+                        target="_blank" rel="noopener noreferrer">
                         🐛 Report Issue
-                    </a> | 
-                    <a href="https://github.com/agigante80/VPNSentinel/blob/main/README.md" target="_blank" rel="noopener noreferrer">
+                    </a> |
+                    <a href="https://github.com/agigante80/VPNSentinel/blob/main/README.md"
+                        target="_blank" rel="noopener noreferrer">
                         📖 Documentation
                     </a>
                 </p>
             </div>
         </div>
-        
+
         <script>
             // Auto-refresh the page every 30 seconds
             setTimeout(function() {{
@@ -623,9 +626,6 @@ def dashboard_slash():
 @dashboard_app.route("/logs")
 def server_logs():
     """Display server logs."""
-    import sys
-    from io import StringIO
-
     # Try multiple log file locations in order of preference
     log_file = os.getenv("VPN_SENTINEL_LOG_FILE", None)
 
@@ -665,7 +665,10 @@ def server_logs():
                 file_size = os.path.getsize(found_log)
                 file_size_str = f"{file_size:,} bytes" if file_size < 1024 * 1024 else f"{file_size/(1024*1024):.2f} MB"
 
-                logs_content = f"=== Showing last {displayed_lines} of {total_lines} total lines | File size: {file_size_str} ===\n\n"
+                logs_content = (
+                    f"=== Showing last {displayed_lines} of {total_lines} total lines"
+                    f" | File size: {file_size_str} ===\n\n"
+                )
                 logs_content += "".join(display_lines)
 
             log_source = f"Log File: {found_log}"
@@ -677,7 +680,7 @@ def server_logs():
         except Exception as e:
             # Log error internally but don't expose details to user
             log_info("dashboard", f"Error reading log file {found_log}: {str(e)}")
-            logs_content = f"Error reading log file. Check file permissions or disk space.\n\n"
+            logs_content = "Error reading log file. Check file permissions or disk space.\n\n"
             logs_content += "Server logs may not be accessible to the dashboard."
     else:
         # If no log file found, show helpful message
@@ -710,14 +713,15 @@ def server_logs():
                 padding: 0;
                 box-sizing: border-box;
             }}
-            
+
             body {{
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                    Oxygen, Ubuntu, Cantarell, sans-serif;
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 min-height: 100vh;
                 padding: 20px;
             }}
-            
+
             .container {{
                 max-width: 1600px;
                 margin: 0 auto;
@@ -726,25 +730,25 @@ def server_logs():
                 box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
                 overflow: hidden;
             }}
-            
+
             .header {{
                 background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
                 color: white;
                 padding: 30px;
                 text-align: center;
             }}
-            
+
             .header h1 {{
                 font-size: 2.5em;
                 margin-bottom: 10px;
                 text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
             }}
-            
+
             .header .subtitle {{
                 font-size: 1.1em;
                 opacity: 0.9;
             }}
-            
+
             .controls {{
                 padding: 20px 30px;
                 background: #f8f9fa;
@@ -753,7 +757,7 @@ def server_logs():
                 gap: 15px;
                 align-items: center;
             }}
-            
+
             .btn {{
                 padding: 10px 20px;
                 border: none;
@@ -764,34 +768,34 @@ def server_logs():
                 display: inline-block;
                 transition: all 0.3s ease;
             }}
-            
+
             .btn-primary {{
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
             }}
-            
+
             .btn-primary:hover {{
                 transform: translateY(-2px);
                 box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
             }}
-            
+
             .btn-secondary {{
                 background: #6c757d;
                 color: white;
             }}
-            
+
             .btn-secondary:hover {{
                 background: #5a6268;
                 transform: translateY(-2px);
             }}
-            
+
             .log-info {{
                 flex: 1;
                 text-align: right;
                 color: #666;
                 font-size: 0.9em;
             }}
-            
+
             .logs-container {{
                 padding: 30px;
                 background: #1e1e1e;
@@ -802,34 +806,34 @@ def server_logs():
                 max-height: calc(100vh - 300px);
                 overflow-y: auto;
             }}
-            
+
             .logs-container pre {{
                 white-space: pre-wrap;
                 word-wrap: break-word;
                 margin: 0;
             }}
-            
+
             .log-line {{
                 padding: 2px 0;
             }}
-            
+
             .log-error {{
                 color: #f48771;
                 font-weight: bold;
             }}
-            
+
             .log-warn {{
                 color: #dcdcaa;
             }}
-            
+
             .log-info {{
                 color: #4ec9b0;
             }}
-            
+
             .log-success {{
                 color: #6a9955;
             }}
-            
+
             .footer {{
                 background: #f8f9fa;
                 padding: 20px;
@@ -838,7 +842,7 @@ def server_logs():
                 font-size: 0.9em;
                 border-top: 1px solid #e0e0e0;
             }}
-            
+
             .version-badge {{
                 background: rgba(102, 126, 234, 0.2);
                 color: #667eea;
@@ -855,7 +859,7 @@ def server_logs():
                 <h1>🔍 Server Logs</h1>
                 <p class="subtitle">VPN Sentinel Monitoring System</p>
             </div>
-            
+
             <div class="controls">
                 <a href="/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
                 <a href="/logs" class="btn btn-primary">🔄 Refresh</a>
@@ -863,25 +867,25 @@ def server_logs():
                     <strong>Source:</strong> {log_source}
                 </div>
             </div>
-            
+
             <div class="logs-container">
                 <pre>{logs_content}</pre>
             </div>
-            
+
             <div class="footer">
                 <p>
-                    🔒 <strong>VPN Sentinel</strong> <span class="version-badge">v{version}</span> | 
+                    🔒 <strong>VPN Sentinel</strong> <span class="version-badge">v{version}</span> |
                     Server Time: {current_time}
                 </p>
             </div>
         </div>
-        
+
         <script>
             // Highlight log levels with colors
             function highlightLogs() {{
                 const pre = document.querySelector('.logs-container pre');
                 if (!pre) return;
-                
+
                 const lines = pre.textContent.split('\\n');
                 const highlighted = lines.map(line => {{
                     // Color-code based on log level
@@ -889,7 +893,8 @@ def server_logs():
                         return `<span style="color: #f48771; font-weight: bold;">${{line}}</span>`;
                     }} else if (line.includes('WARN') || line.includes('⚠️')) {{
                         return `<span style="color: #dcdcaa;">${{line}}</span>`;
-                    }} else if (line.includes('INFO') || line.includes('✅') || line.includes('🚀') || line.includes('🌐')) {{
+                    }} else if (line.includes('INFO') || line.includes('✅')
+                        || line.includes('🚀') || line.includes('🌐')) {{
                         return `<span style="color: #4ec9b0;">${{line}}</span>`;
                     }} else if (line.includes('DEBUG')) {{
                         return `<span style="color: #858585;">${{line}}</span>`;
@@ -899,15 +904,15 @@ def server_logs():
                         return line;
                     }}
                 }}).join('\\n');
-                
+
                 pre.innerHTML = highlighted;
             }}
-            
+
             // Auto-refresh every 10 seconds
             setTimeout(function() {{
                 window.location.reload();
             }}, 10000);
-            
+
             // Auto-scroll to bottom and highlight logs on load
             window.addEventListener('load', function() {{
                 highlightLogs();

@@ -24,7 +24,6 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Tuple, List, Optional
 import os
 import subprocess
-import shutil
 
 try:
     import psutil
@@ -308,7 +307,7 @@ def get_system_info() -> Dict[str, str]:
                 with open("/proc/meminfo") as fh:
                     data = fh.read()
                 # best-effort: not exact but ok for small utility
-                lines = {l.split(":")[0]: l.split(":")[1].strip() for l in data.splitlines() if ":" in l}
+                lines = {ln.split(":")[0]: ln.split(":")[1].strip() for ln in data.splitlines() if ":" in ln}
                 mem_total = int(lines.get("MemTotal", "0 kB").split()[0])
                 mem_free = int(lines.get("MemFree", "0 kB").split()[0])
                 if mem_total > 0:

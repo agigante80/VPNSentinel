@@ -16,7 +16,6 @@ If lookup fails, returns an empty dict.
 from __future__ import annotations
 
 import json
-import socket
 from typing import Dict, Optional
 
 try:

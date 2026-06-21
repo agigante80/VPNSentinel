@@ -34,7 +34,7 @@ def _configure_once():
 
 
 def _initialize_log_file():
-    """Initialize log file with rotation. Uses VPN_SENTINEL_LOG_FILE env var or defaults to /tmp/vpn-sentinel-server.log.
+    """Initialize log file with rotation. Uses VPN_SENTINEL_LOG_FILE env var or defaults to /tmp/vpn-sentinel-server.log.  # noqa: E501
 
     Log rotation prevents unlimited disk space usage:
     - Max file size: 10 MB (configurable via VPN_SENTINEL_LOG_MAX_SIZE)

@@ -6,9 +6,8 @@ It is intended to be imported by both server and client code.
 
 from __future__ import annotations
 
-import os
 import random
-import time
+import time  # noqa: F401  # test-patching: tests patch config.time.time
 from typing import Dict, Any
 
 

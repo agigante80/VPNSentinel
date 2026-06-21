@@ -12,8 +12,8 @@ from pathlib import Path
 # When run as a script, add src/ to sys.path so absolute imports work
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from vpn_sentinel.common.monitor import Monitor
-from vpn_sentinel.common.log_utils import log_info
+from vpn_sentinel.common.monitor import Monitor  # noqa: E402  # after sys.path bootstrap
+from vpn_sentinel.common.log_utils import log_info  # noqa: E402  # after sys.path bootstrap
 
 
 def heartbeat_callback(heartbeat):
