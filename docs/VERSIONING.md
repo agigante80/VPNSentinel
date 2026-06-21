@@ -53,7 +53,7 @@ git commit -m "chore: bump version to 2.0.0"
 
 ## Dynamic Version Generation
 
-The `get_version.sh` script automatically generates context-aware versions:
+The `scripts/get_version.sh` script automatically generates context-aware versions:
 
 ```bash
 #!/bin/bash
@@ -74,11 +74,11 @@ COMMIT_HASH=$(git rev-parse --short HEAD)
 
 ```bash
 # Generate current version
-./get_version.sh
+./scripts/get_version.sh
 # Output: 1.0.0-dev-abc1234
 
 # Use in Docker build
-VERSION=$(./get_version.sh)
+VERSION=$(./scripts/get_version.sh)
 docker build --build-arg VERSION=$VERSION -t app:$VERSION .
 
 # Check version in running container
@@ -110,7 +110,7 @@ ENV COMMIT_HASH=${COMMIT_HASH}
 
 ```bash
 # Generate version
-VERSION=$(./get_version.sh)
+VERSION=$(./scripts/get_version.sh)
 COMMIT_HASH=$(git rev-parse --short HEAD)
 
 # Build with version
@@ -145,7 +145,7 @@ docker inspect vpn-sentinel-server:latest | jq '.[0].Config.Labels'
 
 The CI/CD pipeline automatically:
 
-1. **Generates version** using `get_version.sh`
+1. **Generates version** using `scripts/get_version.sh`
 2. **Passes to Docker builds** via `--build-arg`
 3. **Tags images** with generated version
 4. **Creates GitHub releases** for main branch tags
@@ -164,8 +164,8 @@ jobs:
       - name: Generate version
         id: version
         run: |
-          chmod +x get_version.sh
-          VERSION=$(./get_version.sh)
+          chmod +x scripts/get_version.sh
+          VERSION=$(./scripts/get_version.sh)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 ```
@@ -245,17 +245,17 @@ Ensure version script is executable:
 
 ```bash
 # Make executable
-chmod +x get_version.sh
+chmod +x scripts/get_version.sh
 
 # Test generation
-./get_version.sh
+./scripts/get_version.sh
 ```
 
 ### CI Validation
 
 The CI/CD pipeline validates:
 
-- ✅ `get_version.sh` is executable
+- ✅ `scripts/get_version.sh` is executable
 - ✅ Version format is valid semver
 - ✅ Docker builds succeed with version
 - ✅ VERSION env var set in container
@@ -379,7 +379,7 @@ BREAKING CHANGE: keepalive endpoint now requires ISO 8601 timestamps"
 **Solution**:
 ```bash
 # Verify build args passed
-docker build --build-arg VERSION=$(./get_version.sh) ...
+docker build --build-arg VERSION=$(./scripts/get_version.sh) ...
 
 # Check Dockerfile has ARG/ENV
 grep -A2 "ARG VERSION" vpn-sentinel-server/Dockerfile
@@ -387,7 +387,7 @@ grep -A2 "ARG VERSION" vpn-sentinel-server/Dockerfile
 
 ### Git Describe Fails
 
-**Problem**: `get_version.sh` returns `0.0.0-dev-abc1234`
+**Problem**: `scripts/get_version.sh` returns `0.0.0-dev-abc1234`
 
 **Solution**:
 ```bash
@@ -401,7 +401,7 @@ git tag -l
 
 ### Wrong Branch Detection
 
-**Problem**: `get_version.sh` detects wrong branch name
+**Problem**: `scripts/get_version.sh` detects wrong branch name
 
 **Solution**:
 ```bash
@@ -412,7 +412,7 @@ git rev-parse --abbrev-ref HEAD
 git status
 
 # Test version generation
-./get_version.sh
+./scripts/get_version.sh
 ```
 
 ### CI/CD Shallow Clone
@@ -432,7 +432,7 @@ git status
 ### ✅ DO
 
 - **Use `fetch-depth: 0`** in CI/CD for full Git history
-- **Make `get_version.sh` executable** before committing
+- **Make `scripts/get_version.sh` executable** before committing
 - **Include commit hash** in development builds
 - **Update VERSION file** manually for major/minor bumps
 - **Tag releases** on main branch for stable versions

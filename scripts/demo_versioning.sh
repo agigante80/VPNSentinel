@@ -22,7 +22,7 @@ echo "   • develop branch → '1.0.0-dev-{commit}' (development)"
 echo "   • other branches → '1.0.0-{branch}-{commit}' (feature branches)"
 echo
 
-echo "📊 Current Version: $(./get_version.sh)"
+echo "📊 Current Version: $(./scripts/get_version.sh)"
 echo
 
 echo "🔮 Example Scenarios:"

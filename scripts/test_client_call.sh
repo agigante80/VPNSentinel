@@ -11,24 +11,24 @@
 
 # Check required arguments
 if [ $# -lt 2 ]; then
-    echo "❌ Error: Missing required arguments"
-    echo ""
-    echo "Usage: $0 <server_url> <api_key> [client_id]"
-    echo ""
-    echo "Arguments:"
-    echo "  server_url    Full server URL with path (REQUIRED)"
-    echo "                Example: http://your-server:5000/api/v1"
-    echo ""
-    echo "  api_key       API key for authentication (REQUIRED)"
-    echo "                Generate with: openssl rand -hex 32"
-    echo ""
-    echo "  client_id     Client identifier (optional)"
-    echo "                Default: test-client-<timestamp>"
-    echo ""
-    echo "Example:"
-    echo "  $0 \"http://localhost:5000/api/v1\" \"your-api-key-here\""
-    echo ""
-    exit 1
+  echo "❌ Error: Missing required arguments"
+  echo ""
+  echo "Usage: $0 <server_url> <api_key> [client_id]"
+  echo ""
+  echo "Arguments:"
+  echo "  server_url    Full server URL with path (REQUIRED)"
+  echo "                Example: http://your-server:5000/api/v1"
+  echo ""
+  echo "  api_key       API key for authentication (REQUIRED)"
+  echo "                Generate with: openssl rand -hex 32"
+  echo ""
+  echo "  client_id     Client identifier (optional)"
+  echo "                Default: test-client-<timestamp>"
+  echo ""
+  echo "Example:"
+  echo "  $0 \"http://localhost:5000/api/v1\" \"your-api-key-here\""
+  echo ""
+  exit 1
 fi
 
 # Required arguments
@@ -48,7 +48,8 @@ echo ""
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # Sample payload
-PAYLOAD=$(cat <<EOF
+PAYLOAD=$(
+  cat <<EOF
 {
   "client_id": "${CLIENT_ID}",
   "timestamp": "${TIMESTAMP}",

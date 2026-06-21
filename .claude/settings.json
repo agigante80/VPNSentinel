@@ -27,7 +27,7 @@
       "Bash(git log:*)",
       "Bash(git branch:*)",
       "Bash(git show:*)",
-      "Bash(./get_version.sh)",
+      "Bash(./scripts/get_version.sh)",
       "Bash(bin/local-env start)",
       "Bash(bin/local-env stop)",
       "Bash(bin/local-env rebuild)",
