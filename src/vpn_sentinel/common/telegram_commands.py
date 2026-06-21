@@ -43,9 +43,10 @@ def handle_ping(chat_id: str, message_text: str) -> None:
         chat_id: Telegram chat ID
         message_text: Full message text
     """
-    from .api_routes import client_status
+    from .api_routes import client_status, client_status_lock
 
-    active_count = len(client_status)
+    with client_status_lock:
+        active_count = len(client_status)
     """Handle /ping command - Show bot status."""
     server_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -66,9 +67,12 @@ def handle_status(chat_id: str, message_text: str) -> None:
         chat_id: Telegram chat ID
         message_text: Full message text
     """
-    from .api_routes import client_status
+    from .api_routes import client_status, client_status_lock
 
-    if not client_status:
+    with client_status_lock:
+        clients_snapshot = dict(client_status)
+
+    if not clients_snapshot:
         response = """📊 <b>VPN Status</b>
 
 No active VPN clients connected.
@@ -83,7 +87,7 @@ Server time: """ + datetime.now(
 
     response = "📊 <b>VPN Status</b>\n\n"
 
-    for client_id, info in client_status.items():
+    for client_id, info in clients_snapshot.items():
         last_seen_str = format_time_ago(info.get("last_seen", ""))
         vpn_ip = info.get("ip", "unknown")
         location = info.get("location", "unknown")

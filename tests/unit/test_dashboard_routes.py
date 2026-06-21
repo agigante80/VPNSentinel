@@ -9,7 +9,7 @@ from unittest.mock import patch, MagicMock, Mock
 
 # Mock api_routes to prevent Flask route registration conflicts
 # This must be done BEFORE importing dashboard_routes
-mock_api_routes = Mock()
+mock_api_routes = MagicMock()
 mock_api_routes.client_status = {}
 
 with patch.dict("sys.modules", {"vpn_sentinel.common.api_routes": mock_api_routes}):

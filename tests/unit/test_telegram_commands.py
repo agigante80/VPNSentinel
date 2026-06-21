@@ -96,7 +96,7 @@ class TestHandlePing:
     def test_handle_ping_with_no_clients(self, mock_send):
         """Test /ping command with no active clients."""
         # Mock the client_status dict that gets imported locally
-        mock_api_routes = Mock()
+        mock_api_routes = MagicMock()
         mock_api_routes.client_status = {}
 
         with patch.dict("sys.modules", {"vpn_sentinel.common.api_routes": mock_api_routes}):
@@ -111,7 +111,7 @@ class TestHandlePing:
     @patch("vpn_sentinel.common.telegram_commands.telegram.send_telegram_message")
     def test_handle_ping_with_clients(self, mock_send):
         """Test /ping command with active clients."""
-        mock_api_routes = Mock()
+        mock_api_routes = MagicMock()
         mock_api_routes.client_status = {"client-1": {"ip": "1.2.3.4"}, "client-2": {"ip": "5.6.7.8"}}
 
         with patch.dict("sys.modules", {"vpn_sentinel.common.api_routes": mock_api_routes}):
@@ -123,7 +123,7 @@ class TestHandlePing:
     @patch("vpn_sentinel.common.telegram_commands.telegram.send_telegram_message")
     def test_handle_ping_includes_server_time(self, mock_send):
         """Test /ping includes server time."""
-        mock_api_routes = Mock()
+        mock_api_routes = MagicMock()
         mock_api_routes.client_status = {}
 
         with patch.dict("sys.modules", {"vpn_sentinel.common.api_routes": mock_api_routes}):
@@ -136,7 +136,7 @@ class TestHandlePing:
     @patch("vpn_sentinel.common.telegram_commands.telegram.send_telegram_message")
     def test_handle_ping_includes_thresholds(self, mock_send):
         """Test /ping includes monitoring thresholds."""
-        mock_api_routes = Mock()
+        mock_api_routes = MagicMock()
         mock_api_routes.client_status = {}
 
         with patch.dict("sys.modules", {"vpn_sentinel.common.api_routes": mock_api_routes}):
@@ -153,7 +153,7 @@ class TestHandleStatus:
     @patch("vpn_sentinel.common.telegram_commands.telegram.send_telegram_message")
     def test_handle_status_no_clients(self, mock_send):
         """Test /status command with no active clients."""
-        mock_api_routes = Mock()
+        mock_api_routes = MagicMock()
         mock_api_routes.client_status = {}
 
         with patch.dict("sys.modules", {"vpn_sentinel.common.api_routes": mock_api_routes}):
@@ -167,7 +167,7 @@ class TestHandleStatus:
     @patch("vpn_sentinel.common.telegram_commands.telegram.send_telegram_message")
     def test_handle_status_with_single_client(self, mock_send):
         """Test /status command with one client."""
-        mock_api_routes = Mock()
+        mock_api_routes = MagicMock()
         mock_api_routes.client_status = {
             "office-vpn": {"ip": "203.0.113.1", "location": "US", "last_seen": datetime.now(timezone.utc).isoformat()}
         }
@@ -184,7 +184,7 @@ class TestHandleStatus:
     @patch("vpn_sentinel.common.telegram_commands.telegram.send_telegram_message")
     def test_handle_status_with_multiple_clients(self, mock_send):
         """Test /status command with multiple clients."""
-        mock_api_routes = Mock()
+        mock_api_routes = MagicMock()
         mock_api_routes.client_status = {
             "client-1": {"ip": "1.2.3.4", "location": "UK", "last_seen": datetime.now(timezone.utc).isoformat()},
             "client-2": {
@@ -207,7 +207,7 @@ class TestHandleStatus:
     def test_handle_status_formats_time_ago(self, mock_send):
         """Test /status formats last_seen as time ago."""
         old_time = datetime.now(timezone.utc) - timedelta(minutes=10)
-        mock_api_routes = Mock()
+        mock_api_routes = MagicMock()
         mock_api_routes.client_status = {
             "test-client": {"ip": "1.2.3.4", "location": "US", "last_seen": old_time.isoformat()}
         }
@@ -221,7 +221,7 @@ class TestHandleStatus:
     @patch("vpn_sentinel.common.telegram_commands.telegram.send_telegram_message")
     def test_handle_status_handles_missing_fields(self, mock_send):
         """Test /status handles missing client info fields."""
-        mock_api_routes = Mock()
+        mock_api_routes = MagicMock()
         mock_api_routes.client_status = {"incomplete-client": {}}
 
         with patch.dict("sys.modules", {"vpn_sentinel.common.api_routes": mock_api_routes}):
@@ -234,7 +234,7 @@ class TestHandleStatus:
     @patch("vpn_sentinel.common.telegram_commands.telegram.send_telegram_message")
     def test_handle_status_includes_server_time(self, mock_send):
         """Test /status includes server time."""
-        mock_api_routes = Mock()
+        mock_api_routes = MagicMock()
         mock_api_routes.client_status = {}
 
         with patch.dict("sys.modules", {"vpn_sentinel.common.api_routes": mock_api_routes}):
@@ -362,7 +362,7 @@ class TestTelegramCommandsIntegration:
     @patch("vpn_sentinel.common.telegram_commands.telegram.send_telegram_message")
     def test_handlers_accept_correct_arguments(self, mock_send):
         """Test handlers accept chat_id and message_text."""
-        mock_api_routes = Mock()
+        mock_api_routes = MagicMock()
         mock_api_routes.client_status = {}
 
         with patch.dict("sys.modules", {"vpn_sentinel.common.api_routes": mock_api_routes}):
