@@ -31,3 +31,5 @@ coverage>=7.6.0
 # Code quality (optional but recommended)
 flake8>=6.0.0
 black>=26.5.1
+# Dead-code detection (dev-only, used by scripts/find-dead-code.sh)
+vulture>=2.11
