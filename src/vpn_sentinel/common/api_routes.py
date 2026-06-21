@@ -1,5 +1,7 @@
 """API server routes for VPN Sentinel."""
 
+import threading
+
 from .server import api_app
 from .log_utils import log_info, log_warn, log_error
 from . import telegram
@@ -12,6 +14,7 @@ import os
 
 # In-memory storage for client status (in production this would be a database)
 client_status = {}
+client_status_lock = threading.Lock()
 
 # Get API key from environment (required for authentication)
 API_KEY = os.getenv("VPN_SENTINEL_API_KEY", "")
@@ -99,7 +102,9 @@ def authenticate_request():
 @api_app.route(f"{API_PATH}/status", methods=["GET"])
 def get_status():
     """Get status of all connected clients."""
-    return jsonify(client_status)
+    with client_status_lock:
+        snapshot = dict(client_status)
+    return jsonify(snapshot)
 
 
 @api_app.route(f"{API_PATH}/keepalive", methods=["POST"])
@@ -153,30 +158,29 @@ def keepalive():
             dns_loc = validate_location_string(data.get("dns_loc", "Unknown"), "dns_loc")
             dns_colo = validate_location_string(data.get("dns_colo", "Unknown"), "dns_colo")
 
-        # Check if client is new or IP changed
-        is_new_client = client_id not in _client_first_seen
-        old_ip = client_status.get(client_id, {}).get("ip", None) if not is_new_client else None
-        ip_changed = old_ip and old_ip != vpn_ip
-
         # Extract client version (optional field)
         client_version = validate_location_string(data.get("client_version", "Unknown"), "version")
 
-        # Update client status
-        client_status[client_id] = {
-            "last_seen": datetime.now(timezone.utc).isoformat(),
-            "ip": vpn_ip,
-            "location": f"{city}, {region}, {country}",
-            "provider": provider,
-            "country": country,
-            "city": city,
-            "region": region,
-            "timezone": timezone_str,
-            "dns_loc": dns_loc,
-            "dns_colo": dns_colo,
-            "client_version": client_version,
-        }
+        # Read old IP and write new record under the lock; release before any network I/O.
+        is_new_client = client_id not in _client_first_seen
+        with client_status_lock:
+            old_ip = client_status.get(client_id, {}).get("ip", None) if not is_new_client else None
+            client_status[client_id] = {
+                "last_seen": datetime.now(timezone.utc).isoformat(),
+                "ip": vpn_ip,
+                "location": f"{city}, {region}, {country}",
+                "provider": provider,
+                "country": country,
+                "city": city,
+                "region": region,
+                "timezone": timezone_str,
+                "dns_loc": dns_loc,
+                "dns_colo": dns_colo,
+                "client_version": client_version,
+            }
+        ip_changed = old_ip and old_ip != vpn_ip
 
-        # Get server IP for comparison
+        # Get server IP for comparison (network call — outside the lock)
         server_ip = get_cached_server_ip()
 
         # Log keepalive with VPN info
@@ -247,14 +251,17 @@ def cleanup_stale_clients():
         try:
             time.sleep(check_interval)
 
-            if not client_status:
-                continue
+            # Snapshot the dict under the lock; staleness computation happens outside.
+            with client_status_lock:
+                if not client_status:
+                    continue
+                items_snapshot = list(client_status.items())
 
             current_time = datetime.now(timezone.utc)
             timeout_delta = timedelta(minutes=CLIENT_TIMEOUT_MINUTES)
             stale_clients = []
 
-            for client_id, client_data in list(client_status.items()):
+            for client_id, client_data in items_snapshot:
                 last_seen_str = client_data.get("last_seen")
                 if not last_seen_str:
                     continue
@@ -280,7 +287,7 @@ def cleanup_stale_clients():
                     log_error("cleanup", f"Error parsing last_seen for {client_id}: {e}")
                     continue
 
-            # Remove stale clients
+            # Remove stale clients: re-acquire the lock only for the dict delete.
             for client_id, time_since_last_seen in stale_clients:
                 minutes_ago = int(time_since_last_seen.total_seconds() / 60)
                 log_info("cleanup", f"🗑️ Removing stale client: {client_id} (last seen {minutes_ago} minutes ago)")
@@ -289,8 +296,10 @@ def cleanup_stale_clients():
                 if client_id in _client_first_seen:
                     _client_first_seen.discard(client_id)
 
-                # Remove from client status
-                del client_status[client_id]
+                # Remove from client status under the lock
+                with client_status_lock:
+                    if client_id in client_status:
+                        del client_status[client_id]
 
         except Exception as e:
             log_error("cleanup", f"Error in cleanup thread: {e}")
