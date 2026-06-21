@@ -13,7 +13,11 @@ def test_api_path_normalization_leading_missing_slash():
 
 
 def test_non_int_interval_and_timeout_fallbacks():
-    env = {"VPN_SENTINEL_URL": "http://example.local", "VPN_SENTINEL_INTERVAL": "notanint", "VPN_SENTINEL_TIMEOUT": "alsoNaN"}
+    env = {
+        "VPN_SENTINEL_URL": "http://example.local",
+        "VPN_SENTINEL_INTERVAL": "notanint",
+        "VPN_SENTINEL_TIMEOUT": "alsoNaN",
+    }
     # Should not raise; use defaults when non-int provided
     conf = cfg.load_config(env)
     assert isinstance(conf["interval"], int)

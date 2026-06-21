@@ -4,6 +4,7 @@ Provides build_payload_from_env() and post_payload() so clients and server
 can import a single source of truth instead of duplicating logic in the
 client shim.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,16 +15,17 @@ from typing import Any, Dict
 
 def build_payload_from_env() -> Dict[str, Any]:
     ts = datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S%z")
-    
+
     # Try to get version from environment or version module
     client_version = os.environ.get("VPN_SENTINEL_CLIENT_VERSION", "Unknown")
     if client_version == "Unknown":
         try:
             from .version import get_version
+
             client_version = get_version()
         except Exception:
             client_version = "Unknown"
-    
+
     payload = {
         "client_id": os.environ.get("CLIENT_ID", os.environ.get("VPN_SENTINEL_CLIENT_ID", "")),
         "timestamp": ts,

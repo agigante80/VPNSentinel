@@ -1,4 +1,5 @@
 """Telegram bot command handlers for VPN Sentinel."""
+
 from . import telegram
 from .log_utils import log_info
 from datetime import datetime, timezone
@@ -14,7 +15,7 @@ def format_time_ago(iso_string: str) -> str:
         Human-readable time ago string
     """
     try:
-        last_seen = datetime.fromisoformat(iso_string.replace('Z', '+00:00'))
+        last_seen = datetime.fromisoformat(iso_string.replace("Z", "+00:00"))
         now = datetime.now(timezone.utc)
         delta = now - last_seen
         minutes = int(delta.total_seconds() / 60)
@@ -46,7 +47,7 @@ def handle_ping(chat_id: str, message_text: str) -> None:
 
     active_count = len(client_status)
     """Handle /ping command - Show bot status."""
-    server_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+    server_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     response = f"""🏓 <b>Pong!</b>
 
@@ -72,16 +73,20 @@ def handle_status(chat_id: str, message_text: str) -> None:
 
 No active VPN clients connected.
 
-Server time: """ + datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+Server time: """ + datetime.now(
+            timezone.utc
+        ).strftime(
+            "%Y-%m-%d %H:%M:%S UTC"
+        )
         telegram.send_telegram_message(response)
         return
 
     response = "📊 <b>VPN Status</b>\n\n"
 
     for client_id, info in client_status.items():
-        last_seen_str = format_time_ago(info.get('last_seen', ''))
-        vpn_ip = info.get('ip', 'unknown')
-        location = info.get('location', 'unknown')
+        last_seen_str = format_time_ago(info.get("last_seen", ""))
+        vpn_ip = info.get("ip", "unknown")
+        location = info.get("location", "unknown")
 
         response += f"""🟢 <code>{client_id}</code> - Online
    IP: <code>{vpn_ip}</code>
@@ -90,7 +95,7 @@ Server time: """ + datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
 
 """
 
-    response += "\nServer time: " + datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+    response += "\nServer time: " + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     telegram.send_telegram_message(response)
 
@@ -131,7 +136,7 @@ The bot monitors VPN connections 24/7 and sends alerts automatically."""
 
 def register_all_commands() -> None:
     """Register all bot command handlers."""
-    telegram.register_command('ping', handle_ping)
-    telegram.register_command('status', handle_status)
-    telegram.register_command('help', handle_help)
-    log_info('telegram', '✅ Registered all bot commands')
+    telegram.register_command("ping", handle_ping)
+    telegram.register_command("status", handle_status)
+    telegram.register_command("help", handle_help)
+    log_info("telegram", "✅ Registered all bot commands")

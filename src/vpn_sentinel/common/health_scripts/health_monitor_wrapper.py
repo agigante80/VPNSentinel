@@ -18,14 +18,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
 def get_pidfile():
     """Get the PID file path."""
-    return os.getenv('VPN_SENTINEL_HEALTH_PIDFILE', '/tmp/vpn-sentinel-health-monitor.pid')
+    return os.getenv("VPN_SENTINEL_HEALTH_PIDFILE", "/tmp/vpn-sentinel-health-monitor.pid")
 
 
 def read_pidfile():
     """Read PID from pidfile."""
     pidfile = get_pidfile()
     try:
-        with open(pidfile, 'r') as f:
+        with open(pidfile, "r") as f:
             return int(f.read().strip())
     except (FileNotFoundError, ValueError):
         return None
@@ -34,7 +34,7 @@ def read_pidfile():
 def write_pidfile(pid):
     """Write PID to pidfile."""
     pidfile = get_pidfile()
-    with open(pidfile, 'w') as f:
+    with open(pidfile, "w") as f:
         f.write(str(pid))
 
 
@@ -58,10 +58,7 @@ def stop_monitor():
         # Check if process exists and is owned by current user
         current_uid = os.getuid()
         proc_uid = subprocess.run(
-            ['ps', '-o', 'uid=', '-p', str(pid)],
-            capture_output=True,
-            text=True,
-            timeout=5
+            ["ps", "-o", "uid=", "-p", str(pid)], capture_output=True, text=True, timeout=5
         ).stdout.strip()
 
         if proc_uid and int(proc_uid) == current_uid:
@@ -108,10 +105,7 @@ def cleanup_stale_pidfile():
                 # Check if process exists and is owned by current user
                 current_uid = os.getuid()
                 proc_uid = subprocess.run(
-                    ['ps', '-o', 'uid=', '-p', str(existing_pid)],
-                    capture_output=True,
-                    text=True,
-                    timeout=2
+                    ["ps", "-o", "uid=", "-p", str(existing_pid)], capture_output=True, text=True, timeout=2
                 ).stdout.strip()
 
                 if proc_uid and int(proc_uid) == current_uid:
@@ -161,10 +155,10 @@ def start_monitor():
         python_exe = venv_python if os.path.exists(venv_python) else sys.executable
 
         # Run the health monitor as a subprocess so we can manage its lifecycle
-        health_monitor_path = Path(__file__).parent / 'health_monitor.py'
+        health_monitor_path = Path(__file__).parent / "health_monitor.py"
         cmd = [python_exe, str(health_monitor_path)]
         env = os.environ.copy()
-        env['PYTHONPATH'] = str(Path(__file__).resolve().parent.parent.parent.parent)
+        env["PYTHONPATH"] = str(Path(__file__).resolve().parent.parent.parent.parent)
 
         process = subprocess.Popen(cmd, env=env)
         process.wait()
@@ -186,10 +180,10 @@ def show_help():
 def main():
     """Main entry point."""
     if len(sys.argv) > 1:
-        if sys.argv[1] in ('--help', '-h'):
+        if sys.argv[1] in ("--help", "-h"):
             show_help()
             return 0
-        elif sys.argv[1] == '--stop':
+        elif sys.argv[1] == "--stop":
             return stop_monitor()
         else:
             print(f"Unknown option: {sys.argv[1]}", file=sys.stderr)
@@ -200,5 +194,5 @@ def main():
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

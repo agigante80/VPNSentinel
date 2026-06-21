@@ -28,18 +28,15 @@ def get_dns_info() -> dict:
         # Try to get DNS location info using cloudflare's DNS
         # This mimics the behavior of the shell script
         result = subprocess.run(
-            ["dig", "TXT", "whoami.cloudflare", "@1.1.1.1", "+short"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["dig", "TXT", "whoami.cloudflare", "@1.1.1.1", "+short"], capture_output=True, text=True, timeout=10
         )
 
         if result.returncode == 0 and result.stdout.strip():
             # Parse the DNS response
             trace_text = result.stdout.strip()
-            log_info('dns-test', f"Using 'dig' output: {trace_text}")
+            log_info("dns-test", f"Using 'dig' output: {trace_text}")
             parsed = parse_dns_trace(trace_text)
-            log_info('dns-test', f"Parsed DNS info: {parsed}")
+            log_info("dns-test", f"Parsed DNS info: {parsed}")
             return parsed
 
     except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
@@ -52,25 +49,22 @@ def get_dns_info() -> dict:
         import requests
 
         # Prefer the 1.1.1.1 endpoint if reachable, otherwise use cloudflare.com
-        urls = [
-            "https://1.1.1.1/cdn-cgi/trace",
-            "https://www.cloudflare.com/cdn-cgi/trace"
-        ]
+        urls = ["https://1.1.1.1/cdn-cgi/trace", "https://www.cloudflare.com/cdn-cgi/trace"]
         for url in urls:
             try:
                 resp = requests.get(url, timeout=5)
                 if resp.status_code == 200 and resp.text:
                     trace_text = resp.text.strip()
-                    log_info('dns-test', f"Using HTTP fallback ({url}): {trace_text}")
+                    log_info("dns-test", f"Using HTTP fallback ({url}): {trace_text}")
                     parsed = parse_dns_trace(trace_text)
-                    log_info('dns-test', f"Parsed DNS info (HTTP): {parsed}")
+                    log_info("dns-test", f"Parsed DNS info (HTTP): {parsed}")
                     return parsed
             except Exception as e:
-                log_warn('dns-test', f"HTTP fallback failed for {url}: {e}")
+                log_warn("dns-test", f"HTTP fallback failed for {url}: {e}")
                 continue
     except Exception as e:
         # requests not available or other error - fall through to unknown
-        log_warn('dns-test', f"Requests not available for HTTP fallback: {e}")
+        log_warn("dns-test", f"Requests not available for HTTP fallback: {e}")
         pass
 
     # Fallback: return empty dict
@@ -179,16 +173,12 @@ def start_health_monitor(config: dict) -> subprocess.Popen:
         # Log the monitor name without the full container path for clarity
         monitor_name = monitor_path.name if monitor_path else "health monitor"
         log_info("client", f"Starting health monitor: {monitor_name}")
-        if monitor_path.suffix == '.py':
+        if monitor_path.suffix == ".py":
             cmd = [sys.executable, str(monitor_path)]
         else:
             cmd = [str(monitor_path)]
 
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
+        process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         # Wait a moment and check if it's still running
         time.sleep(1)
@@ -267,7 +257,7 @@ def main():
             log_info("client", "(Press Ctrl+C to stop monitoring)")
 
             # Sleep in small chunks to allow for quick shutdown
-            for _ in range(config['interval']):
+            for _ in range(config["interval"]):
                 if stop_requested:
                     break
                 time.sleep(1)

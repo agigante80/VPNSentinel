@@ -18,21 +18,21 @@ from vpn_sentinel.common import telegram
 def main():
     """Test Telegram integration."""
     print("🧪 Testing Telegram Integration\n")
-    
+
     if not telegram.TELEGRAM_ENABLED:
         print("❌ Telegram is not configured!")
         print("   Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID environment variables")
         sys.exit(1)
-    
+
     print(f"✅ Telegram is configured")
     print(f"   Bot Token: {telegram.TELEGRAM_BOT_TOKEN[:10]}...")
     print(f"   Chat ID: {telegram.TELEGRAM_CHAT_ID}\n")
-    
+
     # Test 1: Server started notification
     print("📤 Test 1: Server started notification...")
     success = telegram.notify_server_started()
     print(f"   Result: {'✅ Success' if success else '❌ Failed'}\n")
-    
+
     # Test 2: Client connected notification
     print("📤 Test 2: Client connected notification...")
     success = telegram.notify_client_connected(
@@ -45,10 +45,10 @@ def main():
         provider="AS50599 DATASPACE P.S.A.",
         timezone="Europe/Warsaw",
         dns_loc="PL",
-        dns_colo="WAW"
+        dns_colo="WAW",
     )
     print(f"   Result: {'✅ Success' if success else '❌ Failed'}\n")
-    
+
     # Test 3: IP changed notification
     print("📤 Test 3: IP changed notification...")
     success = telegram.notify_ip_changed(
@@ -61,20 +61,20 @@ def main():
         provider="AS12741 netia.pl",
         timezone="Europe/Warsaw",
         dns_loc="PL",
-        dns_colo="WAW"
+        dns_colo="WAW",
     )
     print(f"   Result: {'✅ Success' if success else '❌ Failed'}\n")
-    
+
     # Test 4: No clients alert
     print("📤 Test 4: No clients alert...")
     success = telegram.notify_no_clients()
     print(f"   Result: {'✅ Success' if success else '❌ Failed'}\n")
-    
+
     # Test 5: Simple message
     print("📤 Test 5: Simple test message...")
     success = telegram.send_telegram_message("🧪 <b>Test message from VPN Sentinel</b>\n\nThis is a test.")
     print(f"   Result: {'✅ Success' if success else '❌ Failed'}\n")
-    
+
     print("=" * 60)
     print("✅ All tests completed!")
     print("\n💡 Now test bot commands by sending these messages in Telegram:")
@@ -84,5 +84,5 @@ def main():
     print("   any other text")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

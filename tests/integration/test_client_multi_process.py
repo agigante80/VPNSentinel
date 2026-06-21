@@ -11,4 +11,7 @@ tests, enable the integration server suite:
 
 import pytest
 
-pytest.skip("Moved to tests/integration/server_dependent/ (server-dependent). Set VPN_SENTINEL_SERVER_TESTS=1 to run.", allow_module_level=True)
+pytest.skip(
+    "Moved to tests/integration/server_dependent/ (server-dependent). Set VPN_SENTINEL_SERVER_TESTS=1 to run.",
+    allow_module_level=True,
+)

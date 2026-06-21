@@ -12,7 +12,7 @@ from vpn_sentinel.common.health_scripts.healthcheck import (
     get_system_info,
     perform_health_checks,
     determine_overall_health,
-    print_json
+    print_json,
 )
 
 
@@ -43,10 +43,7 @@ def main():
         elif command == "generate_health_status":
             results = perform_health_checks()
             overall_healthy = determine_overall_health(results)
-            output = {
-                "status": "healthy" if overall_healthy else "unhealthy",
-                "checks": results
-            }
+            output = {"status": "healthy" if overall_healthy else "unhealthy", "checks": results}
             print(json.dumps(output))
 
         else:
@@ -58,5 +55,5 @@ def main():
         sys.exit(2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

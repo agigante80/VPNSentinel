@@ -2,6 +2,7 @@
 
 Provides version information from environment variables with fallbacks.
 """
+
 import os
 import subprocess
 from typing import Optional
@@ -40,12 +41,7 @@ def get_commit_hash() -> Optional[str]:
 
     # Try to get from git command
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--short=7", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=2
-        )
+        result = subprocess.run(["git", "rev-parse", "--short=7", "HEAD"], capture_output=True, text=True, timeout=2)
         if result.returncode == 0:
             return result.stdout.strip()
     except Exception:
@@ -63,5 +59,5 @@ def get_version_info() -> dict:
     return {
         "version": get_version(),
         "commit": get_commit_hash() or "unknown",
-        "environment": os.getenv("ENVIRONMENT", "production")
+        "environment": os.getenv("ENVIRONMENT", "production"),
     }

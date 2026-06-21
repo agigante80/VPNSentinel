@@ -3,7 +3,14 @@ import time
 import subprocess
 import signal
 import requests
-from tests.helpers import probe_url, start_client_with_monitor, stop_client_process, kill_health_monitor_processes, ensure_scripts_exist, assert_health_schema
+from tests.helpers import (
+    probe_url,
+    start_client_with_monitor,
+    stop_client_process,
+    kill_health_monitor_processes,
+    ensure_scripts_exist,
+    assert_health_schema,
+)
 import unittest
 
 
@@ -18,12 +25,14 @@ class TestClientMonitorEndpoints(unittest.TestCase):
 
     def setUp(self):
         self.client_process = None
-        self.test_port = '8085'
-        self.client_script = os.path.join(os.path.dirname(__file__), '../../src/vpn_sentinel/client/__main__.py')
-        self.health_monitor_script = os.path.join(os.path.dirname(__file__), '../../src/vpn_sentinel/common/health_scripts/health_monitor_wrapper.py')
+        self.test_port = "8085"
+        self.client_script = os.path.join(os.path.dirname(__file__), "../../src/vpn_sentinel/client/__main__.py")
+        self.health_monitor_script = os.path.join(
+            os.path.dirname(__file__), "../../src/vpn_sentinel/common/health_scripts/health_monitor_wrapper.py"
+        )
 
         if not ensure_scripts_exist(self.client_script, self.health_monitor_script):
-            self.skipTest('Required scripts not found')
+            self.skipTest("Required scripts not found")
 
     def tearDown(self):
         if self.client_process:
@@ -32,33 +41,33 @@ class TestClientMonitorEndpoints(unittest.TestCase):
 
     def start_client_with_monitor(self, port):
         # Use shared helper
-        self.client_process = start_client_with_monitor(self.client_script, port, client_id='test-endpoints', wait=1)
+        self.client_process = start_client_with_monitor(self.client_script, port, client_id="test-endpoints", wait=1)
 
     # use probe_url from tests.helpers
 
     def test_health_full_endpoint(self):
         self.start_client_with_monitor(self.test_port)
-        health_url = f'http://localhost:{self.test_port}/client/health'
+        health_url = f"http://localhost:{self.test_port}/client/health"
         resp = probe_url(health_url, timeout=5)
         self.assertIn(resp.status_code, (200, 503))
         # Expect JSON body with 'status' and 'checks'
         try:
             data = resp.json()
-            self.assertIn('status', data)
-            self.assertIn('checks', data)
+            self.assertIn("status", data)
+            self.assertIn("checks", data)
         except ValueError:
-            self.fail('Expected JSON response from /client/health')
+            self.fail("Expected JSON response from /client/health")
 
     def test_health_ready_endpoint(self):
         self.start_client_with_monitor(self.test_port)
-        ready_url = f'http://localhost:{self.test_port}/client/health/ready'
+        ready_url = f"http://localhost:{self.test_port}/client/health/ready"
         resp = probe_url(ready_url, timeout=5)
         # ready may be 200 or 503 depending on environment
         self.assertIn(resp.status_code, (200, 503))
 
     def test_health_startup_endpoint(self):
         self.start_client_with_monitor(self.test_port)
-        startup_url = f'http://localhost:{self.test_port}/client/health/startup'
+        startup_url = f"http://localhost:{self.test_port}/client/health/startup"
         resp = probe_url(startup_url, timeout=5)
         # Accept 200 and small JSON or text
         self.assertEqual(resp.status_code, 200)
@@ -66,11 +75,11 @@ class TestClientMonitorEndpoints(unittest.TestCase):
         try:
             data = resp.json()
             # either contains a 'status' key or 'message'
-            self.assertTrue('status' in data or 'message' in data)
+            self.assertTrue("status" in data or "message" in data)
         except ValueError:
             # allow plain text response
             self.assertTrue(len(resp.text) > 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

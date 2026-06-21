@@ -4,6 +4,7 @@ Provide a minimal, dependency-free implementation for small helpers used by
 client shims and tests: time/log delegations (thin), JSON escaping and
 sanitization helpers.
 """
+
 from __future__ import annotations
 
 from typing import Any
