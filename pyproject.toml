@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=82.0.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 authors = [ { name = "agigante80" } ]
 license = { text = "MIT" }
-dependencies = ["requests>=2.32.3"]
+dependencies = ["requests>=2.33.1"]
 
 [project.scripts]
 vpn-sentinel-server = "vpn_sentinel.server.__main__:main"
