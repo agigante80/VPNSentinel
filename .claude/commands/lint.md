@@ -6,12 +6,12 @@ Lint the codebase and report findings concisely.
 
 Python (PEP8, max line length 120):
 ```bash
-flake8 --max-line-length=120 vpn-sentinel-server/ vpn-sentinel-client/ src/vpn_sentinel/common/
+flake8 --max-line-length=120 src/
 ```
 
 CI also runs the syntax-error subset — useful as a fast first pass:
 ```bash
-flake8 vpn-sentinel-server/ src/vpn_sentinel/common/ --select=E9,F63,F7,F82 --show-source --statistics
+flake8 src/ --select=E9,F63,F7,F82 --show-source --statistics
 ```
 
 Shell scripts (if any `.sh` files changed):

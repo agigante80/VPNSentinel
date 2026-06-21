@@ -8,7 +8,7 @@ class TestClientDefaults(unittest.TestCase):
     """Tests for client default environment variable behavior."""
 
     def setUp(self):
-        self.client_script = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-client/vpn-sentinel-client.py')
+        self.client_script = os.path.join(os.path.dirname(__file__), '../../src/vpn_sentinel/client/__main__.py')
         self.health_monitor_script = os.path.join(os.path.dirname(__file__), '../../src/vpn_sentinel/common/health_scripts/health_monitor_wrapper.py')
         if not ensure_scripts_exist(self.client_script, self.health_monitor_script):
             self.skipTest('Required client scripts not found')

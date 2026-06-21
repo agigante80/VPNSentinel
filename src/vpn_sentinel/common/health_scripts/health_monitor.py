@@ -86,7 +86,7 @@ def get_health_data():
     return health_data
 
   # Check for both Python and shell client processes
-  client_status = run_cmd(["sh", "-c", "if pgrep -f 'vpn-sentinel-client.py' > /dev/null 2>&1 || pgrep -f 'vpn-sentinel-client.sh' > /dev/null 2>&1; then echo healthy; else echo not_running; fi"]) or "not_running"
+  client_status = run_cmd(["sh", "-c", "if pgrep -f 'vpn_sentinel.client' > /dev/null 2>&1 || pgrep -f 'vpn_sentinel/client/__main__' > /dev/null 2>&1 || pgrep -f 'vpn-sentinel-client.sh' > /dev/null 2>&1; then echo healthy; else echo not_running; fi"]) or "not_running"
   net_check = run_cmd(["sh", "-c", "if curl -f -s --max-time 5 'https://1.1.1.1/cdn-cgi/trace' > /dev/null 2>&1; then echo healthy; else echo net_unreach; fi"]) or "net_unreach"
 
   # system info

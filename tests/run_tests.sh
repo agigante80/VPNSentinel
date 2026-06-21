@@ -63,7 +63,7 @@ run_syntax_checks() {
   echo -e "${YELLOW}🔍 Running syntax checks...${NC}"
 
   # Check Python syntax
-  if python3 -m py_compile "$PROJECT_ROOT/vpn-sentinel-server/vpn-sentinel-server.py"; then
+  if python3 -m py_compile "$PROJECT_ROOT/src/vpn_sentinel/server/__main__.py"; then
     echo -e "${GREEN}✅ Server Python syntax OK${NC}"
   else
     echo -e "${RED}❌ Server Python syntax error${NC}"
@@ -71,7 +71,7 @@ run_syntax_checks() {
   fi
 
   # Check Python client syntax
-  if python3 -m py_compile "$PROJECT_ROOT/vpn-sentinel-client/vpn-sentinel-client.py"; then
+  if python3 -m py_compile "$PROJECT_ROOT/src/vpn_sentinel/client/__main__.py"; then
     echo -e "${GREEN}✅ Client Python script syntax OK${NC}"
   else
     echo -e "${RED}❌ Client Python script syntax error${NC}"

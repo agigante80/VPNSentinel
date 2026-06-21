@@ -323,7 +323,7 @@ docker compose logs vpn-sentinel-server | grep "telegram.*❌"
 
 ### Custom Notification Threshold
 
-Edit `vpn-sentinel-server/vpn-sentinel-server.py`:
+Edit `src/vpn_sentinel/server/__main__.py`:
 ```python
 telegram.notify_server_started(alert_threshold_min=30, check_interval_min=10)
 ```

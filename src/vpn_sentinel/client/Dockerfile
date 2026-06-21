@@ -109,7 +109,7 @@ COPY src/vpn_sentinel/common/health_scripts/healthcheck.py /app/healthcheck.py
 COPY src/vpn_sentinel/common/health_scripts/health_monitor_wrapper.py /app/health-monitor.py
 
 # NOTE: the legacy `health_common.py` shim has been migrated to the canonical
-# `vpn_sentinel_common` package and is no longer copied into the image. The
+# `vpn_sentinel` package and is no longer copied into the image. The
 # install (`pip install /app`) installs the canonical package so
 # runtime falls back to that implementation instead of the old local shim.
 
@@ -146,9 +146,9 @@ WORKDIR /app
 # Health monitor: Dedicated health status server (port 8082)
 #
 # Alternative approaches:
-# 1. External loop: CMD ["sh", "-c", "while true; do /app/vpn-sentinel-client.py; sleep 300; done"]
+# 1. External loop: CMD ["sh", "-c", "while true; do python -m vpn_sentinel.client; sleep 300; done"]
 # 2. Cron-based: Install crond and use crontab (more complex, less real-time feedback)
-# 3. Script-managed: Let vpn-sentinel-client.py handle its own loop (current approach - recommended)
+# 3. Script-managed: Let __main__.py handle its own loop (current approach - recommended)
 CMD ["python", "-m", "vpn_sentinel.client"]
 
 # -----------------------------------------------------------------------------

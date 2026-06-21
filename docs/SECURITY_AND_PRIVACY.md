@@ -315,7 +315,7 @@ labels:
 ```bash
 # Python security scan
 pip install bandit
-bandit -r src/vpn_sentinel/common/ vpn-sentinel-server/ vpn-sentinel-client/
+bandit -r src/vpn_sentinel/
 
 # Dependency scan
 pip install safety
@@ -451,7 +451,7 @@ USER appuser
 COPY --chown=appuser:appgroup . /app
 WORKDIR /app
 
-CMD ["python3", "vpn-sentinel-server.py"]
+CMD ["python", "-m", "vpn_sentinel.server"]
 ```
 
 ---

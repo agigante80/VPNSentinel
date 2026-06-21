@@ -26,7 +26,7 @@ class TestClientScript(unittest.TestCase):
         # Path to client script (legacy shell script - may not exist if replaced with Python)
         self.script_path = os.path.join(
             os.path.dirname(__file__), 
-            '../../vpn-sentinel-client/vpn-sentinel-client.sh'
+            '../../src/vpn_sentinel/client/legacy-client.sh'
         )
         
         # Check if script exists (skip tests if shell script has been replaced with Python)
@@ -523,7 +523,7 @@ class TestSecurityFeatures(unittest.TestCase):
         # Path to client script
         self.script_path = os.path.join(
             os.path.dirname(__file__), 
-            '../../vpn-sentinel-client/vpn-sentinel-client.sh'
+            '../../src/vpn_sentinel/client/legacy-client.sh'
         )
         
         # Check if script exists (skip tests if shell script has been replaced with Python)
@@ -694,7 +694,7 @@ class TestGeolocationAndDebugFeatures(unittest.TestCase):
         # Path to client script
         self.script_path = os.path.join(
             os.path.dirname(__file__),
-            '../../vpn-sentinel-client/vpn-sentinel-client.sh'
+            '../../src/vpn_sentinel/client/legacy-client.sh'
         )
         
         # Check if script exists (skip tests if shell script has been replaced with Python)
@@ -836,7 +836,7 @@ class TestEnvironmentVariables(unittest.TestCase):
         # Path to client script
         self.script_path = os.path.join(
             os.path.dirname(__file__),
-            '../../vpn-sentinel-client/vpn-sentinel-client.sh'
+            '../../src/vpn_sentinel/client/legacy-client.sh'
         )
         
         # Check if script exists (skip tests if shell script has been replaced with Python)

@@ -4,12 +4,10 @@
   "permissions": {
     "allow": [
       "Bash(./tests/run_tests.sh:*)",
-      "Bash(python -m pytest tests/unit/ --tb=short --cov=vpn_sentinel_common --cov-report=term)",
-      "Bash(python3 -m pytest tests/unit/ --tb=short --cov=vpn_sentinel_common --cov-report=term)",
-      "Bash(flake8 vpn-sentinel-server:*)",
-      "Bash(flake8 vpn-sentinel-client:*)",
-      "Bash(flake8 vpn_sentinel_common:*)",
-      "Bash(flake8 --max-line-length=120 vpn_sentinel_common:*)",
+      "Bash(python -m pytest tests/unit/ --tb=short --cov=vpn_sentinel --cov-report=term)",
+      "Bash(python3 -m pytest tests/unit/ --tb=short --cov=vpn_sentinel --cov-report=term)",
+      "Bash(flake8 src/:*)",
+      "Bash(flake8 --max-line-length=120 src/:*)",
       "Bash(shellcheck:*)",
       "Bash(shfmt:*)",
       "Bash(docker build -t vpn-sentinel-server:latest -f src/vpn_sentinel/server/Dockerfile .)",

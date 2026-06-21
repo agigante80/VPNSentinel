@@ -1,6 +1,6 @@
 """
 Unit tests for VPN Sentinel Server
-Tests the core functionality of vpn-sentinel-server.py
+Tests the core functionality of src/vpn_sentinel/server/__main__.py
 """
 import os
 import sys
@@ -10,8 +10,8 @@ from datetime import datetime, timezone, timedelta
 import json
 import pytest
 
-# Add the server directory to Python path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-server'))
+# Add the src directory to Python path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
 
 # Import test fixtures
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../fixtures'))

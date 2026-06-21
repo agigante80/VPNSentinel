@@ -676,10 +676,10 @@ services:
 
 ```bash
 # Build server image
-docker build -t vpn-sentinel-server:latest -f vpn-sentinel-server/Dockerfile .
+docker build -t vpn-sentinel-server:latest -f src/vpn_sentinel/server/Dockerfile .
 
 # Build client image
-docker build -t vpn-sentinel-client:latest -f vpn-sentinel-client/Dockerfile .
+docker build -t vpn-sentinel-client:latest -f src/vpn_sentinel/client/Dockerfile .
 ```
 
 ### Local Development Setup
@@ -690,7 +690,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 
 # Install dependencies
-pip install -r vpn-sentinel-server/requirements.txt
+pip install -e .
 pip install -r tests/requirements.txt
 
 # Install pre-commit hooks
@@ -719,10 +719,10 @@ pre-commit install
 pre-commit run --all-files
 
 # Type checking
-mypy vpn-sentinel-server/ src/vpn_sentinel/common/
+mypy src/vpn_sentinel/
 
 # Security scanning
-bandit -r vpn-sentinel-server/ src/vpn_sentinel/common/
+bandit -r src/vpn_sentinel/
 ```
 
 ---

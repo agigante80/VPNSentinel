@@ -14,7 +14,7 @@ have deep knowledge of the full codebase, operational patterns, and failure mode
 
 ```
 [VPN Client container]          [VPN Server container]
-  vpn-sentinel-client.py          vpn-sentinel-server.py
+  python -m vpn_sentinel.client   python -m vpn_sentinel.server
   - Keepalive loop (60s)   POST → API :5000  /keepalive
   - Public IP detection           - Status tracking (in-memory)
   - DNS leak detection            - Telegram notifications
@@ -62,7 +62,7 @@ works for bypass detection (just missing location context).
 
 ## Flask Multi-App Architecture
 
-Three Flask applications run as separate threads in `vpn-sentinel-server.py`:
+Three Flask applications run as separate threads in `src/vpn_sentinel/server/__main__.py`:
 
 | Port | App | Purpose |
 |---|---|---|
@@ -99,8 +99,8 @@ Every 60 seconds (configurable via `VPN_SENTINEL_INTERVAL`), the client:
 
 | File | Purpose |
 |---|---|
-| `vpn-sentinel-client/vpn-sentinel-client.py` | Client entry point (keepalive loop, subprocess management) |
-| `vpn-sentinel-server/vpn-sentinel-server.py` | Server entry point (starts 3 Flask apps + cleanup thread) |
+| `src/vpn_sentinel/client/__main__.py` | Client entry point (keepalive loop, subprocess management) |
+| `src/vpn_sentinel/server/__main__.py` | Server entry point (starts 3 Flask apps + cleanup thread) |
 | `src/vpn_sentinel/common/api_routes.py` | Core API: keepalive handler, client status tracking |
 | `src/vpn_sentinel/common/dashboard_routes.py` | Web UI (largest module) |
 | `src/vpn_sentinel/common/telegram.py` | Telegram Bot API: long polling, message formatting |
@@ -129,7 +129,7 @@ python -m pytest tests/unit/ --cov=vpn_sentinel.common --cov-report=term-missing
 
 **Check linting:**
 ```bash
-flake8 --max-line-length=120 src/vpn_sentinel/common/ vpn-sentinel-client/ vpn-sentinel-server/
+flake8 --max-line-length=120 src/
 ```
 
 **Check server status (from inside container or local):**

@@ -20,9 +20,9 @@ class TestHealthCommonLibrary(unittest.TestCase):
         self.lib_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', 'lib'))
 
         # The shared shell library was deprecated in favor of a Python module.
-        # Prefer the Python shim under vpn-sentinel-client/lib/health_common.py for tests.
+        # The canonical implementation is now vpn_sentinel.common (installed package).
         self.health_common_script = os.path.join(self.lib_dir, 'health-common.sh')
-        self.py_shim = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', 'vpn-sentinel-client', 'lib', 'health_common.py'))
+        self.py_shim = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'vpn_sentinel', 'common', 'health.py'))
 
         # Choose which implementation to test. Prefer the Python shim if present.
         if os.path.exists(self.py_shim):

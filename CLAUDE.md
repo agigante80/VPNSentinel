@@ -11,7 +11,7 @@ actually routing through a VPN, detects DNS leaks, and sends Telegram alerts.
 
 ```
 [VPN Client container]                 [VPN Server container]
-  vpn-sentinel-client.py                 vpn-sentinel-server.py
+  python -m vpn_sentinel.client          python -m vpn_sentinel.server
   - Keepalive loop (60s)   POST ───────► API :5000  /keepalive
   - Public IP detection                  - Status tracking (in-memory)
   - DNS leak detection                   - Telegram notifications
@@ -34,8 +34,8 @@ in any PR that adds features depending on historical data or touches restart log
 
 | Path | Purpose |
 |---|---|
-| `vpn-sentinel-server/vpn-sentinel-server.py` | Server entry point (starts 3 Flask apps + cleanup thread) |
-| `vpn-sentinel-client/vpn-sentinel-client.py` | Client entry point (keepalive loop, subprocess mgmt) |
+| `src/vpn_sentinel/server/__main__.py` | Server entry point (starts 3 Flask apps + cleanup thread) |
+| `src/vpn_sentinel/client/__main__.py` | Client entry point (keepalive loop, subprocess mgmt) |
 | `src/vpn_sentinel/common/` | Shared library (~21 modules) — the bulk of the logic |
 | `tests/` | `unit/`, `integration/`, `smoke/` + `run_tests.sh` |
 | `deployments/` | 4 deployment modes (all-in-one, client-standalone, client-with-vpn, server-central) |
@@ -54,12 +54,12 @@ in any PR that adds features depending on historical data or touches restart log
 python -m pytest tests/unit/ --tb=short --cov=vpn_sentinel.common --cov-report=term
 
 # Lint (CI uses a syntax-error subset; full PEP8 check is max-line-length 120)
-flake8 vpn-sentinel-server/ src/vpn_sentinel/common/ --select=E9,F63,F7,F82 --show-source --statistics
-flake8 --max-line-length=120 src/vpn_sentinel/common/
+flake8 src/ --select=E9,F63,F7,F82 --show-source --statistics
+flake8 --max-line-length=120 src/
 
 # Build images (Dockerfiles build from repo root context)
-docker build -t vpn-sentinel-server:latest -f vpn-sentinel-server/Dockerfile .
-docker build -t vpn-sentinel-client:latest -f vpn-sentinel-client/Dockerfile .
+docker build -t vpn-sentinel-server:latest -f src/vpn_sentinel/server/Dockerfile .
+docker build -t vpn-sentinel-client:latest -f src/vpn_sentinel/client/Dockerfile .
 
 # Run the stack
 docker compose up -d
