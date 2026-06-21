@@ -463,11 +463,21 @@ jobs:
 
       - name: Start test environment
         run: |
-          docker compose -f tests/docker-compose.test.yaml up -d
-          sleep 10
+          docker compose -f tests/docker-compose.test.yaml up -d --build
+          for i in $(seq 1 60); do
+            cid=$(docker compose -f tests/docker-compose.test.yaml ps -q vpn-sentinel-server-test)
+            state=$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo unknown)
+            [ "$state" = "healthy" ] && break
+            sleep 2
+          done
 
       - name: Run integration tests
         run: |
+          VPN_SENTINEL_E2E=1 \
+          VPN_SENTINEL_E2E_API_PORT=15554 \
+          VPN_SENTINEL_E2E_HEALTH_PORT=15553 \
+          VPN_SENTINEL_E2E_DASHBOARD_PORT=18080 \
+          VPN_SENTINEL_API_PATH=/test/v1 \
           python -m pytest tests/integration/ \
             --verbose \
             --tb=short \
