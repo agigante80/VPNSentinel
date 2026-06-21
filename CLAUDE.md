@@ -79,6 +79,10 @@ Coverage gate is **80%** (`pytest.ini`). Python **3.12** in CI (`requires-python
 - **Run tests before merging** to `main`; **build both images** before pushing image changes (unless
   told otherwise).
 - **Portability:** never hardcode `/home/$USER` absolute paths — use relative paths or env vars.
+- **Plan execution:** when executing a written implementation plan, ALWAYS use subagent-driven
+  development (fresh implementer subagent per task + per-task spec/quality review + final
+  whole-branch review). Do not ask the user which execution mode to use — this is their standing
+  preference.
 - **If a request contradicts these conventions, the architecture, or security posture, ask before
   implementing.** These patterns are intentional.
 
