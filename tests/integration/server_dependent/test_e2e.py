@@ -1,10 +1,10 @@
-"""Moved to tests/integration_server/ (server-dependent).
+"""Server-dependent E2E tests (tests/integration/server_dependent).
 
 These tests require a running VPN Sentinel server or Docker Compose and are
 skipped by default. To run them locally enable the suite explicitly:
 
     export VPN_SENTINEL_SERVER_TESTS=1
-    pytest tests/integration_server -q
+    pytest tests/integration/server_dependent -q
 
 """
 

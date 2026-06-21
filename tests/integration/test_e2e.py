@@ -1,10 +1,10 @@
-"""Moved: server-dependent E2E tests now live in tests/integration_server.
+"""Moved: server-dependent E2E tests now live in tests/integration/server_dependent.
 
 This file is a harmless shim to avoid accidental execution in CI. To run the
 real E2E tests, enable them explicitly:
 
     export VPN_SENTINEL_SERVER_TESTS=1
-    pytest tests/integration_server -q
+    pytest tests/integration/server_dependent -q
 
 """
 import os
@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 import pytest
 import requests
 
-pytest.skip("Moved to tests/integration_server/ (server-dependent). Set VPN_SENTINEL_SERVER_TESTS=1 to run.", allow_module_level=True)
+pytest.skip("Moved to tests/integration/server_dependent/ (server-dependent). Set VPN_SENTINEL_SERVER_TESTS=1 to run.", allow_module_level=True)
 
 
 class TestDockerIntegration(unittest.TestCase):
