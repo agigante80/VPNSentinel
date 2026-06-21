@@ -5,6 +5,7 @@ Attempts the dedicated health endpoint on 8081, then the API-mounted health endp
 using VPN_SENTINEL_SERVER_API_PORT and VPN_SENTINEL_API_PATH environment variables.
 Exits 0 on success, non-zero otherwise.
 """
+
 import os
 import sys
 import requests

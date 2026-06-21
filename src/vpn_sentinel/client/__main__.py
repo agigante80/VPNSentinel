@@ -4,6 +4,7 @@
 This script replaces the Bash vpn-sentinel-client.sh with a clean Python
 implementation that leverages the vpn_sentinel.common libraries.
 """
+
 import os
 import sys
 import time

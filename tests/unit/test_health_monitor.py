@@ -11,7 +11,6 @@ from unittest.mock import patch, Mock, MagicMock
 
 from vpn_sentinel.common import health_monitor
 
-
 ROOT = Path(__file__).resolve().parents[2]
 MONITOR = ROOT / "src" / "vpn_sentinel" / "common" / "health_monitor.py"
 PYTHON = sys.executable or "python3"

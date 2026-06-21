@@ -76,11 +76,7 @@ def handle_status(chat_id: str, message_text: str) -> None:
 
 No active VPN clients connected.
 
-Server time: """ + datetime.now(
-            timezone.utc
-        ).strftime(
-            "%Y-%m-%d %H:%M:%S UTC"
-        )
+Server time: """ + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         telegram.send_telegram_message(response)
         return
 

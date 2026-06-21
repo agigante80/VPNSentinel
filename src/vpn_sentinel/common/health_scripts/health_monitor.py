@@ -7,6 +7,7 @@ inside `health-monitor.sh`. It's extracted so tests can still read the shell
 script (which still contains a heredoc copy of the code for compatibility),
 but runtime uses this standalone Python module.
 """
+
 import os
 import sys
 import json
