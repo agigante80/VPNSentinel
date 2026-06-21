@@ -34,7 +34,7 @@ python3 -m pytest tests/unit/ --cov=vpn_sentinel.common --cov-report=html
 ### Development Commands
 ```bash
 # Lint code
-python3 -m flake8 vpn-sentinel-server/ vpn-sentinel-client/ vpn_sentinel.common/
+python3 -m flake8 vpn-sentinel-server/ vpn-sentinel-client/ src/vpn_sentinel/common/
 
 # Build Docker images locally
 docker build -t vpn-sentinel-server:latest -f vpn-sentinel-server/Dockerfile .
@@ -78,7 +78,7 @@ bin/local-env verify
 ```bash
 # Required before any commit
 python3 -m pytest tests/unit/ -q
-python3 -m flake8 --max-line-length=120 vpn_sentinel.common/
+python3 -m flake8 --max-line-length=120 src/vpn_sentinel/common/
 ```
 
 ### AI-Assisted Development
@@ -103,7 +103,7 @@ VPNSentinel/
 ├── vpn-sentinel-client/       # Client application
 │   ├── vpn-sentinel-client.py # Pure Python client
 │   └── Dockerfile             # Client image
-├── vpn_sentinel.common/       # Shared library (21 modules)
+├── src/vpn_sentinel/common/       # Shared library (21 modules)
 │   ├── api_routes.py          # API endpoints
 │   ├── config.py              # Configuration
 │   ├── geolocation.py         # IP geolocation

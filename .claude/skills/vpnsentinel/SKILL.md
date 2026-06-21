@@ -101,14 +101,14 @@ Every 60 seconds (configurable via `VPN_SENTINEL_INTERVAL`), the client:
 |---|---|
 | `vpn-sentinel-client/vpn-sentinel-client.py` | Client entry point (keepalive loop, subprocess management) |
 | `vpn-sentinel-server/vpn-sentinel-server.py` | Server entry point (starts 3 Flask apps + cleanup thread) |
-| `vpn_sentinel.common/api_routes.py` | Core API: keepalive handler, client status tracking |
-| `vpn_sentinel.common/dashboard_routes.py` | Web UI (largest module) |
-| `vpn_sentinel.common/telegram.py` | Telegram Bot API: long polling, message formatting |
-| `vpn_sentinel.common/network.py` | DNS trace parsing |
-| `vpn_sentinel.common/geolocation.py` | IP geolocation with cascade fallback |
-| `vpn_sentinel.common/security.py` | Rate limiting (30 req/min/IP), IP whitelist |
-| `vpn_sentinel.common/health.py` | Health check schema and component status |
-| `vpn_sentinel.common/config.py` | All config from env vars (`VPN_SENTINEL_*` prefix) |
+| `src/vpn_sentinel/common/api_routes.py` | Core API: keepalive handler, client status tracking |
+| `src/vpn_sentinel/common/dashboard_routes.py` | Web UI (largest module) |
+| `src/vpn_sentinel/common/telegram.py` | Telegram Bot API: long polling, message formatting |
+| `src/vpn_sentinel/common/network.py` | DNS trace parsing |
+| `src/vpn_sentinel/common/geolocation.py` | IP geolocation with cascade fallback |
+| `src/vpn_sentinel/common/security.py` | Rate limiting (30 req/min/IP), IP whitelist |
+| `src/vpn_sentinel/common/health.py` | Health check schema and component status |
+| `src/vpn_sentinel/common/config.py` | All config from env vars (`VPN_SENTINEL_*` prefix) |
 
 ## Development Workflow
 
@@ -129,7 +129,7 @@ python -m pytest tests/unit/ --cov=vpn_sentinel.common --cov-report=term-missing
 
 **Check linting:**
 ```bash
-flake8 --max-line-length=120 vpn_sentinel.common/ vpn-sentinel-client/ vpn-sentinel-server/
+flake8 --max-line-length=120 src/vpn_sentinel/common/ vpn-sentinel-client/ vpn-sentinel-server/
 ```
 
 **Check server status (from inside container or local):**

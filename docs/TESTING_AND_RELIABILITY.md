@@ -193,7 +193,7 @@ python3 -m pytest tests/unit/test_server.py::test_keepalive_endpoint -v
 ```bash
 # Same commands as CI uses
 python3 -m pytest tests/unit/ -q
-python3 -m flake8 --max-line-length=120 vpn_sentinel.common/
+python3 -m flake8 --max-line-length=120 src/vpn_sentinel/common/
 ```
 
 ---
@@ -252,7 +252,7 @@ xdg-open htmlcov/index.html  # Linux
 python3 -m pytest tests/unit/ -q || exit 1
 
 # Run linting
-python3 -m flake8 --max-line-length=120 vpn_sentinel.common/ || exit 1
+python3 -m flake8 --max-line-length=120 src/vpn_sentinel/common/ || exit 1
 
 echo "✅ All pre-commit checks passed"
 ```
@@ -437,7 +437,7 @@ jobs:
       - name: Run unit tests
         run: python3 -m pytest tests/unit/ -v
       - name: Run linting
-        run: python3 -m flake8 --max-line-length=120 vpn_sentinel.common/
+        run: python3 -m flake8 --max-line-length=120 src/vpn_sentinel/common/
 
   integration-tests:
     runs-on: ubuntu-latest

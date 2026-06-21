@@ -719,10 +719,10 @@ pre-commit install
 pre-commit run --all-files
 
 # Type checking
-mypy vpn-sentinel-server/ vpn_sentinel.common/
+mypy vpn-sentinel-server/ src/vpn_sentinel/common/
 
 # Security scanning
-bandit -r vpn-sentinel-server/ vpn_sentinel.common/
+bandit -r vpn-sentinel-server/ src/vpn_sentinel/common/
 ```
 
 ---

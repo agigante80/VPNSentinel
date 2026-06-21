@@ -315,7 +315,7 @@ labels:
 ```bash
 # Python security scan
 pip install bandit
-bandit -r vpn_sentinel.common/ vpn-sentinel-server/ vpn-sentinel-client/
+bandit -r src/vpn_sentinel/common/ vpn-sentinel-server/ vpn-sentinel-client/
 
 # Dependency scan
 pip install safety

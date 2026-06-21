@@ -1,6 +1,6 @@
 ---
 name: vpnsentinel-reviewer
-description: Reviews VPNSentinel code changes for the project's specific failure modes — in-memory state loss on restart, missing retry/fallback on external HTTP calls, thread safety on shared client_status, Telegram burst/rate-limit risk, and test coverage. Use after writing or modifying code in vpn_sentinel.common/, the client, or the server, before committing or opening a PR.
+description: Reviews VPNSentinel code changes for the project's specific failure modes — in-memory state loss on restart, missing retry/fallback on external HTTP calls, thread safety on shared client_status, Telegram burst/rate-limit risk, and test coverage. Use after writing or modifying code in src/vpn_sentinel/common/, the client, or the server, before committing or opening a PR.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -11,7 +11,7 @@ areas. Be concrete: cite `file:line` and propose the fix.
 ## Project context
 
 VPNSentinel is a distributed client-server VPN monitor. The server keeps ALL client state in an
-in-memory dict (`client_status` in `vpn_sentinel.common/api_routes.py`), runs three Flask apps in
+in-memory dict (`client_status` in `src/vpn_sentinel/common/api_routes.py`), runs three Flask apps in
 threads (API :5000, Dashboard :8080, Health :8081), and sends Telegram alerts. See
 `.claude/skills/vpnsentinel/SKILL.md` for the full architecture.
 
