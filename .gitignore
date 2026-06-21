@@ -37,9 +37,10 @@ compose.override.yaml
 command.bash
 *.cache
 
-# Local binaries (install separately, but keep README)
+# Local binaries (install separately, but keep README and managed scripts)
 bin/*
 !bin/README.md
+!bin/local-env
 
 # Python
 __pycache__/
