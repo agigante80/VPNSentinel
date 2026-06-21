@@ -16,6 +16,7 @@ The module provides:
  - make_health(status, uptime_seconds, components, version=None)
  - validate_health(obj) -> (bool, list[str])
 """
+
 from __future__ import annotations
 
 import time
@@ -223,9 +224,9 @@ def check_client_process(process_name: str = "vpn-sentinel-client") -> str:
         "vpn_sentinel.client",
         "vpn_sentinel/client/__main__.py",
         "vpn-sentinel-client.sh",
-        process_name  # Custom pattern if provided
+        process_name,  # Custom pattern if provided
     ]
-    
+
     try:
         if psutil:
             for p in psutil.process_iter(attrs=["cmdline", "name"]):
@@ -237,14 +238,10 @@ def check_client_process(process_name: str = "vpn-sentinel-client") -> str:
                 for pattern in search_patterns:
                     if pattern in cmd or pattern == p.info.get("name"):
                         return "healthy"
-        
+
         # fallback to pgrep - check each pattern
         for pattern in search_patterns:
-            res = subprocess.run(
-                ["pgrep", "-f", pattern], 
-                stdout=subprocess.DEVNULL, 
-                stderr=subprocess.DEVNULL
-            )
+            res = subprocess.run(["pgrep", "-f", pattern], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if res.returncode == 0:
                 return "healthy"
     except Exception:

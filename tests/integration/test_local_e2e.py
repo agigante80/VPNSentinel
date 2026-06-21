@@ -4,6 +4,7 @@ Runs only when VPN_SENTINEL_E2E=1 (set by `bin/local-env verify`). When the flag
 set, the stack is expected to be UP: connection failures are hard errors, never skips.
 Brought up by tests/docker-compose.test.yaml (see bin/local-env).
 """
+
 import json
 import os
 import time
@@ -37,8 +38,7 @@ def _payload(client_id):
         "timestamp": "2026-06-21T00:00:00+00:00",
         "public_ip": "203.0.113.10",
         "status": "alive",
-        "location": {"country": "US", "city": "X", "region": "Y",
-                     "org": "AS1 Z", "timezone": "UTC"},
+        "location": {"country": "US", "city": "X", "region": "Y", "org": "AS1 Z", "timezone": "UTC"},
         "dns_test": {"location": "US", "colo": "NYC"},
     }
 
@@ -50,8 +50,7 @@ def test_server_health_ok():
 
 def test_keepalive_then_status_shows_client():
     client_id = f"e2e-probe-{int(time.time())}"
-    ka = requests.post(f"{API}/keepalive", headers=AUTH,
-                       data=json.dumps(_payload(client_id)), timeout=10)
+    ka = requests.post(f"{API}/keepalive", headers=AUTH, data=json.dumps(_payload(client_id)), timeout=10)
     assert ka.status_code == 200, f"keepalive -> {ka.status_code}: {ka.text}"
     assert ka.json().get("status") == "ok"
 

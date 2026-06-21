@@ -6,12 +6,14 @@ import sys
 
 def shim_path():
     # Point at the canonical client shim (repaired file)
-    return os.path.normpath(os.path.join(os.path.dirname(__file__), "../../src/vpn_sentinel/common/health_scripts/health_common_shim.py"))
+    return os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "../../src/vpn_sentinel/common/health_scripts/health_common_shim.py")
+    )
 
 
 def run_shim(args):
     env = os.environ.copy()
-    env['PYTHONPATH'] = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../src"))
+    env["PYTHONPATH"] = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../src"))
     cmd = [sys.executable, shim_path()] + args
     p = subprocess.run(cmd, capture_output=True, text=True, env=env)
     return p.returncode, p.stdout.strip(), p.stderr.strip()

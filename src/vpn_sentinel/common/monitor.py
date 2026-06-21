@@ -5,6 +5,7 @@ Contract:
 - Configurable heartbeat interval and a callback invoked on each heartbeat.
 - Emits JSON-serializable heartbeat dicts via the callback when provided.
 """
+
 from __future__ import annotations
 
 import json

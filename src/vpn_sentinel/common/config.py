@@ -3,6 +3,7 @@
 This module centralizes client configuration parsing and client-id generation.
 It is intended to be imported by both server and client code.
 """
+
 from __future__ import annotations
 
 import os
@@ -26,7 +27,7 @@ def generate_client_id(env: Dict[str, str]) -> str:
 
     Args:
         env: mapping of environment variables (use os.environ in production).
-    
+
     Returns:
         Client ID in format: vpn-monitor-{12-random-digits}
     """
@@ -37,7 +38,7 @@ def generate_client_id(env: Dict[str, str]) -> str:
         return cid
 
     # Generate 12 random digits for client ID
-    rand_digits = ''.join(str(random.randint(0, 9)) for _ in range(12))
+    rand_digits = "".join(str(random.randint(0, 9)) for _ in range(12))
     return f"vpn-monitor-{rand_digits}"
 
 

@@ -12,6 +12,7 @@ Functions:
 Returned dict keys: public_ip, country, city, region, org, timezone, source
 If lookup fails, returns an empty dict.
 """
+
 from __future__ import annotations
 
 import json

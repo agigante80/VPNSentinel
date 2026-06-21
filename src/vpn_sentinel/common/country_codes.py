@@ -30,7 +30,6 @@ COUNTRY_NAME_TO_CODE = {
     "hungary": "HU",
     "ireland": "IE",
     "greece": "GR",
-    
     # Americas
     "united states": "US",
     "usa": "US",
@@ -40,7 +39,6 @@ COUNTRY_NAME_TO_CODE = {
     "argentina": "AR",
     "chile": "CL",
     "colombia": "CO",
-    
     # Asia Pacific
     "japan": "JP",
     "australia": "AU",
@@ -56,14 +54,12 @@ COUNTRY_NAME_TO_CODE = {
     "malaysia": "MY",
     "philippines": "PH",
     "new zealand": "NZ",
-    
     # Middle East
     "israel": "IL",
     "united arab emirates": "AE",
     "uae": "AE",
     "saudi arabia": "SA",
     "turkey": "TR",
-    
     # Africa
     "south africa": "ZA",
     "egypt": "EG",
@@ -72,16 +68,16 @@ COUNTRY_NAME_TO_CODE = {
 
 def normalize_country_code(country: str) -> str:
     """Normalize country string to 2-letter ISO code.
-    
+
     Args:
         country: Country string (can be full name, 2-letter code, or unknown)
-    
+
     Returns:
         2-letter ISO country code in uppercase, or original string if:
         - Already a 2-letter code
         - "Unknown" or similar
         - Not recognized
-    
+
     Examples:
         >>> normalize_country_code("Romania")
         "RO"
@@ -94,35 +90,35 @@ def normalize_country_code(country: str) -> str:
     """
     if not country or not isinstance(country, str):
         return "Unknown"
-    
+
     # Strip and handle empty/unknown cases
     country_clean = country.strip()
     if not country_clean or country_clean.lower() in ("unknown", "n/a", "none"):
         return "Unknown"
-    
+
     # If already a 2-letter code, return uppercase
     if len(country_clean) == 2 and country_clean.isalpha():
         return country_clean.upper()
-    
+
     # Try to look up full name
     country_lower = country_clean.lower()
     if country_lower in COUNTRY_NAME_TO_CODE:
         return COUNTRY_NAME_TO_CODE[country_lower]
-    
+
     # Return original if not recognized (keep consistent format)
     return country_clean
 
 
 def compare_country_codes(country1: str, country2: str) -> bool:
     """Compare two country codes/names for equality.
-    
+
     Args:
         country1: First country (code or name)
         country2: Second country (code or name)
-    
+
     Returns:
         True if countries match (after normalization), False otherwise
-    
+
     Examples:
         >>> compare_country_codes("Romania", "RO")
         True
@@ -135,9 +131,9 @@ def compare_country_codes(country1: str, country2: str) -> bool:
     """
     norm1 = normalize_country_code(country1)
     norm2 = normalize_country_code(country2)
-    
+
     # If either is Unknown, cannot definitively compare
     if norm1 == "Unknown" or norm2 == "Unknown":
         return False
-    
+
     return norm1 == norm2

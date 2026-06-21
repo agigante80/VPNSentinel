@@ -1,4 +1,5 @@
 """Dashboard server routes for VPN Sentinel."""
+
 from .server import dashboard_app
 from .log_utils import log_info, get_current_time
 from .server_info import get_server_info
@@ -12,7 +13,7 @@ import os
 
 def get_client_health_status(client, server_ip):
     """Determine client health status based on IP and DNS.
-    
+
     Returns:
         tuple: (status_class, status_icon, status_text, dns_status_icon)
         - status_class: 'status-danger', 'status-warning', or 'status-ok'
@@ -20,69 +21,69 @@ def get_client_health_status(client, server_ip):
         - status_text: description text
         - dns_status_icon: emoji for DNS status
     """
-    client_ip = client.get('ip', 'unknown')
-    dns_loc = client.get('dns_loc', 'Unknown')
-    country = client.get('country', 'Unknown')
-    
+    client_ip = client.get("ip", "unknown")
+    dns_loc = client.get("dns_loc", "Unknown")
+    country = client.get("country", "Unknown")
+
     # RED: Same IP as server or undetectable
-    if client_ip == server_ip or client_ip == 'unknown' or client_ip == 'Unknown':
-        return ('status-danger', '🔴', 'VPN Bypass Detected!', '🔴')
-    
+    if client_ip == server_ip or client_ip == "unknown" or client_ip == "Unknown":
+        return ("status-danger", "🔴", "VPN Bypass Detected!", "🔴")
+
     # Check DNS leak (compare normalized country codes)
     dns_leak = False
-    if dns_loc != 'Unknown' and country != 'Unknown':
+    if dns_loc != "Unknown" and country != "Unknown":
         dns_leak = not compare_country_codes(dns_loc, country)
-    
+
     # YELLOW: Different IP but DNS leak or undetectable DNS
-    if dns_leak or dns_loc == 'Unknown':
-        dns_icon = '🟡' if dns_loc == 'Unknown' else '🟡'
-        return ('status-warning', '🟡', 'DNS Leak Detected' if dns_leak else 'DNS Undetectable', dns_icon)
-    
+    if dns_leak or dns_loc == "Unknown":
+        dns_icon = "🟡" if dns_loc == "Unknown" else "🟡"
+        return ("status-warning", "🟡", "DNS Leak Detected" if dns_leak else "DNS Undetectable", dns_icon)
+
     # GREEN: Different IP and no DNS leak
-    return ('status-ok', '🟢', 'Secure', '🟢')
+    return ("status-ok", "🟢", "Secure", "🟢")
 
 
-@dashboard_app.route('/dashboard')
+@dashboard_app.route("/dashboard")
 def dashboard():
     """Main dashboard page with visual client monitoring."""
     # Get server info
     server_info = get_server_info()
-    server_ip = server_info.get('public_ip', 'Unknown')
-    server_location = server_info.get('location', 'Unknown')
-    server_provider = server_info.get('provider', 'Unknown')
-    dns_status = server_info.get('dns_status', 'Unknown')
-    
+    server_ip = server_info.get("public_ip", "Unknown")
+    server_location = server_info.get("location", "Unknown")
+    server_provider = server_info.get("provider", "Unknown")
+    dns_status = server_info.get("dns_status", "Unknown")
+
     # Get version
     version = get_version()
-    
+
     # Get client statistics
     total_clients = len(client_status)
     online_clients = sum(1 for c in client_status.values() if c)
     offline_clients = total_clients - online_clients
-    
+
     # Get current time (timezone-aware based on TZ environment variable)
     current_dt = get_current_time()
     # Format with timezone abbreviation
-    tz_name = current_dt.tzname() or 'UTC'
-    current_time = current_dt.strftime(f'%Y-%m-%d %H:%M:%S {tz_name}')
-    
+    tz_name = current_dt.tzname() or "UTC"
+    current_time = current_dt.strftime(f"%Y-%m-%d %H:%M:%S {tz_name}")
+
     # Build client rows HTML
     client_rows_html = ""
     if client_status:
         for client_id, client in client_status.items():
             health_class, health_icon, health_text, dns_icon = get_client_health_status(client, server_ip)
-            
-            client_ip = client.get('ip', 'unknown')
-            location = client.get('location', 'Unknown')
-            provider = client.get('provider', 'Unknown')
-            last_seen = client.get('last_seen', 'Never')
-            dns_loc = client.get('dns_loc', 'Unknown')
-            dns_colo = client.get('dns_colo', 'Unknown')
-            client_version = client.get('client_version', 'Unknown')
-            
+
+            client_ip = client.get("ip", "unknown")
+            location = client.get("location", "Unknown")
+            provider = client.get("provider", "Unknown")
+            last_seen = client.get("last_seen", "Never")
+            dns_loc = client.get("dns_loc", "Unknown")
+            dns_colo = client.get("dns_colo", "Unknown")
+            client_version = client.get("client_version", "Unknown")
+
             # Format last seen time
             try:
-                last_seen_dt = datetime.fromisoformat(last_seen.replace('Z', '+00:00'))
+                last_seen_dt = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
                 # Use timezone-aware current time for comparison
                 current_dt = get_current_time()
                 # Convert to UTC for calculation if needed
@@ -92,7 +93,7 @@ def dashboard():
                     current_dt = current_dt.astimezone(timezone.utc)
                 if last_seen_dt.tzinfo != timezone.utc:
                     last_seen_dt = last_seen_dt.astimezone(timezone.utc)
-                
+
                 time_diff = current_dt - last_seen_dt
                 if time_diff.total_seconds() < 60:
                     last_seen_str = "Just now"
@@ -104,7 +105,7 @@ def dashboard():
                     last_seen_str = f"{hours}h ago"
             except:
                 last_seen_str = last_seen
-            
+
             client_rows_html += f"""
             <tr>
                 <td><strong>{client_id}</strong></td>
@@ -134,7 +135,7 @@ def dashboard():
             </td>
         </tr>
         """
-    
+
     html = f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -613,62 +614,62 @@ def dashboard():
     return render_template_string(html)
 
 
-@dashboard_app.route('/dashboard/')
+@dashboard_app.route("/dashboard/")
 def dashboard_slash():
     """Dashboard with trailing slash."""
     return dashboard()
 
 
-@dashboard_app.route('/logs')
+@dashboard_app.route("/logs")
 def server_logs():
     """Display server logs."""
     import sys
     from io import StringIO
-    
+
     # Try multiple log file locations in order of preference
-    log_file = os.getenv('VPN_SENTINEL_LOG_FILE', None)
-    
+    log_file = os.getenv("VPN_SENTINEL_LOG_FILE", None)
+
     # Common log file locations to check
     possible_log_files = [
         log_file,
-        '/tmp/vpn-sentinel-server.log',
-        '/var/log/vpn-sentinel/server.log',
-        '/var/log/vpn-sentinel.log',
-        './vpn-sentinel-server.log',
-        'server.log',
+        "/tmp/vpn-sentinel-server.log",
+        "/var/log/vpn-sentinel/server.log",
+        "/var/log/vpn-sentinel.log",
+        "./vpn-sentinel-server.log",
+        "server.log",
     ]
-    
+
     logs_content = ""
     log_source = "Standard Output"
     found_log = None
-    
+
     # Try each possible log file location
     for possible_file in possible_log_files:
         if possible_file and os.path.exists(possible_file):
             found_log = possible_file
             break
-    
+
     if found_log:
         try:
             # Read last 2000 lines from log file
-            with open(found_log, 'r') as f:
+            with open(found_log, "r") as f:
                 lines = f.readlines()
                 # Show last 2000 lines, or all if less than 2000
                 display_lines = lines[-2000:]
-                
+
                 # Get file stats
                 total_lines = len(lines)
                 displayed_lines = len(display_lines)
-                
+
                 # Add header with file info
                 file_size = os.path.getsize(found_log)
-                file_size_str = f"{file_size:,} bytes" if file_size < 1024*1024 else f"{file_size/(1024*1024):.2f} MB"
-                
+                file_size_str = f"{file_size:,} bytes" if file_size < 1024 * 1024 else f"{file_size/(1024*1024):.2f} MB"
+
                 logs_content = f"=== Showing last {displayed_lines} of {total_lines} total lines | File size: {file_size_str} ===\n\n"
-                logs_content += ''.join(display_lines)
-                
+                logs_content += "".join(display_lines)
+
             log_source = f"Log File: {found_log}"
-            
+
             # If log file is empty
             if not display_lines or not logs_content.strip():
                 logs_content = f"Log file exists but is empty: {found_log}\n\n"
@@ -690,12 +691,12 @@ def server_logs():
             if loc:
                 logs_content += f"  - {loc} (not found)\n"
         logs_content += "\nRecent activity is visible in the dashboard's client status table."
-    
+
     version = get_version()
     current_dt = get_current_time()
-    tz_name = current_dt.tzname() or 'UTC'
-    current_time = current_dt.strftime(f'%Y-%m-%d %H:%M:%S {tz_name}')
-    
+    tz_name = current_dt.tzname() or "UTC"
+    current_time = current_dt.strftime(f"%Y-%m-%d %H:%M:%S {tz_name}")
+
     html = f"""
     <!DOCTYPE html>
     <html lang="en">

@@ -38,3 +38,7 @@ filterwarnings = [
   "ignore::DeprecationWarning",
   "ignore::PendingDeprecationWarning",
 ]
+
+[tool.black]
+line-length = 120
+target-version = ["py312"]

@@ -11,16 +11,16 @@ import requests
 
 try:
     try:
-        requests.get('http://localhost:8081/health', timeout=3).raise_for_status()
-        print('ok:8081')
+        requests.get("http://localhost:8081/health", timeout=3).raise_for_status()
+        print("ok:8081")
         sys.exit(0)
     except Exception:
-        api_port = os.getenv('VPN_SENTINEL_SERVER_API_PORT', '5000')
-        api_path = os.getenv('VPN_SENTINEL_API_PATH', '/api/v1')
-        url = f'http://localhost:{api_port}{api_path}/health'
+        api_port = os.getenv("VPN_SENTINEL_SERVER_API_PORT", "5000")
+        api_path = os.getenv("VPN_SENTINEL_API_PATH", "/api/v1")
+        url = f"http://localhost:{api_port}{api_path}/health"
         requests.get(url, timeout=3).raise_for_status()
-        print(f'ok:{url}')
+        print(f"ok:{url}")
         sys.exit(0)
 except Exception as e:
-    print('healthcheck failed:', e)
+    print("healthcheck failed:", e)
     sys.exit(1)

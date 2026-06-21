@@ -2,6 +2,7 @@
 
 Tests the dashboard web interface accessibility and functionality.
 """
+
 import pytest
 import requests
 import os
@@ -10,9 +11,9 @@ import os
 @pytest.fixture
 def server_base_url():
     """Get the base URL for the test server."""
-    host = os.getenv('VPN_SENTINEL_SERVER_HOST', 'localhost')
+    host = os.getenv("VPN_SENTINEL_SERVER_HOST", "localhost")
     # Use mapped port for Docker test environment
-    port = os.getenv('VPN_SENTINEL_SERVER_DASHBOARD_PORT', '18080')
+    port = os.getenv("VPN_SENTINEL_SERVER_DASHBOARD_PORT", "18080")
     return f"http://{host}:{port}"
 
 
@@ -29,77 +30,78 @@ class TestDashboardEndpoint:
         """Test that dashboard endpoint is accessible."""
         response = requests.get(dashboard_url, timeout=10)
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-        assert response.headers['Content-Type'].startswith('text/html')
+        assert response.headers["Content-Type"].startswith("text/html")
 
     def test_dashboard_with_trailing_slash(self, dashboard_url):
         """Test that dashboard works with trailing slash."""
         response = requests.get(f"{dashboard_url}/", timeout=10)
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-        assert response.headers['Content-Type'].startswith('text/html')
+        assert response.headers["Content-Type"].startswith("text/html")
 
     def test_dashboard_returns_html(self, dashboard_url):
         """Test that dashboard returns valid HTML."""
         response = requests.get(dashboard_url, timeout=10)
         assert response.status_code == 200
-        
+
         html = response.text
-        assert '<!DOCTYPE html>' in html or '<html>' in html
-        assert '<title>' in html
-        assert '</html>' in html
+        assert "<!DOCTYPE html>" in html or "<html>" in html
+        assert "<title>" in html
+        assert "</html>" in html
 
     def test_dashboard_contains_title(self, dashboard_url):
         """Test that dashboard contains the expected title."""
         response = requests.get(dashboard_url, timeout=10)
         assert response.status_code == 200
-        
+
         html = response.text
-        assert 'VPN Sentinel Dashboard' in html
+        assert "VPN Sentinel Dashboard" in html
 
     def test_dashboard_shows_server_status(self, dashboard_url):
         """Test that dashboard displays server status."""
         response = requests.get(dashboard_url, timeout=10)
         assert response.status_code == 200
-        
+
         html = response.text
         # Check for server info section and statistics
-        assert 'Server Details' in html or 'Total Clients' in html
-        assert 'Real-time VPN Client Monitoring' in html or 'VPN Sentinel Dashboard' in html
+        assert "Server Details" in html or "Total Clients" in html
+        assert "Real-time VPN Client Monitoring" in html or "VPN Sentinel Dashboard" in html
 
     def test_dashboard_has_client_monitoring_info(self, dashboard_url):
         """Test that dashboard has client monitoring information."""
         response = requests.get(dashboard_url, timeout=10)
         assert response.status_code == 200
-        
+
         html = response.text
         # Check for client monitoring section
-        assert 'Client' in html or 'client' in html
-        assert 'status' in html.lower() or 'monitoring' in html.lower()
+        assert "Client" in html or "client" in html
+        assert "status" in html.lower() or "monitoring" in html.lower()
 
     def test_dashboard_has_health_check_links(self, dashboard_url):
         """Test that dashboard has health check links."""
         response = requests.get(dashboard_url, timeout=10)
         assert response.status_code == 200
-        
+
         html = response.text
         # Check for GitHub links or monitoring information
-        assert 'github.com' in html.lower() or 'client' in html.lower()
+        assert "github.com" in html.lower() or "client" in html.lower()
 
     def test_dashboard_has_styling(self, dashboard_url):
         """Test that dashboard includes CSS styling."""
         response = requests.get(dashboard_url, timeout=10)
         assert response.status_code == 200
-        
+
         html = response.text
         # Check for style tags or inline styles
-        assert '<style>' in html or 'style=' in html
+        assert "<style>" in html or "style=" in html
 
     def test_dashboard_response_time(self, dashboard_url):
         """Test that dashboard responds quickly."""
         import time
+
         start = time.time()
         response = requests.get(dashboard_url, timeout=10)
         duration = time.time() - start
-        
+
         assert response.status_code == 200
         # Dashboard should respond in less than 2 seconds
         assert duration < 2.0, f"Dashboard took {duration:.2f}s to respond"
@@ -120,19 +122,19 @@ class TestDashboardLinks:
         """Test that status API link is properly formatted."""
         response = requests.get(dashboard_url, timeout=10)
         assert response.status_code == 200
-        
+
         html = response.text
         # Check for client table or status indicators (traffic lights)
-        assert 'VPN Status' in html or 'DNS Leak' in html or 'Client ID' in html
+        assert "VPN Status" in html or "DNS Leak" in html or "Client ID" in html
 
     def test_dashboard_health_link_format(self, dashboard_url):
         """Test that health link is properly formatted."""
         response = requests.get(dashboard_url, timeout=10)
         assert response.status_code == 200
-        
+
         html = response.text
         # Check for GitHub or documentation links
-        assert 'GitHub' in html or 'Documentation' in html
+        assert "GitHub" in html or "Documentation" in html
 
 
 class TestDashboardEdgeCases:
@@ -171,10 +173,10 @@ class TestDashboardContent:
         """Test that dashboard uses emoji indicators for visual clarity."""
         response = requests.get(dashboard_url, timeout=10)
         assert response.status_code == 200
-        
+
         html = response.text
         # Check for emojis used in the new dashboard (traffic lights, server icon, etc)
-        emojis = ['🔒', '🖥️', '⭐', '🐛', '📖', '�', '�', '�', '🔴']
+        emojis = ["🔒", "🖥️", "⭐", "🐛", "📖", "�", "�", "�", "🔴"]
         found_emojis = [emoji for emoji in emojis if emoji in html]
         assert len(found_emojis) > 0, "Dashboard should contain status emojis"
 
@@ -182,23 +184,23 @@ class TestDashboardContent:
         """Test that dashboard has proper HTML structure."""
         response = requests.get(dashboard_url, timeout=10)
         assert response.status_code == 200
-        
+
         html = response.text.lower()
         # Basic HTML structure checks
-        assert '<html' in html
-        assert '<head>' in html or '<head ' in html
-        assert '<body>' in html or '<body ' in html
-        assert '</body>' in html
-        assert '</html>' in html
+        assert "<html" in html
+        assert "<head>" in html or "<head " in html
+        assert "<body>" in html or "<body " in html
+        assert "</body>" in html
+        assert "</html>" in html
 
     def test_dashboard_encoding(self, dashboard_url):
         """Test that dashboard uses proper UTF-8 encoding."""
         response = requests.get(dashboard_url, timeout=10)
         assert response.status_code == 200
-        
+
         # Check encoding in headers or content
-        assert response.encoding in ['utf-8', 'UTF-8'] or 'utf-8' in response.headers.get('Content-Type', '').lower()
-        
+        assert response.encoding in ["utf-8", "UTF-8"] or "utf-8" in response.headers.get("Content-Type", "").lower()
+
         # Should be able to decode emojis without errors
         html = response.text
-        assert '✅' in html or 'VPN Sentinel' in html
+        assert "✅" in html or "VPN Sentinel" in html

@@ -24,21 +24,18 @@ def heartbeat_callback(heartbeat):
 def main():
     """Main entry point for the health monitor."""
     # Get configuration from environment
-    interval = float(os.getenv('VPN_SENTINEL_MONITOR_INTERVAL', '30'))
-    version = os.getenv('VERSION', 'unknown')
-    commit_hash = os.getenv('COMMIT_HASH', 'unknown')
+    interval = float(os.getenv("VPN_SENTINEL_MONITOR_INTERVAL", "30"))
+    version = os.getenv("VERSION", "unknown")
+    commit_hash = os.getenv("COMMIT_HASH", "unknown")
 
     log_info("monitor", f"Starting health monitor (version: {version}, commit: {commit_hash})")
 
     # Create and start the monitor
-    monitor = Monitor(
-        component="health-monitor",
-        interval=interval,
-        on_heartbeat=heartbeat_callback
-    )
+    monitor = Monitor(component="health-monitor", interval=interval, on_heartbeat=heartbeat_callback)
 
     # Handle SIGTERM for graceful shutdown
     stop_requested = False
+
     def signal_handler(signum, frame):
         nonlocal stop_requested
         log_info("monitor", "Received SIGTERM, shutting down gracefully...")

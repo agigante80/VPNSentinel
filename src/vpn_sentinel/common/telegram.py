@@ -1,4 +1,5 @@
 """Telegram integration with notifications and bot commands."""
+
 import requests
 import os
 import sys
@@ -10,21 +11,21 @@ from .log_utils import log_info, log_error, log_warn
 from .country_codes import compare_country_codes
 
 # Read configuration
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '')
-TELEGRAM_ENABLED_ENV = os.getenv('VPN_SENTINEL_TELEGRAM_ENABLED', '').lower()
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+TELEGRAM_ENABLED_ENV = os.getenv("VPN_SENTINEL_TELEGRAM_ENABLED", "").lower()
 
 # Determine if Telegram should be enabled
-if TELEGRAM_ENABLED_ENV == 'true':
+if TELEGRAM_ENABLED_ENV == "true":
     # Explicit enable - validate credentials are present
     if not TELEGRAM_BOT_TOKEN:
-        log_error('telegram', '❌ VPN_SENTINEL_TELEGRAM_ENABLED=true but TELEGRAM_BOT_TOKEN is not set')
+        log_error("telegram", "❌ VPN_SENTINEL_TELEGRAM_ENABLED=true but TELEGRAM_BOT_TOKEN is not set")
         sys.exit(1)
     if not TELEGRAM_CHAT_ID:
-        log_error('telegram', '❌ VPN_SENTINEL_TELEGRAM_ENABLED=true but TELEGRAM_CHAT_ID is not set')
+        log_error("telegram", "❌ VPN_SENTINEL_TELEGRAM_ENABLED=true but TELEGRAM_CHAT_ID is not set")
         sys.exit(1)
     TELEGRAM_ENABLED = True
-elif TELEGRAM_ENABLED_ENV == 'false':
+elif TELEGRAM_ENABLED_ENV == "false":
     # Explicit disable
     TELEGRAM_ENABLED = False
 else:
@@ -47,33 +48,28 @@ def send_telegram_message(message: str, silent: bool = False) -> bool:
         True if message sent successfully
     """
     if not TELEGRAM_ENABLED:
-        log_warn('telegram', '⚠️ Telegram not configured (missing BOT_TOKEN or CHAT_ID)')
+        log_warn("telegram", "⚠️ Telegram not configured (missing BOT_TOKEN or CHAT_ID)")
         return False
 
     try:
         # Log outgoing message
-        preview = message[:100].replace('\n', ' ')
-        log_info('telegram', f'📤 Sending message: {preview}...')
+        preview = message[:100].replace("\n", " ")
+        log_info("telegram", f"📤 Sending message: {preview}...")
 
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        data = {
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": message,
-            "parse_mode": "HTML",
-            "disable_notification": silent
-        }
+        data = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML", "disable_notification": silent}
         response = requests.post(url, json=data, timeout=10, verify=True)
         success = response.status_code == 200
 
         if success:
-            log_info('telegram', '✅ Message sent successfully')
+            log_info("telegram", "✅ Message sent successfully")
         else:
-            log_error('telegram', f'❌ Failed to send message: HTTP {response.status_code}')
-            log_error('telegram', f'Response: {response.text}')
+            log_error("telegram", f"❌ Failed to send message: HTTP {response.status_code}")
+            log_error("telegram", f"Response: {response.text}")
 
         return success
     except Exception as e:
-        log_error('telegram', f'❌ Error sending message: {e}')
+        log_error("telegram", f"❌ Error sending message: {e}")
         return False
 
 
@@ -88,7 +84,7 @@ def format_datetime(dt: Optional[datetime] = None) -> str:
     """
     if dt is None:
         dt = datetime.now(timezone.utc)
-    return dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+    return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
 def notify_server_started(alert_threshold_min: int = 15, check_interval_min: int = 5) -> bool:
@@ -133,11 +129,20 @@ Time: {format_datetime()}
     return send_telegram_message(message)
 
 
-def notify_client_connected(client_id: str, vpn_ip: str, location: str,
-                            city: str, region: str, country: str,
-                            provider: str, timezone: str,
-                            dns_loc: str = "Unknown", dns_colo: str = "Unknown",
-                            server_ip: str = "Unknown", client_version: str = "Unknown") -> bool:
+def notify_client_connected(
+    client_id: str,
+    vpn_ip: str,
+    location: str,
+    city: str,
+    region: str,
+    country: str,
+    provider: str,
+    timezone: str,
+    dns_loc: str = "Unknown",
+    dns_colo: str = "Unknown",
+    server_ip: str = "Unknown",
+    client_version: str = "Unknown",
+) -> bool:
     """Send notification when a VPN client connects.
 
     Args:
@@ -166,9 +171,8 @@ def notify_client_connected(client_id: str, vpn_ip: str, location: str,
     else:
         # VPN is working, check DNS leak
         # Compare normalized country codes (handles "Romania" vs "RO")
-        dns_leak = (dns_loc != "Unknown" and country != "Unknown" and 
-                   not compare_country_codes(dns_loc, country))
-        
+        dns_leak = dns_loc != "Unknown" and country != "Unknown" and not compare_country_codes(dns_loc, country)
+
         if dns_leak:
             status_emoji = "🟡"
             status_text = "<b>⚠️ DNS Leak Detected</b>"
@@ -207,11 +211,20 @@ DNS Server: {dns_colo}
     return send_telegram_message(message)
 
 
-def notify_ip_changed(client_id: str, old_ip: str, new_ip: str,
-                      city: str, region: str, country: str,
-                      provider: str, timezone: str,
-                      dns_loc: str = "Unknown", dns_colo: str = "Unknown",
-                      server_ip: str = "Unknown", client_version: str = "Unknown") -> bool:
+def notify_ip_changed(
+    client_id: str,
+    old_ip: str,
+    new_ip: str,
+    city: str,
+    region: str,
+    country: str,
+    provider: str,
+    timezone: str,
+    dns_loc: str = "Unknown",
+    dns_colo: str = "Unknown",
+    server_ip: str = "Unknown",
+    client_version: str = "Unknown",
+) -> bool:
     """Send notification when a client's VPN IP changes.
 
     Args:
@@ -240,9 +253,8 @@ def notify_ip_changed(client_id: str, old_ip: str, new_ip: str,
     else:
         # VPN is working, check DNS leak
         # Compare normalized country codes (handles "Romania" vs "RO")
-        dns_leak = (dns_loc != "Unknown" and country != "Unknown" and 
-                   not compare_country_codes(dns_loc, country))
-        
+        dns_leak = dns_loc != "Unknown" and country != "Unknown" and not compare_country_codes(dns_loc, country)
+
         if dns_leak:
             status_emoji = "🟡"
             status_text = "<b>⚠️ DNS Leak Detected</b>"
@@ -290,7 +302,7 @@ def register_command(command: str, handler: Callable) -> None:
         handler: Function to call with (chat_id, message_text)
     """
     _command_handlers[command] = handler
-    log_info('telegram', f'📝 Registered command: /{command}')
+    log_info("telegram", f"📝 Registered command: /{command}")
 
 
 def get_updates(offset: int = 0) -> list:
@@ -312,12 +324,12 @@ def get_updates(offset: int = 0) -> list:
 
         if response.status_code == 200:
             data = response.json()
-            return data.get('result', [])
+            return data.get("result", [])
         else:
-            log_error('telegram', f'❌ Failed to get updates: HTTP {response.status_code}')
+            log_error("telegram", f"❌ Failed to get updates: HTTP {response.status_code}")
             return []
     except Exception as e:
-        log_error('telegram', f'❌ Error getting updates: {e}')
+        log_error("telegram", f"❌ Error getting updates: {e}")
         return []
 
 
@@ -330,9 +342,9 @@ def process_command(chat_id: str, message_text: str, message_id: int) -> None:
         message_id: Message ID
     """
     # Log incoming message
-    log_info('telegram', f'📥 Received message (ID {message_id}): {message_text}')
+    log_info("telegram", f"📥 Received message (ID {message_id}): {message_text}")
 
-    if not message_text.startswith('/'):
+    if not message_text.startswith("/"):
         # Not a command, send helpful response
         response = f"""👋 Hello! I'm your VPN monitoring bot.
 
@@ -351,10 +363,10 @@ Use /help to see available commands.
     command = message_text.split()[0][1:].lower()  # Remove / and get first word
 
     if command in _command_handlers:
-        log_info('telegram', f'🎯 Processing command: /{command}')
+        log_info("telegram", f"🎯 Processing command: /{command}")
         _command_handlers[command](chat_id, message_text)
     else:
-        log_warn('telegram', f'⚠️ Unknown command: /{command}')
+        log_warn("telegram", f"⚠️ Unknown command: /{command}")
         response = f"""❓ Unknown command: /{command}
 
 <b>Available commands:</b>
@@ -368,32 +380,32 @@ def polling_loop() -> None:
     """Main polling loop for Telegram bot (runs in background thread)."""
     global _last_update_id
 
-    log_info('telegram', '🤖 Starting Telegram bot polling loop')
+    log_info("telegram", "🤖 Starting Telegram bot polling loop")
 
     while True:
         try:
             updates = get_updates(_last_update_id + 1)
 
             for update in updates:
-                _last_update_id = update['update_id']
+                _last_update_id = update["update_id"]
 
                 # Extract message info
-                if 'message' in update:
-                    message = update['message']
-                    chat_id = str(message['chat']['id'])
-                    message_text = message.get('text', '')
-                    message_id = message['message_id']
+                if "message" in update:
+                    message = update["message"]
+                    chat_id = str(message["chat"]["id"])
+                    message_text = message.get("text", "")
+                    message_id = message["message_id"]
 
                     # Only process if from our configured chat
                     if chat_id == TELEGRAM_CHAT_ID:
                         process_command(chat_id, message_text, message_id)
                     else:
-                        log_warn('telegram', f'⚠️ Ignoring message from unauthorized chat: {chat_id}')
+                        log_warn("telegram", f"⚠️ Ignoring message from unauthorized chat: {chat_id}")
 
             time.sleep(1)  # Brief pause between polling cycles
 
         except Exception as e:
-            log_error('telegram', f'❌ Error in polling loop: {e}')
+            log_error("telegram", f"❌ Error in polling loop: {e}")
             time.sleep(5)  # Longer pause on error
 
 
@@ -404,10 +416,10 @@ def start_polling() -> threading.Thread:
         Thread object running the polling loop
     """
     if not TELEGRAM_ENABLED:
-        log_warn('telegram', '⚠️ Telegram polling not started (not configured)')
+        log_warn("telegram", "⚠️ Telegram polling not started (not configured)")
         return None
 
-    thread = threading.Thread(target=polling_loop, daemon=True, name='telegram-bot')
+    thread = threading.Thread(target=polling_loop, daemon=True, name="telegram-bot")
     thread.start()
-    log_info('telegram', '✅ Telegram bot polling started')
+    log_info("telegram", "✅ Telegram bot polling started")
     return thread
