@@ -25,3 +25,13 @@ frame
 args    # security.py — log_access(*args, **kwargs) compatibility shim
 kwargs
 size    # server_utils.py — handler arg required by the framework signature
+
+# Public API with test coverage (documented surface; vulture 60% false positive)
+validate_health    # health.py: public health-schema validator, used by integration + unit tests
+is_running         # monitor.py: documented Monitor API method; Monitor is used in health_monitor.py
+
+# Test-only helpers (no production caller; intentional sample/util functions exercised by tests)
+sample_health_ok   # health.py: sample-payload generator for health tests
+heartbeat_json     # monitor.py: public Monitor method, exercised only by tests
+get_version_info   # version.py: version-info dict helper, exercised only by tests
+parse_geolocation  # network.py: public parser used via client shims/tests
