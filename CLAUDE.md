@@ -66,7 +66,10 @@ docker compose up -d
 docker compose logs -f vpn-sentinel-server
 ```
 
-Coverage gate is **80%** (`pyproject.toml`). Python **3.12** in CI (`requires-python >=3.10`).
+Coverage gate is **80%** on `vpn_sentinel.common`, enforced in CI's unit job and the `/test` command
+(`--cov=vpn_sentinel.common --cov-fail-under=80`). It is NOT in the global pytest addopts — black-box
+E2E/integration runs (`bin/local-env verify`) must stay coverage-free. Python **3.12** in CI
+(`requires-python >=3.10`).
 
 ## Working agreements
 

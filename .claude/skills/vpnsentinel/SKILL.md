@@ -142,7 +142,7 @@ curl -s http://localhost:5000/status | python3 -m json.tool
 - `tests/integration/` — full Docker stack, slower
 - `tests/smoke/` — real-world shell scripts for manual validation
 - Markers: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.network`, `@pytest.mark.docker`
-- Coverage requirement: 80% minimum (enforced in `pyproject.toml`)
+- Coverage requirement: 80% minimum on `vpn_sentinel.common` (enforced in CI's unit job + `/test`: `--cov=vpn_sentinel.common --cov-fail-under=80`)
 
 ## Deployment Scenarios
 

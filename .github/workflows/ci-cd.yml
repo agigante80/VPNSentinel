@@ -147,9 +147,10 @@ jobs:
             --tb=short \
             --color=yes \
             --junitxml=test-results.xml \
-            --cov=vpn_sentinel \
+            --cov=vpn_sentinel.common \
             --cov-report=xml \
-            --cov-report=term
+            --cov-report=term \
+            --cov-fail-under=80
 
       - name: Upload test results
         if: always()

@@ -7,7 +7,7 @@ Run the VPNSentinel tests and report results.
 
 Scope requested: `$ARGUMENTS` (default to unit tests if empty).
 
-- **unit / empty:** `python -m pytest tests/unit/ --tb=short --cov=vpn_sentinel.common --cov-report=term`
+- **unit / empty:** `python -m pytest tests/unit/ --tb=short --cov=vpn_sentinel.common --cov-report=term --cov-fail-under=80`
 - **integration:** `./tests/run_tests.sh --integration` (requires a running server / Docker)
 - **all:** `./tests/run_tests.sh --all`
 
