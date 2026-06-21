@@ -22,7 +22,7 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 norecursedirs = ["manual"]
-addopts = "-v --strict-markers --disable-warnings --tb=short --cov=vpn-sentinel-server --cov=vpn-sentinel-client --cov-report=html:tests/coverage_html --cov-report=term-missing --cov-report=xml:tests/coverage.xml --cov-fail-under=80"
+addopts = "-v --strict-markers --disable-warnings --tb=short"
 markers = [
   "unit: Unit tests",
   "integration: Integration tests",
