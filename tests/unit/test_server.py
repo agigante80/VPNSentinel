@@ -1062,7 +1062,7 @@ class TestHealthServer(unittest.TestCase):
             try:
                 # Try importing via importlib if direct import fails
                 import importlib.util
-                server_path = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-server/vpn-sentinel-server.py')
+                server_path = os.path.join(os.path.dirname(__file__), '../../src/vpn_sentinel/server/__main__.py')
                 spec = importlib.util.spec_from_file_location('vpn_sentinel_server', server_path)
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
@@ -1073,7 +1073,7 @@ class TestHealthServer(unittest.TestCase):
                 module.TELEGRAM_CHAT_ID = ""
             except Exception:
                 self.skipTest("Cannot import health_app")
-        
+
         # Mock requests.get to simulate successful Telegram connectivity
         # Patch in the imported module's namespace
         try:
@@ -1082,7 +1082,7 @@ class TestHealthServer(unittest.TestCase):
         except ImportError:
             # If direct import failed, patch in the dynamically loaded module
             import importlib.util
-            server_path = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-server/vpn-sentinel-server.py')
+            server_path = os.path.join(os.path.dirname(__file__), '../../src/vpn_sentinel/server/__main__.py')
             spec = importlib.util.spec_from_file_location('vpn_sentinel_server', server_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
