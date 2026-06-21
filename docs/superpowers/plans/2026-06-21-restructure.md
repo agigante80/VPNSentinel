@@ -13,7 +13,7 @@
 - Branch: `develop`. Commit after each task. End every commit message with `Refs #76`-style is NOT required here (this is Spec 2, not #76) — instead reference the restructure; end each message with:
   `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
 - Zero behavior change. Baselines that must stay constant:
-  - Unit suite: **562 passed / 93 skipped** (`python -m pytest tests/unit/ --no-cov` for count; full `pytest tests/unit/` keeps the **80%** coverage gate).
+  - Unit suite: **559 passed / 93 skipped** for `tests/unit/` (the 3 `tests/utils/` CLI tests bring unit+utils to 562) (`python -m pytest tests/unit/ --no-cov` for count; full `pytest tests/unit/` keeps the **80%** coverage gate).
   - `bin/local-env verify`: **23/23** green, exits 0, no leftover containers.
 - No absolute `/home/$USER` paths. bash passes `shellcheck` (`.shellcheckrc`: `shell=dash`; bash scripts carry `# shellcheck shell=bash`) and `shfmt -i 2 -ci`.
 - After any task that moves or deletes a path, a repo-wide grep for the old path (excluding `.git/`, `.superpowers/`, and `docs/superpowers/`) must return nothing.
@@ -60,7 +60,7 @@ test-results.xml
 grep -rn "unit-test-results.xml" . --include="*.yml" --include="*.yaml" --include="*.md" --include="*.sh" | grep -v '.git/\|.superpowers/\|docs/superpowers/'
 python -m pytest tests/unit/ --no-cov -q | tail -1
 ```
-Expected: grep finds only the new `.gitignore` line (or, if CI writes `unit-test-results.xml`, leave that write alone — it's now git-ignored). Unit suite: `562 passed, 93 skipped`.
+Expected: grep finds only the new `.gitignore` line (or, if CI writes `unit-test-results.xml`, leave that write alone — it's now git-ignored). Unit suite: `559 passed, 93 skipped`.
 
 - [ ] **Step 5: Commit**
 
@@ -186,7 +186,7 @@ git rm pytest.ini
 ```bash
 python -m pytest tests/unit/ -q | tail -3
 ```
-Expected: `562 passed, 93 skipped`, and the coverage section prints with the 80% gate enforced (no `coverage failure`). If pytest warns it cannot find config, confirm `[tool.pytest.ini_options]` is valid TOML (`python3 -c "import tomllib; tomllib.load(open('pyproject.toml','rb')); print('toml ok')"`).
+Expected: `559 passed, 93 skipped`, and the coverage section prints with the 80% gate enforced (no `coverage failure`). If pytest warns it cannot find config, confirm `[tool.pytest.ini_options]` is valid TOML (`python3 -c "import tomllib; tomllib.load(open('pyproject.toml','rb')); print('toml ok')"`).
 
 - [ ] **Step 4: Confirm nothing references pytest.ini**
 
@@ -414,7 +414,7 @@ python -m pytest tests/integration/ -q --no-cov -p no:cacheprovider --co | tail 
 VPN_SENTINEL_SERVER_TESTS=1 python -m pytest tests/integration/server_dependent/ --co -q | tail -5
 bin/local-env verify
 ```
-Expected: unit suite `562 passed, 93 skipped`; `tests/integration/` collects without import errors and still excludes `manual/` (via `norecursedirs`); the server_dependent suite collects under its new path; `bin/local-env verify` green 23/23 (its tests live in `tests/integration/test_local_e2e.py` and `tests/integration/test_dashboard.py`, unaffected by the rename).
+Expected: unit suite `559 passed, 93 skipped`; `tests/integration/` collects without import errors and still excludes `manual/` (via `norecursedirs`); the server_dependent suite collects under its new path; `bin/local-env verify` green 23/23 (its tests live in `tests/integration/test_local_e2e.py` and `tests/integration/test_dashboard.py`, unaffected by the rename).
 
 - [ ] **Step 7: Confirm no dangling references and commit**
 
@@ -441,7 +441,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 **Placeholder scan:** No TBD/TODO. The two genuine unknowns are resolved by in-task discovery steps before action: the exact reference list (Task 2/5 Step 1 re-greps) and the duplicate-file identity (Task 5 Step 2 diff). The merged `compose.yaml` is given in full.
 
-**Consistency:** Path names are consistent across tasks (`scripts/get_version.sh`, `tests/manual/`, `tests/integration/server_dependent/`, single `compose.yaml`). Baselines (`562 passed / 93 skipped`, `bin/local-env verify` 23/23) are stated identically in every gate. `norecursedirs = ["manual"]` is added in Task 3 and relied on in Task 5.
+**Consistency:** Path names are consistent across tasks (`scripts/get_version.sh`, `tests/manual/`, `tests/integration/server_dependent/`, single `compose.yaml`). Baselines (`559 passed / 93 skipped`, `bin/local-env verify` 23/23) are stated identically in every gate. `norecursedirs = ["manual"]` is added in Task 3 and relied on in Task 5.
 
 ## Out of scope (later specs)
 - **Spec 2b:** source/package rename (`vpn-sentinel-*` → consistent importable layout), verify-guarded.
