@@ -96,18 +96,13 @@ jobs:
       - name: Install linting dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 pylint
+          pip install flake8 pylint black
+
+      - name: Run black --check
+        run: black --check --line-length 120 src/ tests/
 
       - name: Run flake8
-        continue-on-error: true
-        run: |
-          echo "Running flake8..."
-          flake8 src/vpn_sentinel/ \
-            --count \
-            --select=E9,F63,F7,F82 \
-            --show-source \
-            --statistics \
-            --exclude=__pycache__,*.pyc,venv,htmlcov,.git
+        run: flake8 --max-line-length=120 src/ --count --show-source --statistics --exclude=__pycache__,*.pyc,venv,htmlcov,.git
 
       - name: Run pylint
         continue-on-error: true
