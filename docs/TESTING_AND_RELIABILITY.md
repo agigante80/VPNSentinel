@@ -130,7 +130,7 @@ python3 -m pytest tests/integration/ -v
 
 ---
 
-### 3. Smoke Tests
+### 3. Local End-to-End Check
 
 **Purpose**: Validate Docker builds and deployments
 
@@ -142,7 +142,7 @@ python3 -m pytest tests/integration/ -v
 
 **Run Command**:
 ```bash
-bash scripts/smoke/run_local_smoke.sh
+bin/local-env verify
 ```
 
 **What It Tests**:
