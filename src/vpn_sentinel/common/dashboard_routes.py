@@ -682,7 +682,7 @@ def server_logs():
         # If no log file found, show helpful message
         logs_content = "No log file found. Server logs are being sent to standard output (stdout).\n\n"
         logs_content += "To enable persistent file logging, redirect output when starting the server:\n"
-        logs_content += "  python3 vpn-sentinel-server.py > /var/log/vpn-sentinel.log 2>&1 &\n\n"
+        logs_content += "  python -m vpn_sentinel.server > /var/log/vpn-sentinel.log 2>&1 &\n\n"
         logs_content += "Or set VPN_SENTINEL_LOG_FILE environment variable:\n"
         logs_content += "  export VPN_SENTINEL_LOG_FILE=/var/log/vpn-sentinel/server.log\n\n"
         logs_content += "Checked locations:\n"

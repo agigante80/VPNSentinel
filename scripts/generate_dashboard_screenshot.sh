@@ -27,7 +27,7 @@ if ! curl -sf "${HEALTH_URL}/health" > /dev/null 2>&1; then
     echo "❌ Server not running (health check at ${HEALTH_URL}/health failed)"
     echo "Please start the server first:"
     echo "  cd ${ROOT_DIR}"
-    echo "  PYTHONPATH=${ROOT_DIR} python3 vpn-sentinel-server/vpn-sentinel-server.py"
+    echo "  PYTHONPATH=${ROOT_DIR} python -m vpn_sentinel.server"
     exit 1
 fi
 

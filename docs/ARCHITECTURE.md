@@ -55,12 +55,12 @@ External Services:
 
 ## Component Architecture
 
-### 1. VPN Sentinel Server (`vpn-sentinel-server/`)
+### 1. VPN Sentinel Server (`src/vpn_sentinel/server/`)
 
 **Purpose**: Central monitoring hub, notification dispatcher, API provider
 
 **Key Files**:
-- `vpn-sentinel-server.py` - Main application with Flask multi-app server
+- `__main__.py` - Main application with Flask multi-app server
 - `Dockerfile` - Alpine-based Python 3.12 container image
 - `health-monitor-wrapper.sh` - Wrapper script for health monitoring
 - `health-monitor.py` - Health monitoring implementation
@@ -117,12 +117,12 @@ External Services:
 
 ---
 
-### 2. VPN Sentinel Client (`vpn-sentinel-client/`)
+### 2. VPN Sentinel Client (`src/vpn_sentinel/client/`)
 
 **Purpose**: VPN connectivity monitoring agent, runs inside VPN network
 
 **Key Files**:
-- `vpn-sentinel-client.py` - Python monitoring client (current)
+- `__main__.py` - Python monitoring client
 - `vpn-sentinel-client.sh` - Legacy bash client (deprecated)
 - `Dockerfile` - Alpine-based Python 3.12 container image
 - `health-monitor.py` - Health monitoring implementation
@@ -702,13 +702,13 @@ ENV COMMIT_HASH=${COMMIT_HASH}
 
 1. **VPN Sentinel Server** (`agigante80/vpn-sentinel-server`)
    - Context: Repository root
-   - Dockerfile: `vpn-sentinel-server/Dockerfile`
+   - Dockerfile: `src/vpn_sentinel/server/Dockerfile`
    - Platforms: `linux/amd64`, `linux/arm64`
    - Size: ~80MB
 
 2. **VPN Sentinel Client** (`agigante80/vpn-sentinel-client`)
    - Context: Repository root
-   - Dockerfile: `vpn-sentinel-client/Dockerfile`
+   - Dockerfile: `src/vpn_sentinel/client/Dockerfile`
    - Platforms: `linux/amd64`, `linux/arm64`
    - Size: ~50MB
 

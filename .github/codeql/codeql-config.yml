@@ -123,7 +123,7 @@ query-filters:
   #
   # Production code status:
   #   ✅ Alert #20 (Nov 15): Fixed in src/vpn_sentinel/common/dashboard_routes.py
-  #   ✅ Alert #6 (Oct 29): Fixed in vpn-sentinel-server/vpn-sentinel-server.py
+  #   ✅ Alert #6 (Oct 29): Fixed in src/vpn_sentinel/server/__main__.py
   #   ✅ Alerts #1-2 (Oct 15): Fixed in server
   #   ✅ Production uses generic error messages, logs detailed errors server-side
   #

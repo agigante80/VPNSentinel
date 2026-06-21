@@ -110,7 +110,7 @@ colo=LHR"""
 
 
 # Note: The following tests for get_dns_info and send_keepalive functions
-# are skipped because vpn-sentinel-client.py is not a Python module.
+# are skipped because they require a running server.
 # The parse_dns_trace tests above provide coverage for the core DNS parsing logic.
 # Integration tests in tests/integration/ cover the complete keepalive flow.
 

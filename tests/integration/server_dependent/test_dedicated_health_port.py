@@ -15,7 +15,7 @@ import subprocess
 
 
 def test_server_runs_on_dedicated_health_port():
-    server_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-server/vpn-sentinel-server.py'))
+    server_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/vpn_sentinel/server/__main__.py'))
     if not os.path.exists(server_script):
         pytest.skip("Server script not present in workspace")
 

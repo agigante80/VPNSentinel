@@ -10,12 +10,12 @@ class TestClientProcessDetection(unittest.TestCase):
     @patch('vpn_sentinel.common.health.subprocess.run')
     @patch('vpn_sentinel.common.health.psutil', None)
     def test_detects_python_client(self, mock_run):
-        """Test that Python client (vpn-sentinel-client.py) is detected."""
+        """Test that Python client (python -m vpn_sentinel.client) is detected."""
         # Mock pgrep finding the Python client
         mock_run.return_value = Mock(returncode=0)
-        
+
         result = check_client_process()
-        
+
         assert result == "healthy"
         # Should try multiple patterns
         assert mock_run.call_count >= 1
@@ -48,16 +48,16 @@ class TestClientProcessDetection(unittest.TestCase):
     @patch('vpn_sentinel.common.health.psutil')
     def test_uses_psutil_when_available(self, mock_psutil):
         """Test that psutil is used when available."""
-        # Mock process with Python client in cmdline
+        # Mock process with Python client (python -m vpn_sentinel.client) in cmdline
         mock_proc = Mock()
         mock_proc.info = {
-            'cmdline': ['/usr/bin/python3', '/app/vpn-sentinel-client.py'],
+            'cmdline': ['/usr/bin/python3', '-m', 'vpn_sentinel.client'],
             'name': 'python3'
         }
         mock_psutil.process_iter.return_value = [mock_proc]
-        
+
         result = check_client_process()
-        
+
         assert result == "healthy"
         mock_psutil.process_iter.assert_called_once()
     

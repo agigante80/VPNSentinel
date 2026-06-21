@@ -171,11 +171,11 @@ Run the same checks locally:
 
 ```bash
 # Syntax checks
-python -m py_compile vpn-sentinel-server/vpn-sentinel-server.py
-bash -n vpn-sentinel-client/vpn-sentinel-client.sh
+python -m py_compile src/vpn_sentinel/server/__main__.py
+python -m py_compile src/vpn_sentinel/client/__main__.py
 
 # Style checks
-flake8 vpn-sentinel-server/ --max-line-length=127
+flake8 src/ --max-line-length=120
 
 # All tests
 ./tests/run_tests.sh --all

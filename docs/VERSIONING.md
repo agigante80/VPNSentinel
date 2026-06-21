@@ -118,7 +118,7 @@ docker build \
   --build-arg VERSION=$VERSION \
   --build-arg COMMIT_HASH=$COMMIT_HASH \
   -t vpn-sentinel-server:$VERSION \
-  -f vpn-sentinel-server/Dockerfile \
+  -f src/vpn_sentinel/server/Dockerfile \
   .
 ```
 
@@ -382,7 +382,7 @@ BREAKING CHANGE: keepalive endpoint now requires ISO 8601 timestamps"
 docker build --build-arg VERSION=$(./scripts/get_version.sh) ...
 
 # Check Dockerfile has ARG/ENV
-grep -A2 "ARG VERSION" vpn-sentinel-server/Dockerfile
+grep -A2 "ARG VERSION" src/vpn_sentinel/server/Dockerfile
 ```
 
 ### Git Describe Fails

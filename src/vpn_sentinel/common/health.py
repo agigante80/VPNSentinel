@@ -218,9 +218,10 @@ def check_client_process(process_name: str = "vpn-sentinel-client") -> str:
     Searches for both Python (.py) and shell (.sh) client processes.
     Tries psutil first, then falls back to `pgrep -f` on POSIX systems.
     """
-    # Support both Python and shell client scripts
+    # Support new package entry point and legacy shell script
     search_patterns = [
-        "vpn-sentinel-client.py",
+        "vpn_sentinel.client",
+        "vpn_sentinel/client/__main__.py",
         "vpn-sentinel-client.sh",
         process_name  # Custom pattern if provided
     ]

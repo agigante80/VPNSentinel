@@ -33,8 +33,8 @@ Recommended workflow
 
    ```bash
    # from repo root
-   docker build -t vpn-sentinel-server:local vpn-sentinel-server/
-   docker build -t vpn-sentinel-client:local vpn-sentinel-client/
+   docker build -t vpn-sentinel-server:local -f src/vpn_sentinel/server/Dockerfile .
+   docker build -t vpn-sentinel-client:local -f src/vpn_sentinel/client/Dockerfile .
    ```
 
 2. Start server with Docker Compose (if you prefer):
