@@ -4,7 +4,7 @@
 Usage:
     export TELEGRAM_BOT_TOKEN="your-bot-token"
     export TELEGRAM_CHAT_ID="your-chat-id"
-    python3 tests/test_telegram_manual.py
+    python3 tests/manual/test_telegram_manual.py
 """
 import sys
 import os

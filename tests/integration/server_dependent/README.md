@@ -5,7 +5,7 @@ These tests exercise the VPN Sentinel server and require a running server (or Do
 How to run
 ---------
 
-Enable the integration_server suite explicitly and run pytest:
+Enable the integration/server_dependent suite explicitly and run pytest:
 
 ```bash
 export VPN_SENTINEL_SERVER_TESTS=1
@@ -15,7 +15,7 @@ export VPN_SENTINEL_API_PATH=/api/v1
 # If the server expects an API key
 export VPN_SENTINEL_API_KEY=your_test_api_key
 
-pytest -q tests/integration_server
+pytest -q tests/integration/server_dependent
 ```
 
 Notes and requirements
@@ -48,7 +48,7 @@ Recommended workflow
 CI recommendation
 -----------------
 
-Keep these tests out of the default CI test matrix. Add an opt-in job that runs `pytest tests/integration_server` only when a pipeline variable (for example `run_server_tests=true`) is set.
+Keep these tests out of the default CI test matrix. Add an opt-in job that runs `pytest tests/integration/server_dependent` only when a pipeline variable (for example `run_server_tests=true`) is set.
 
 Troubleshooting
 ---------------

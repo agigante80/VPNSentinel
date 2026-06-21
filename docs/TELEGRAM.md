@@ -86,7 +86,7 @@ INFO [telegram] ✅ Message sent successfully
 ### Quick Test Script
 
 ```bash
-python3 tests/test_telegram_manual.py
+python3 tests/manual/test_telegram_manual.py
 ```
 
 This sends test notifications for all message types.
