@@ -96,46 +96,30 @@ ENV PATH="/opt/venv/bin:$PATH"
 # -----------------------------------------------------------------------------
 # Script Installation and Configuration
 # -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# VPN Sentinel Client Script
-# -----------------------------------------------------------------------------
-# Copy the main VPN Sentinel client script
-
-# Copy the entire vpn-sentinel-client directory into the image so runtime
-# scripts and the full lib/ are included. This avoids a mismatch where the
-# top-level repo `lib/` differs from the client-specific `vpn-sentinel-client/lib/`.
-# Copy the client sources into the image
-COPY vpn-sentinel-client/ /app/
-
-# Copy repository metadata and the shared package so an editable install works
-# `pip install -e /app` requires a Python project file (pyproject.toml or setup.py)
-# and the package sources to be present in the target directory. The project
-# root contains `pyproject.toml` and the `vpn_sentinel_common/` package, so
-# copy them into /app before running the editable install.
+# Copy repository metadata and package sources so pip install works
 COPY pyproject.toml /app/pyproject.toml
-COPY vpn_sentinel_common/ /app/vpn_sentinel_common/
+COPY src/ /app/src/
 
 # Install shared python package so client and server import the same codebase.
-# Using editable install keeps the code in-sync during development and CI.
-RUN python3 -m pip install --no-cache-dir --retries 10 --timeout 60 -e /app
+# Non-editable install bakes the package into site-packages.
+RUN python3 -m pip install --no-cache-dir --retries 10 --timeout 60 /app
 
-# Ensure healthcheck script is explicitly copied for tests that inspect the Dockerfile
-COPY vpn_sentinel_common/health_scripts/healthcheck.py /app/healthcheck.py
-COPY vpn_sentinel_common/health_scripts/health_monitor_wrapper.py /app/health-monitor.py
-COPY vpn-sentinel-client/vpn-sentinel-client.py /app/vpn-sentinel-client.py
+# Ensure healthcheck scripts are explicitly copied for container health checks
+COPY src/vpn_sentinel/common/health_scripts/healthcheck.py /app/healthcheck.py
+COPY src/vpn_sentinel/common/health_scripts/health_monitor_wrapper.py /app/health-monitor.py
 
 # NOTE: the legacy `health_common.py` shim has been migrated to the canonical
 # `vpn_sentinel_common` package and is no longer copied into the image. The
-# editable install (`pip install -e /app`) installs the canonical package so
+# install (`pip install /app`) installs the canonical package so
 # runtime falls back to that implementation instead of the old local shim.
 
 # Make the scripts executable and set proper ownership
 # Ensures the scripts can be executed by the container runtime
-RUN for f in /app/vpn-sentinel-client.py /app/health-monitor.py /app/healthcheck.py /app/vpn_sentinel_common/health_scripts/health_monitor_wrapper.py; do \
+RUN for f in /app/health-monitor.py /app/healthcheck.py /app/src/vpn_sentinel/common/health_scripts/health_monitor_wrapper.py; do \
             if [ -f "$f" ]; then chmod +x "$f"; fi; \
         done \
         && echo "VPN Sentinel client container built successfully" \
-        && ls -la /app/vpn-sentinel-client.py /app/health-monitor.py /app/healthcheck.py || true
+        && ls -la /app/health-monitor.py /app/healthcheck.py || true
 
 # -----------------------------------------------------------------------------
 # Working Directory and User Setup
@@ -165,7 +149,7 @@ WORKDIR /app
 # 1. External loop: CMD ["sh", "-c", "while true; do /app/vpn-sentinel-client.py; sleep 300; done"]
 # 2. Cron-based: Install crond and use crontab (more complex, less real-time feedback)
 # 3. Script-managed: Let vpn-sentinel-client.py handle its own loop (current approach - recommended)
-CMD ["/app/vpn-sentinel-client.py"]
+CMD ["python", "-m", "vpn_sentinel.client"]
 
 # -----------------------------------------------------------------------------
 # Build-time Configuration

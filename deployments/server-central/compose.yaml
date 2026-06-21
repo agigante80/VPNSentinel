@@ -2,7 +2,7 @@ services:
   vpn-sentinel-server:
     build:
       context: ../..
-      dockerfile: vpn-sentinel-server/Dockerfile
+      dockerfile: src/vpn_sentinel/server/Dockerfile
     container_name: vpn-sentinel-server
     volumes:
       - ./certs:/certs:ro

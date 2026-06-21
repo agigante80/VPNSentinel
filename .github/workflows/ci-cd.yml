@@ -102,7 +102,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "Running flake8..."
-          flake8 vpn-sentinel-server/ src/vpn_sentinel/common/ \
+          flake8 src/vpn_sentinel/ \
             --count \
             --select=E9,F63,F7,F82 \
             --show-source \
@@ -179,10 +179,10 @@ jobs:
         component:
           - name: server
             context: .
-            dockerfile: vpn-sentinel-server/Dockerfile
+            dockerfile: src/vpn_sentinel/server/Dockerfile
           - name: client
             context: .
-            dockerfile: vpn-sentinel-client/Dockerfile
+            dockerfile: src/vpn_sentinel/client/Dockerfile
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -231,7 +231,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: vpn-sentinel-${{ matrix.component }}/Dockerfile
+          file: src/vpn_sentinel/${{ matrix.component }}/Dockerfile
           push: false
           load: true
           tags: vpn-sentinel-${{ matrix.component }}:scan
@@ -275,11 +275,11 @@ jobs:
         component:
           - name: server
             context: .
-            dockerfile: vpn-sentinel-server/Dockerfile
+            dockerfile: src/vpn_sentinel/server/Dockerfile
             dockerhub_repo: agigante80/vpn-sentinel-server
           - name: client
             context: .
-            dockerfile: vpn-sentinel-client/Dockerfile
+            dockerfile: src/vpn_sentinel/client/Dockerfile
             dockerhub_repo: agigante80/vpn-sentinel-client
     steps:
       - name: Checkout repository
