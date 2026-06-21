@@ -8,11 +8,11 @@ import time
 from pathlib import Path
 from unittest.mock import patch, Mock, MagicMock
 
-from vpn_sentinel_common import health_monitor
+from vpn_sentinel.common import health_monitor
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MONITOR = ROOT / 'vpn_sentinel_common' / 'health_monitor.py'
+MONITOR = ROOT / 'src' / 'vpn_sentinel' / 'common' / 'health_monitor.py'
 PYTHON = sys.executable or 'python3'
 
 
@@ -40,7 +40,7 @@ def test_monitor_heartbeats_and_shutdown(tmp_path):
     env['PYTHONUNBUFFERED'] = '1'
     env['VERSION'] = 'test-ver'
     env['COMMIT_HASH'] = 'deadbeef'
-    env['PYTHONPATH'] = str(ROOT)
+    env['PYTHONPATH'] = str(ROOT / 'src')
 
     proc = subprocess.Popen([PYTHON, str(MONITOR)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env, text=True)
 
@@ -77,7 +77,7 @@ def test_monitor_heartbeats_and_shutdown(tmp_path):
 
 def test_heartbeat_callback():
     """Test heartbeat_callback logs the heartbeat."""
-    with patch('vpn_sentinel_common.health_monitor.log_info') as mock_log:
+    with patch('vpn_sentinel.common.health_monitor.log_info') as mock_log:
         heartbeat = {'ts': 1234567890, 'component': 'test', 'status': 'ok'}
         
         health_monitor.heartbeat_callback(heartbeat)
@@ -95,9 +95,9 @@ def test_main_reads_environment():
         'VERSION': '2.0.0',
         'COMMIT_HASH': 'abc123'
     }):
-        with patch('vpn_sentinel_common.health_monitor.Monitor') as mock_monitor_class:
-            with patch('vpn_sentinel_common.health_monitor.log_info'):
-                with patch('vpn_sentinel_common.health_monitor.time.sleep', side_effect=KeyboardInterrupt):
+        with patch('vpn_sentinel.common.health_monitor.Monitor') as mock_monitor_class:
+            with patch('vpn_sentinel.common.health_monitor.log_info'):
+                with patch('vpn_sentinel.common.health_monitor.time.sleep', side_effect=KeyboardInterrupt):
                     mock_monitor = Mock()
                     mock_monitor_class.return_value = mock_monitor
                     
@@ -115,9 +115,9 @@ def test_main_reads_environment():
 def test_main_uses_default_interval():
     """Test main uses default interval when not in environment."""
     with patch.dict('os.environ', {}, clear=True):
-        with patch('vpn_sentinel_common.health_monitor.Monitor') as mock_monitor_class:
-            with patch('vpn_sentinel_common.health_monitor.log_info'):
-                with patch('vpn_sentinel_common.health_monitor.time.sleep', side_effect=KeyboardInterrupt):
+        with patch('vpn_sentinel.common.health_monitor.Monitor') as mock_monitor_class:
+            with patch('vpn_sentinel.common.health_monitor.log_info'):
+                with patch('vpn_sentinel.common.health_monitor.time.sleep', side_effect=KeyboardInterrupt):
                     mock_monitor = Mock()
                     mock_monitor_class.return_value = mock_monitor
                     
@@ -133,9 +133,9 @@ def test_main_uses_default_interval():
 
 def test_main_starts_monitor():
     """Test main starts the monitor."""
-    with patch('vpn_sentinel_common.health_monitor.Monitor') as mock_monitor_class:
-        with patch('vpn_sentinel_common.health_monitor.log_info'):
-            with patch('vpn_sentinel_common.health_monitor.time.sleep', side_effect=KeyboardInterrupt):
+    with patch('vpn_sentinel.common.health_monitor.Monitor') as mock_monitor_class:
+        with patch('vpn_sentinel.common.health_monitor.log_info'):
+            with patch('vpn_sentinel.common.health_monitor.time.sleep', side_effect=KeyboardInterrupt):
                 mock_monitor = Mock()
                 mock_monitor_class.return_value = mock_monitor
                 
@@ -149,9 +149,9 @@ def test_main_starts_monitor():
 
 def test_main_stops_monitor_on_interrupt():
     """Test main stops monitor on KeyboardInterrupt."""
-    with patch('vpn_sentinel_common.health_monitor.Monitor') as mock_monitor_class:
-        with patch('vpn_sentinel_common.health_monitor.log_info'):
-            with patch('vpn_sentinel_common.health_monitor.time.sleep', side_effect=KeyboardInterrupt):
+    with patch('vpn_sentinel.common.health_monitor.Monitor') as mock_monitor_class:
+        with patch('vpn_sentinel.common.health_monitor.log_info'):
+            with patch('vpn_sentinel.common.health_monitor.time.sleep', side_effect=KeyboardInterrupt):
                 mock_monitor = Mock()
                 mock_monitor_class.return_value = mock_monitor
                 
@@ -166,10 +166,10 @@ def test_main_stops_monitor_on_interrupt():
 
 def test_main_registers_signal_handler():
     """Test main sets up SIGTERM handler."""
-    with patch('vpn_sentinel_common.health_monitor.Monitor') as mock_monitor_class:
-        with patch('vpn_sentinel_common.health_monitor.log_info'):
-            with patch('vpn_sentinel_common.health_monitor.signal.signal') as mock_signal:
-                with patch('vpn_sentinel_common.health_monitor.time.sleep', side_effect=KeyboardInterrupt):
+    with patch('vpn_sentinel.common.health_monitor.Monitor') as mock_monitor_class:
+        with patch('vpn_sentinel.common.health_monitor.log_info'):
+            with patch('vpn_sentinel.common.health_monitor.signal.signal') as mock_signal:
+                with patch('vpn_sentinel.common.health_monitor.time.sleep', side_effect=KeyboardInterrupt):
                     mock_monitor = Mock()
                     mock_monitor_class.return_value = mock_monitor
                     
@@ -185,8 +185,8 @@ def test_main_registers_signal_handler():
 
 def test_main_signal_handler_stops_monitor():
     """Test SIGTERM handler stops the monitor."""
-    with patch('vpn_sentinel_common.health_monitor.Monitor') as mock_monitor_class:
-        with patch('vpn_sentinel_common.health_monitor.log_info'):
+    with patch('vpn_sentinel.common.health_monitor.Monitor') as mock_monitor_class:
+        with patch('vpn_sentinel.common.health_monitor.log_info'):
             mock_monitor = Mock()
             mock_monitor_class.return_value = mock_monitor
             
@@ -196,7 +196,7 @@ def test_main_signal_handler_stops_monitor():
                 nonlocal signal_handler
                 signal_handler = handler
             
-            with patch('vpn_sentinel_common.health_monitor.signal.signal', side_effect=capture_signal):
+            with patch('vpn_sentinel.common.health_monitor.signal.signal', side_effect=capture_signal):
                 # Use a counter to break the loop after signal is handled
                 sleep_count = [0]
                 def mock_sleep(duration):
@@ -209,7 +209,7 @@ def test_main_signal_handler_stops_monitor():
                         # Break loop
                         raise KeyboardInterrupt()
                 
-                with patch('vpn_sentinel_common.health_monitor.time.sleep', side_effect=mock_sleep):
+                with patch('vpn_sentinel.common.health_monitor.time.sleep', side_effect=mock_sleep):
                     try:
                         health_monitor.main()
                     except KeyboardInterrupt:

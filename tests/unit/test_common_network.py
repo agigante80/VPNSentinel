@@ -1,4 +1,4 @@
-from vpn_sentinel_common.network import parse_geolocation, parse_dns_trace
+from vpn_sentinel.common.network import parse_geolocation, parse_dns_trace
 
 
 def test_parse_geolocation_empty():

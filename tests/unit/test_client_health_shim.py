@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from vpn_sentinel_common import health as vs_health
+from vpn_sentinel.common import health as vs_health
 
 
 def test_health_helpers_return_expected_statuses():
@@ -21,7 +21,7 @@ def test_health_helpers_return_expected_statuses():
 
 def test_health_shim_cli_outputs_json():
     # Point at the canonical shim under the repository root (not the old tests wrapper)
-    script = Path(__file__).resolve().parents[2] / 'vpn_sentinel_common' / 'health_scripts' / 'healthcheck.py'
+    script = Path(__file__).resolve().parents[2] / 'src' / 'vpn_sentinel' / 'common' / 'health_scripts' / 'healthcheck.py'
     assert script.exists(), f"Could not find {script}"
     env = os.environ.copy()
     env['PYTHONPATH'] = str(Path(__file__).resolve().parents[2])

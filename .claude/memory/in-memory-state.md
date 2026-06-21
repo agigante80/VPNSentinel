@@ -6,7 +6,7 @@ metadata:
 ---
 
 The server keeps all client state in a module-level dict `client_status = {}` in
-`vpn_sentinel_common/api_routes.py`. There is no persistence layer. A server restart loses all client
+`vpn_sentinel.common/api_routes.py`. There is no persistence layer. A server restart loses all client
 history; clients re-register on their next keepalive (up to 60s gap). This is by design.
 
 **How to apply:** Flag any change that adds state assumed to persist, or any feature depending on

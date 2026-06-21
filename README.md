@@ -719,10 +719,10 @@ pre-commit install
 pre-commit run --all-files
 
 # Type checking
-mypy vpn-sentinel-server/ vpn_sentinel_common/
+mypy vpn-sentinel-server/ vpn_sentinel.common/
 
 # Security scanning
-bandit -r vpn-sentinel-server/ vpn_sentinel_common/
+bandit -r vpn-sentinel-server/ vpn_sentinel.common/
 ```
 
 ---
@@ -756,7 +756,7 @@ pytest tests/unit
 pytest tests/integration
 
 # With coverage report
-pytest --cov=vpn_sentinel_common --cov-report=html
+pytest --cov=vpn_sentinel.common --cov-report=html
 
 # View coverage
 open htmlcov/index.html

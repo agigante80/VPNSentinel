@@ -5,13 +5,7 @@ Tests keepalive endpoint, status endpoint, client registration, and data parsing
 import pytest
 from unittest.mock import patch, MagicMock
 from datetime import datetime
-import sys
-import os
-
-# Add common library to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../vpn_sentinel_common'))
-
-from api_routes import api_app, client_status, _client_first_seen, get_cached_server_ip
+from vpn_sentinel.common.api_routes import api_app, client_status, _client_first_seen, get_cached_server_ip
 
 
 @pytest.fixture
@@ -59,9 +53,9 @@ class TestGetStatus:
 class TestKeepalive:
     """Tests for POST /keepalive endpoint."""
     
-    @patch('api_routes.get_cached_server_ip')
-    @patch('api_routes.telegram')
-    @patch('api_routes.log_info')
+    @patch('vpn_sentinel.common.api_routes.get_cached_server_ip')
+    @patch('vpn_sentinel.common.api_routes.telegram')
+    @patch('vpn_sentinel.common.api_routes.log_info')
     def test_keepalive_flat_format_success(self, mock_log, mock_telegram, mock_server_ip, 
                                            client, clear_client_data):
         """Test keepalive with flat JSON format."""
@@ -95,9 +89,9 @@ class TestKeepalive:
         # Verify Telegram notification sent for new client
         mock_telegram.notify_client_connected.assert_called_once()
     
-    @patch('api_routes.get_cached_server_ip')
-    @patch('api_routes.telegram')
-    @patch('api_routes.log_info')
+    @patch('vpn_sentinel.common.api_routes.get_cached_server_ip')
+    @patch('vpn_sentinel.common.api_routes.telegram')
+    @patch('vpn_sentinel.common.api_routes.log_info')
     def test_keepalive_nested_format_success(self, mock_log, mock_telegram, mock_server_ip,
                                              client, clear_client_data):
         """Test keepalive with nested JSON format."""
@@ -146,10 +140,10 @@ class TestKeepalive:
         assert 'error' in response.json
         assert 'client_id is required' in response.json['error']
     
-    @patch('api_routes.get_cached_server_ip')
-    @patch('api_routes.telegram')
-    @patch('api_routes.log_info')
-    @patch('api_routes.log_warn')
+    @patch('vpn_sentinel.common.api_routes.get_cached_server_ip')
+    @patch('vpn_sentinel.common.api_routes.telegram')
+    @patch('vpn_sentinel.common.api_routes.log_info')
+    @patch('vpn_sentinel.common.api_routes.log_warn')
     def test_keepalive_vpn_bypass_detection(self, mock_log_warn, mock_log, mock_telegram, 
                                             mock_server_ip, client, clear_client_data):
         """Test VPN bypass detection when client IP matches server IP."""
@@ -175,9 +169,9 @@ class TestKeepalive:
         assert 'security' in args
         assert 'VPN BYPASS WARNING' in args[1]
     
-    @patch('api_routes.get_cached_server_ip')
-    @patch('api_routes.telegram')
-    @patch('api_routes.log_info')
+    @patch('vpn_sentinel.common.api_routes.get_cached_server_ip')
+    @patch('vpn_sentinel.common.api_routes.telegram')
+    @patch('vpn_sentinel.common.api_routes.log_info')
     def test_keepalive_ip_change_notification(self, mock_log, mock_telegram, mock_server_ip,
                                                client, clear_client_data):
         """Test IP change notification when client IP changes."""
@@ -212,9 +206,9 @@ class TestKeepalive:
         assert args[1] == '1.2.3.4'  # Old IP
         assert args[2] == '5.6.7.8'  # New IP
     
-    @patch('api_routes.get_cached_server_ip')
-    @patch('api_routes.telegram')
-    @patch('api_routes.log_info')
+    @patch('vpn_sentinel.common.api_routes.get_cached_server_ip')
+    @patch('vpn_sentinel.common.api_routes.telegram')
+    @patch('vpn_sentinel.common.api_routes.log_info')
     def test_keepalive_defaults_for_missing_fields(self, mock_log, mock_telegram, mock_server_ip,
                                                     client, clear_client_data):
         """Test keepalive uses defaults for missing optional fields."""
@@ -235,9 +229,9 @@ class TestKeepalive:
         assert client_status['minimal-client']['country'] == 'unknown'
         assert client_status['minimal-client']['dns_loc'] == 'Unknown'
     
-    @patch('api_routes.get_cached_server_ip')
-    @patch('api_routes.telegram')
-    @patch('api_routes.log_info')
+    @patch('vpn_sentinel.common.api_routes.get_cached_server_ip')
+    @patch('vpn_sentinel.common.api_routes.telegram')
+    @patch('vpn_sentinel.common.api_routes.log_info')
     def test_keepalive_handles_ip_field_fallback(self, mock_log, mock_telegram, mock_server_ip,
                                                   client, clear_client_data):
         """Test keepalive falls back to 'ip' field if 'public_ip' not present."""
@@ -254,9 +248,9 @@ class TestKeepalive:
         assert response.status_code == 200
         assert client_status['test-client']['ip'] == '1.2.3.4'
     
-    @patch('api_routes.client_status')
-    @patch('api_routes.get_cached_server_ip')
-    @patch('api_routes.log_info')
+    @patch('vpn_sentinel.common.api_routes.client_status')
+    @patch('vpn_sentinel.common.api_routes.get_cached_server_ip')
+    @patch('vpn_sentinel.common.api_routes.log_info')
     def test_keepalive_exception_handling(self, mock_log, mock_server_ip, mock_client_status,
                                           client, clear_client_data):
         """Test keepalive handles exceptions gracefully."""
@@ -274,13 +268,13 @@ class TestKeepalive:
 class TestGetCachedServerIp:
     """Tests for get_cached_server_ip function."""
     
-    @patch('api_routes.get_server_public_ip')
+    @patch('vpn_sentinel.common.api_routes.get_server_public_ip')
     def test_caches_server_ip(self, mock_get_ip):
         """Test server IP is cached after first call."""
         mock_get_ip.return_value = '79.116.8.43'
         
         # Reset cache
-        import api_routes
+        import vpn_sentinel.common.api_routes as api_routes
         api_routes._server_public_ip = None
         
         # First call should fetch
@@ -299,7 +293,7 @@ class TestApiPath:
     
     def test_api_path_from_environment(self):
         """Test API_PATH is read from environment."""
-        from api_routes import API_PATH
+        from vpn_sentinel.common.api_routes import API_PATH
         # Should be /api/v1 or custom from VPN_SENTINEL_API_PATH env var
         assert API_PATH.startswith('/')
         assert len(API_PATH) > 1

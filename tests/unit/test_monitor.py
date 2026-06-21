@@ -1,10 +1,10 @@
-"""Unit tests for vpn_sentinel_common.monitor module."""
+"""Unit tests for vpn_sentinel.common.monitor module."""
 import time
 import threading
 import json
 from unittest.mock import Mock
 
-from vpn_sentinel_common.monitor import Monitor
+from vpn_sentinel.common.monitor import Monitor
 
 
 def test_monitor_emits_heartbeats_and_stops():

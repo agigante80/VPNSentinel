@@ -1,4 +1,4 @@
-"""Unit tests for vpn_sentinel_common.version module.
+"""Unit tests for vpn_sentinel.common.version module.
 
 Tests version management functions including environment variable handling,
 git commit hash retrieval, and version info generation.
@@ -6,7 +6,7 @@ git commit hash retrieval, and version info generation.
 import pytest
 import subprocess
 from unittest.mock import patch, MagicMock
-from vpn_sentinel_common.version import get_version, get_commit_hash, get_version_info
+from vpn_sentinel.common.version import get_version, get_commit_hash, get_version_info
 
 
 class TestGetVersion:
@@ -21,21 +21,21 @@ class TestGetVersion:
     def test_get_version_with_commit_hash(self):
         """Test version generation with git commit hash."""
         with patch.dict('os.environ', {}, clear=True):
-            with patch('vpn_sentinel_common.version.get_commit_hash', return_value='abc1234'):
+            with patch('vpn_sentinel.common.version.get_commit_hash', return_value='abc1234'):
                 version = get_version()
                 assert version == '1.0.0-dev-abc1234'
 
     def test_get_version_without_commit_hash(self):
         """Test version fallback when no commit hash available."""
         with patch.dict('os.environ', {}, clear=True):
-            with patch('vpn_sentinel_common.version.get_commit_hash', return_value=None):
+            with patch('vpn_sentinel.common.version.get_commit_hash', return_value=None):
                 version = get_version()
                 assert version == '1.0.0-dev'
 
     def test_get_version_empty_string_uses_git(self):
         """Test empty VERSION env variable falls back to git."""
         with patch.dict('os.environ', {'VERSION': ''}):
-            with patch('vpn_sentinel_common.version.get_commit_hash', return_value='def5678'):
+            with patch('vpn_sentinel.common.version.get_commit_hash', return_value='def5678'):
                 version = get_version()
                 # Empty string is falsy, should use git
                 assert version == '1.0.0-dev-def5678'
@@ -132,7 +132,7 @@ class TestGetVersionInfo:
     def test_get_version_info_defaults(self):
         """Test version info with default values."""
         with patch.dict('os.environ', {}, clear=True):
-            with patch('vpn_sentinel_common.version.get_commit_hash', return_value=None):
+            with patch('vpn_sentinel.common.version.get_commit_hash', return_value=None):
                 info = get_version_info()
                 assert info['version'] == '1.0.0-dev'
                 assert info['commit'] == 'unknown'
@@ -144,7 +144,7 @@ class TestGetVersionInfo:
             'VERSION': '2.0.0',
             'ENVIRONMENT': 'production'
         }):
-            with patch('vpn_sentinel_common.version.get_commit_hash', return_value='xyz789'):
+            with patch('vpn_sentinel.common.version.get_commit_hash', return_value='xyz789'):
                 info = get_version_info()
                 assert info['version'] == '2.0.0'
                 assert info['commit'] == 'xyz789'
@@ -153,7 +153,7 @@ class TestGetVersionInfo:
     def test_get_version_info_development(self):
         """Test version info in development environment."""
         with patch.dict('os.environ', {'ENVIRONMENT': 'development'}):
-            with patch('vpn_sentinel_common.version.get_commit_hash', return_value='dev123'):
+            with patch('vpn_sentinel.common.version.get_commit_hash', return_value='dev123'):
                 info = get_version_info()
                 assert info['version'] == '1.0.0-dev-dev123'
                 assert info['commit'] == 'dev123'
@@ -170,7 +170,7 @@ class TestGetVersionInfo:
     def test_get_version_info_unknown_commit(self):
         """Test version info shows 'unknown' when commit unavailable."""
         with patch.dict('os.environ', {'VERSION': '1.5.0'}, clear=True):
-            with patch('vpn_sentinel_common.version.get_commit_hash', return_value=None):
+            with patch('vpn_sentinel.common.version.get_commit_hash', return_value=None):
                 info = get_version_info()
                 assert info['commit'] == 'unknown'
 

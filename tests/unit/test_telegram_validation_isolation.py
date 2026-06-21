@@ -21,7 +21,7 @@ class TestTelegramValidationIsolated:
         })
         
         result = subprocess.run([
-            'python', '-c', 'from vpn_sentinel_common import telegram'
+            'python', '-c', 'from vpn_sentinel.common import telegram'
         ], env=env, capture_output=True, cwd=os.getcwd())
         
         assert result.returncode == 1
@@ -37,7 +37,7 @@ class TestTelegramValidationIsolated:
         })
         
         result = subprocess.run([
-            'python', '-c', 'from vpn_sentinel_common import telegram'
+            'python', '-c', 'from vpn_sentinel.common import telegram'
         ], env=env, capture_output=True, cwd=os.getcwd())
         
         assert result.returncode == 1
@@ -55,7 +55,7 @@ class TestTelegramValidationIsolated:
         # Test that import succeeds (no sys.exit)
         result = subprocess.run([
             'python', '-c', 
-            'from vpn_sentinel_common import telegram; '
+            'from vpn_sentinel.common import telegram; '
             'print(f"enabled={telegram.TELEGRAM_ENABLED}"); '
             'print(f"token={telegram.TELEGRAM_BOT_TOKEN}"); '
             'print(f"chat={telegram.TELEGRAM_CHAT_ID}")'
@@ -78,7 +78,7 @@ class TestTelegramValidationIsolated:
         
         result = subprocess.run([
             'python', '-c', 
-            'from vpn_sentinel_common import telegram; '
+            'from vpn_sentinel.common import telegram; '
             'print(f"enabled={telegram.TELEGRAM_ENABLED}")'
         ], env=env, capture_output=True, text=True, cwd=os.getcwd())
         
@@ -98,7 +98,7 @@ class TestTelegramValidationIsolated:
         
         result = subprocess.run([
             'python', '-c', 
-            'from vpn_sentinel_common import telegram; '
+            'from vpn_sentinel.common import telegram; '
             'print(f"enabled={telegram.TELEGRAM_ENABLED}")'
         ], env=env, capture_output=True, text=True, cwd=os.getcwd())
         

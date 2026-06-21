@@ -101,14 +101,14 @@ Every 60 seconds (configurable via `VPN_SENTINEL_INTERVAL`), the client:
 |---|---|
 | `vpn-sentinel-client/vpn-sentinel-client.py` | Client entry point (keepalive loop, subprocess management) |
 | `vpn-sentinel-server/vpn-sentinel-server.py` | Server entry point (starts 3 Flask apps + cleanup thread) |
-| `vpn_sentinel_common/api_routes.py` | Core API: keepalive handler, client status tracking |
-| `vpn_sentinel_common/dashboard_routes.py` | Web UI (largest module) |
-| `vpn_sentinel_common/telegram.py` | Telegram Bot API: long polling, message formatting |
-| `vpn_sentinel_common/network.py` | DNS trace parsing |
-| `vpn_sentinel_common/geolocation.py` | IP geolocation with cascade fallback |
-| `vpn_sentinel_common/security.py` | Rate limiting (30 req/min/IP), IP whitelist |
-| `vpn_sentinel_common/health.py` | Health check schema and component status |
-| `vpn_sentinel_common/config.py` | All config from env vars (`VPN_SENTINEL_*` prefix) |
+| `vpn_sentinel.common/api_routes.py` | Core API: keepalive handler, client status tracking |
+| `vpn_sentinel.common/dashboard_routes.py` | Web UI (largest module) |
+| `vpn_sentinel.common/telegram.py` | Telegram Bot API: long polling, message formatting |
+| `vpn_sentinel.common/network.py` | DNS trace parsing |
+| `vpn_sentinel.common/geolocation.py` | IP geolocation with cascade fallback |
+| `vpn_sentinel.common/security.py` | Rate limiting (30 req/min/IP), IP whitelist |
+| `vpn_sentinel.common/health.py` | Health check schema and component status |
+| `vpn_sentinel.common/config.py` | All config from env vars (`VPN_SENTINEL_*` prefix) |
 
 ## Development Workflow
 
@@ -119,7 +119,7 @@ python -m pytest tests/unit/ -v --tb=short
 
 **Run with coverage:**
 ```bash
-python -m pytest tests/unit/ --cov=vpn_sentinel_common --cov-report=term-missing
+python -m pytest tests/unit/ --cov=vpn_sentinel.common --cov-report=term-missing
 ```
 
 **Full suite (installs deps, unit + integration, coverage, cleanup):**
@@ -129,7 +129,7 @@ python -m pytest tests/unit/ --cov=vpn_sentinel_common --cov-report=term-missing
 
 **Check linting:**
 ```bash
-flake8 --max-line-length=120 vpn_sentinel_common/ vpn-sentinel-client/ vpn-sentinel-server/
+flake8 --max-line-length=120 vpn_sentinel.common/ vpn-sentinel-client/ vpn-sentinel-server/
 ```
 
 **Check server status (from inside container or local):**

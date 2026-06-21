@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-s
 
 
 def _load_health_app():
-    from vpn_sentinel_common.server import health_app
+    from vpn_sentinel.common.server import health_app
     return health_app
 
 
@@ -35,7 +35,7 @@ def test_health_endpoint_matches_shared_shape():
     data = json.loads(resp.data)
 
     # Try validating against the shared schema permissively
-    from vpn_sentinel_common import health as health_common
+    from vpn_sentinel.common import health as health_common
 
     # Legacy responses may use different key names; try to normalise a little
     if isinstance(data, dict) and 'status' in data and data['status'] in ('healthy', 'ready', 'started'):

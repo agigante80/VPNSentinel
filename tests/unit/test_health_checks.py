@@ -1,7 +1,7 @@
 import types
 import subprocess
 
-from vpn_sentinel_common import health
+from vpn_sentinel.common import health
 
 
 def test_check_client_process_monkeypatch(monkeypatch):

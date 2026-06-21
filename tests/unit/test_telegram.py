@@ -1,18 +1,18 @@
-"""Unit tests for vpn_sentinel_common.telegram module.
+"""Unit tests for vpn_sentinel.common.telegram module.
 
 Tests Telegram bot integration, message sending, and command handling.
 """
 import pytest
 from datetime import datetime
 from unittest.mock import patch, Mock, MagicMock, call
-from vpn_sentinel_common import telegram
+from vpn_sentinel.common import telegram
 
 
 class TestSendTelegramMessage:
     """Tests for send_telegram_message function."""
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', True)
-    @patch('vpn_sentinel_common.telegram.requests.post')
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', True)
+    @patch('vpn_sentinel.common.telegram.requests.post')
     def test_send_message_success(self, mock_post):
         """Test successful message sending."""
         mock_response = Mock()
@@ -24,15 +24,15 @@ class TestSendTelegramMessage:
         assert result is True
         mock_post.assert_called_once()
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', False)
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', False)
     def test_send_message_not_configured(self):
         """Test sending message when Telegram not configured."""
         result = telegram.send_telegram_message("Test")
         
         assert result is False
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', True)
-    @patch('vpn_sentinel_common.telegram.requests.post')
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', True)
+    @patch('vpn_sentinel.common.telegram.requests.post')
     def test_send_message_failure(self, mock_post):
         """Test message sending failure."""
         mock_response = Mock()
@@ -44,8 +44,8 @@ class TestSendTelegramMessage:
         
         assert result is False
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', True)
-    @patch('vpn_sentinel_common.telegram.requests.post')
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', True)
+    @patch('vpn_sentinel.common.telegram.requests.post')
     def test_send_message_silent(self, mock_post):
         """Test sending silent message."""
         mock_response = Mock()
@@ -57,8 +57,8 @@ class TestSendTelegramMessage:
         call_args = mock_post.call_args
         assert call_args[1]['json']['disable_notification'] is True
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', True)
-    @patch('vpn_sentinel_common.telegram.requests.post')
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', True)
+    @patch('vpn_sentinel.common.telegram.requests.post')
     def test_send_message_html_parse_mode(self, mock_post):
         """Test HTML parse mode is used."""
         mock_response = Mock()
@@ -70,8 +70,8 @@ class TestSendTelegramMessage:
         call_args = mock_post.call_args
         assert call_args[1]['json']['parse_mode'] == "HTML"
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', True)
-    @patch('vpn_sentinel_common.telegram.requests.post')
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', True)
+    @patch('vpn_sentinel.common.telegram.requests.post')
     def test_send_message_exception(self, mock_post):
         """Test exception handling during send."""
         mock_post.side_effect = Exception("Network error")
@@ -125,15 +125,15 @@ class TestRegisterCommand:
 class TestGetUpdates:
     """Tests for get_updates function."""
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', False)
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', False)
     def test_get_updates_not_enabled(self):
         """Test get_updates returns empty when not enabled."""
         updates = telegram.get_updates()
         
         assert updates == []
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', True)
-    @patch('vpn_sentinel_common.telegram.requests.get')
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', True)
+    @patch('vpn_sentinel.common.telegram.requests.get')
     def test_get_updates_success(self, mock_get):
         """Test get_updates returns updates."""
         mock_response = Mock()
@@ -151,8 +151,8 @@ class TestGetUpdates:
         assert len(updates) == 1
         assert updates[0]["update_id"] == 1
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', True)
-    @patch('vpn_sentinel_common.telegram.requests.get')
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', True)
+    @patch('vpn_sentinel.common.telegram.requests.get')
     def test_get_updates_failure(self, mock_get):
         """Test get_updates handles failure."""
         mock_response = Mock()
@@ -163,8 +163,8 @@ class TestGetUpdates:
         
         assert updates == []
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', True)
-    @patch('vpn_sentinel_common.telegram.requests.get')
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', True)
+    @patch('vpn_sentinel.common.telegram.requests.get')
     def test_get_updates_exception(self, mock_get):
         """Test get_updates handles exception."""
         mock_get.side_effect = Exception("Network error")
@@ -202,14 +202,14 @@ class TestProcessCommand:
 class TestStartPolling:
     """Tests for start_polling function."""
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', False)
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', False)
     def test_start_polling_not_enabled(self):
         """Test start_polling does nothing when not enabled."""
         telegram.start_polling()
         # Should not raise exception
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', True)
-    @patch('vpn_sentinel_common.telegram.threading.Thread')
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', True)
+    @patch('vpn_sentinel.common.telegram.threading.Thread')
     def test_start_polling_starts_thread(self, mock_thread):
         """Test start_polling starts background thread."""
         telegram.start_polling()
@@ -223,7 +223,7 @@ class TestStartPolling:
 class TestNotifications:
     """Test notification functions."""
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_server_started(self, mock_send):
         """Test server started notification."""
         mock_send.return_value = True
@@ -236,7 +236,7 @@ class TestNotifications:
         assert "Server Started" in message
         assert "15 minutes" in message
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_no_clients(self, mock_send):
         """Test no clients notification."""
         mock_send.return_value = True
@@ -247,7 +247,7 @@ class TestNotifications:
         message = mock_send.call_args[0][0]
         assert "No VPN Clients" in message or "client" in message.lower()
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_client_connected(self, mock_send):
         """Test client connected notification."""
         mock_send.return_value = True
@@ -262,7 +262,7 @@ class TestNotifications:
         assert "test-client" in message
         assert "1.2.3.4" in message
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_ip_changed(self, mock_send):
         """Test IP changed notification."""
         mock_send.return_value = True
@@ -282,7 +282,7 @@ class TestNotifications:
 class TestNotificationEdgeCases:
     """Test notification function edge cases and error paths."""
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_client_connected_with_optional_params(self, mock_send):
         """Test notify_client_connected with optional DNS parameters."""
         mock_send.return_value = True
@@ -294,7 +294,7 @@ class TestNotificationEdgeCases:
         
         assert result is True
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_client_connected_send_fails(self, mock_send):
         """Test notify_client_connected when send fails."""
         mock_send.return_value = False
@@ -306,7 +306,7 @@ class TestNotificationEdgeCases:
         
         assert result is False
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_ip_changed_with_optional_params(self, mock_send):
         """Test notify_ip_changed with optional DNS parameters."""
         mock_send.return_value = True
@@ -318,7 +318,7 @@ class TestNotificationEdgeCases:
         
         assert result is True
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_ip_changed_send_fails(self, mock_send):
         """Test notify_ip_changed when send fails."""
         mock_send.return_value = False
@@ -330,7 +330,7 @@ class TestNotificationEdgeCases:
         
         assert result is False
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_no_clients_send_fails(self, mock_send):
         """Test notify_no_clients when send fails."""
         mock_send.return_value = False
@@ -339,7 +339,7 @@ class TestNotificationEdgeCases:
         
         assert result is False
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_server_started_send_fails(self, mock_send):
         """Test notify_server_started when send fails."""
         mock_send.return_value = False
@@ -348,7 +348,7 @@ class TestNotificationEdgeCases:
         
         assert result is False
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_client_connected_full_details(self, mock_send):
         """Test notify_client_connected with all details including DNS."""
         mock_send.return_value = True
@@ -363,7 +363,7 @@ class TestNotificationEdgeCases:
         # Check that all details appear in message
         assert "Amsterdam" in message
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_client_connected_vpn_bypass_detected(self, mock_send):
         """Test notify_client_connected detects VPN bypass (same IP as server)."""
         mock_send.return_value = True
@@ -378,7 +378,7 @@ class TestNotificationEdgeCases:
         message = mock_send.call_args[0][0]
         assert "BYPASS" in message or "NOT working" in message
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_client_connected_vpn_unknown(self, mock_send):
         """Test notify_client_connected with unknown VPN IP."""
         mock_send.return_value = True
@@ -392,7 +392,7 @@ class TestNotificationEdgeCases:
         message = mock_send.call_args[0][0]
         assert "unknown" in message.lower() or "bypass" in message.lower()
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_client_connected_dns_leak_detected(self, mock_send):
         """Test notify_client_connected detects DNS leak."""
         mock_send.return_value = True
@@ -407,7 +407,7 @@ class TestNotificationEdgeCases:
         message = mock_send.call_args[0][0]
         assert "leak" in message.lower() or "DNS" in message
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_client_connected_dns_inconclusive(self, mock_send):
         """Test notify_client_connected with unknown DNS location."""
         mock_send.return_value = True
@@ -422,7 +422,7 @@ class TestNotificationEdgeCases:
         # Should mention DNS test inconclusive
         assert "inconclusive" in message.lower() or "DNS" in message
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_client_connected_no_dns_leak(self, mock_send):
         """Test notify_client_connected with no DNS leak (secure connection)."""
         mock_send.return_value = True
@@ -438,7 +438,7 @@ class TestNotificationEdgeCases:
         # Should indicate secure connection
         assert "Secure" in message or "No" in message
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_ip_changed_full_details(self, mock_send):
         """Test notify_ip_changed with all details including DNS."""
         mock_send.return_value = True
@@ -452,7 +452,7 @@ class TestNotificationEdgeCases:
         message = mock_send.call_args[0][0]
         assert "Berlin" in message
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_ip_changed_with_dns_leak(self, mock_send):
         """Test notify_ip_changed detects DNS leak."""
         mock_send.return_value = True
@@ -466,7 +466,7 @@ class TestNotificationEdgeCases:
         message = mock_send.call_args[0][0]
         assert "leak" in message.lower() or "DNS" in message
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_ip_changed_dns_inconclusive(self, mock_send):
         """Test notify_ip_changed with unknown DNS."""
         mock_send.return_value = True
@@ -478,7 +478,7 @@ class TestNotificationEdgeCases:
         
         assert result is True
 
-    @patch('vpn_sentinel_common.telegram.send_telegram_message')
+    @patch('vpn_sentinel.common.telegram.send_telegram_message')
     def test_notify_ip_changed_no_dns_leak(self, mock_send):
         """Test notify_ip_changed with no DNS leak."""
         mock_send.return_value = True
@@ -496,8 +496,8 @@ class TestNotificationEdgeCases:
 class TestGetUpdatesEdgeCases:
     """Test get_updates edge cases."""
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', True)
-    @patch('vpn_sentinel_common.telegram.requests.get')
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', True)
+    @patch('vpn_sentinel.common.telegram.requests.get')
     def test_get_updates_with_offset(self, mock_get):
         """Test get_updates uses offset parameter."""
         mock_response = Mock()
@@ -512,8 +512,8 @@ class TestGetUpdatesEdgeCases:
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs.get('params', {}).get('offset') == 100
 
-    @patch('vpn_sentinel_common.telegram.TELEGRAM_ENABLED', True)
-    @patch('vpn_sentinel_common.telegram.requests.get')
+    @patch('vpn_sentinel.common.telegram.TELEGRAM_ENABLED', True)
+    @patch('vpn_sentinel.common.telegram.requests.get')
     def test_get_updates_not_ok_response(self, mock_get):
         """Test get_updates handles non-ok API response."""
         mock_response = Mock()

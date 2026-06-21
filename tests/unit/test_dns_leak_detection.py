@@ -7,7 +7,7 @@ This module tests the complete DNS leak detection flow including:
 """
 import pytest
 from unittest.mock import patch, Mock
-from vpn_sentinel_common.network import parse_dns_trace
+from vpn_sentinel.common.network import parse_dns_trace
 
 
 class TestParseDnsTrace:

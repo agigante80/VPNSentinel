@@ -1,6 +1,6 @@
 """Health server routes for VPN Sentinel."""
-from vpn_sentinel_common.server import health_app
-from vpn_sentinel_common.log_utils import log_info
+from .server import health_app
+from .log_utils import log_info
 from flask import jsonify
 import os
 

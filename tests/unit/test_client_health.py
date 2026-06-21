@@ -16,7 +16,7 @@ class TestClientHealthCheck(unittest.TestCase):
     def setUp(self):
         """Set up test environment"""
         # Get the path to the health check script (Python version)
-        self.script_dir = os.path.join(os.path.dirname(__file__), '../../vpn_sentinel_common/health_scripts')
+        self.script_dir = os.path.join(os.path.dirname(__file__), '../../src/vpn_sentinel/common/health_scripts')
         self.health_script = os.path.join(self.script_dir, 'healthcheck.py')
 
         # Ensure the script exists
@@ -34,8 +34,8 @@ class TestClientHealthCheck(unittest.TestCase):
         with open(self.health_script, 'r') as f:
             content = f.read()
 
-        # Python version should import from vpn_sentinel_common.health
-        self.assertIn('from vpn_sentinel_common import health', content)
+        # Python version should import from vpn_sentinel.common.health
+        self.assertIn('from vpn_sentinel.common import health', content)
         # Check for health check functions
         self.assertIn('check_client_process', content)
         self.assertIn('check_network_connectivity', content)

@@ -19,7 +19,7 @@ class TestClientIDGeneration:
 
     def test_client_id_default_format(self):
         """Test default client ID matches format: vpn-monitor-{12-digits}."""
-        from vpn_sentinel_common.config import generate_client_id
+        from vpn_sentinel.common.config import generate_client_id
         
         client_id = generate_client_id({})
         
@@ -29,7 +29,7 @@ class TestClientIDGeneration:
         
     def test_client_id_all_digits_unique(self):
         """Test that generated IDs have 12 digits."""
-        from vpn_sentinel_common.config import generate_client_id
+        from vpn_sentinel.common.config import generate_client_id
         
         client_id = generate_client_id({})
         digits_part = client_id.replace('vpn-monitor-', '')
@@ -39,7 +39,7 @@ class TestClientIDGeneration:
     
     def test_client_id_custom_from_env(self):
         """Test custom client ID from environment."""
-        from vpn_sentinel_common.config import generate_client_id
+        from vpn_sentinel.common.config import generate_client_id
         
         custom_id = 'office-vpn-primary'
         client_id = generate_client_id({'VPN_SENTINEL_CLIENT_ID': custom_id})
@@ -48,7 +48,7 @@ class TestClientIDGeneration:
     
     def test_client_id_sanitization(self):
         """Test client ID sanitization for invalid characters."""
-        from vpn_sentinel_common.config import generate_client_id
+        from vpn_sentinel.common.config import generate_client_id
         
         invalid_id = 'Client@123#ABC'
         client_id = generate_client_id({'VPN_SENTINEL_CLIENT_ID': invalid_id})
@@ -73,7 +73,7 @@ class TestServerConfiguration:
     })
     def test_custom_port_configuration(self):
         """Test that server reads custom port configuration."""
-        from vpn_sentinel_common.server_utils import get_port_config
+        from vpn_sentinel.common.server_utils import get_port_config
         
         ports = get_port_config()
         
@@ -83,7 +83,7 @@ class TestServerConfiguration:
     
     def test_default_port_configuration(self):
         """Test default port values."""
-        from vpn_sentinel_common.server_utils import get_port_config
+        from vpn_sentinel.common.server_utils import get_port_config
         
         # Save current env
         saved_env = {}

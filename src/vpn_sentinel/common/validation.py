@@ -1,7 +1,7 @@
 """Input validation helpers migrated from vpn_sentinel_server.
 
 These helpers are shared between server and client and therefore belong in
-`vpn_sentinel_common` as the canonical implementation.
+`vpn_sentinel.common` as the canonical implementation.
 """
 from typing import Any
 import re

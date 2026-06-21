@@ -1,4 +1,4 @@
-"""Unit tests for vpn_sentinel_common.server_utils module.
+"""Unit tests for vpn_sentinel.common.server_utils module.
 
 Tests server utility functions including Flask app running and port configuration.
 """
@@ -6,7 +6,7 @@ import pytest
 import ssl
 import sys
 from unittest.mock import patch, MagicMock, call
-from vpn_sentinel_common.server_utils import run_flask_app, get_port_config
+from vpn_sentinel.common.server_utils import run_flask_app, get_port_config
 
 
 class TestGetPortConfig:
@@ -72,8 +72,8 @@ class TestRunFlaskApp:
         mock_server = MagicMock()
         
         with patch.dict('os.environ', {}, clear=True):
-            with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server) as mock_make:
-                with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
+            with patch('vpn_sentinel.common.server_utils.make_server', return_value=mock_server) as mock_make:
+                with patch('vpn_sentinel.common.server_utils.log_info') as mock_log:
                     run_flask_app(mock_app, 5000, 'Test API')
                     
                     # Verify make_server called with custom request handler
@@ -98,9 +98,9 @@ class TestRunFlaskApp:
             'VPN_SENTINEL_TLS_CERT_PATH': '/path/to/cert.pem',
             'VPN_SENTINEL_TLS_KEY_PATH': '/path/to/key.pem'
         }):
-            with patch('vpn_sentinel_common.server_utils.ssl.SSLContext', return_value=mock_ssl_context) as mock_ssl:
-                with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server) as mock_make:
-                    with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
+            with patch('vpn_sentinel.common.server_utils.ssl.SSLContext', return_value=mock_ssl_context) as mock_ssl:
+                with patch('vpn_sentinel.common.server_utils.make_server', return_value=mock_server) as mock_make:
+                    with patch('vpn_sentinel.common.server_utils.log_info') as mock_log:
                         run_flask_app(mock_app, 5000, 'Test API')
                         
                         # Verify SSL context created
@@ -130,8 +130,8 @@ class TestRunFlaskApp:
         mock_server = MagicMock()
         
         with patch.dict('os.environ', {}, clear=True):
-            with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server) as mock_make:
-                with patch('vpn_sentinel_common.server_utils.log_info'):
+            with patch('vpn_sentinel.common.server_utils.make_server', return_value=mock_server) as mock_make:
+                with patch('vpn_sentinel.common.server_utils.log_info'):
                     run_flask_app(mock_app, 8080, 'Dashboard', host='127.0.0.1')
                     
                     # Verify host override
@@ -145,8 +145,8 @@ class TestRunFlaskApp:
         mock_app = MagicMock()
         
         with patch.dict('os.environ', {}, clear=True):
-            with patch('vpn_sentinel_common.server_utils.make_server', side_effect=Exception('Port in use')):
-                with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
+            with patch('vpn_sentinel.common.server_utils.make_server', side_effect=Exception('Port in use')):
+                with patch('vpn_sentinel.common.server_utils.log_info') as mock_log:
                     with pytest.raises(SystemExit) as exc_info:
                         run_flask_app(mock_app, 5000, 'Test API')
                     
@@ -165,8 +165,8 @@ class TestRunFlaskApp:
         mock_server = MagicMock()
         
         with patch.dict('os.environ', {'VPN_SENTINEL_TLS_CERT_PATH': '/cert.pem'}):
-            with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server) as mock_make:
-                with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
+            with patch('vpn_sentinel.common.server_utils.make_server', return_value=mock_server) as mock_make:
+                with patch('vpn_sentinel.common.server_utils.log_info') as mock_log:
                     run_flask_app(mock_app, 5000, 'Test API')
                     
                     # Should NOT use SSL (missing key)
@@ -184,8 +184,8 @@ class TestRunFlaskApp:
         mock_server = MagicMock()
         
         with patch.dict('os.environ', {'VPN_SENTINEL_TLS_KEY_PATH': '/key.pem'}):
-            with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server) as mock_make:
-                with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
+            with patch('vpn_sentinel.common.server_utils.make_server', return_value=mock_server) as mock_make:
+                with patch('vpn_sentinel.common.server_utils.log_info') as mock_log:
                     run_flask_app(mock_app, 5000, 'Test API')
                     
                     # Should NOT use SSL (missing cert)
@@ -203,8 +203,8 @@ class TestRunFlaskApp:
         mock_server = MagicMock()
         
         with patch.dict('os.environ', {}, clear=True):
-            with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server) as mock_make:
-                with patch('vpn_sentinel_common.server_utils.log_info'):
+            with patch('vpn_sentinel.common.server_utils.make_server', return_value=mock_server) as mock_make:
+                with patch('vpn_sentinel.common.server_utils.log_info'):
                     run_flask_app(mock_app, 5000, 'Test API')
                     
                     # Verify threaded=True
@@ -221,8 +221,8 @@ class TestRunFlaskApp:
             'VPN_SENTINEL_TLS_CERT_PATH': '/invalid/cert.pem',
             'VPN_SENTINEL_TLS_KEY_PATH': '/invalid/key.pem'
         }):
-            with patch('vpn_sentinel_common.server_utils.ssl.SSLContext', return_value=mock_ssl_context):
-                with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
+            with patch('vpn_sentinel.common.server_utils.ssl.SSLContext', return_value=mock_ssl_context):
+                with patch('vpn_sentinel.common.server_utils.log_info') as mock_log:
                     with pytest.raises(SystemExit) as exc_info:
                         run_flask_app(mock_app, 5000, 'Test API')
                     
@@ -246,8 +246,8 @@ class TestCustomRequestHandler:
         mock_server = MagicMock()
         
         with patch.dict('os.environ', {}, clear=True):
-            with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server) as mock_make:
-                with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
+            with patch('vpn_sentinel.common.server_utils.make_server', return_value=mock_server) as mock_make:
+                with patch('vpn_sentinel.common.server_utils.log_info') as mock_log:
                     run_flask_app(mock_app, 5000, 'API server')
                     
                     # Verify custom request handler is passed to make_server
@@ -265,8 +265,8 @@ class TestCustomRequestHandler:
         mock_server = MagicMock()
         
         with patch.dict('os.environ', {}, clear=True):
-            with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server):
-                with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
+            with patch('vpn_sentinel.common.server_utils.make_server', return_value=mock_server):
+                with patch('vpn_sentinel.common.server_utils.log_info') as mock_log:
                     # Create a mock handler instance to test log_request
                     handler_class = None
                     
@@ -275,7 +275,7 @@ class TestCustomRequestHandler:
                         handler_class = kwargs.get('request_handler')
                         return mock_server
                     
-                    with patch('vpn_sentinel_common.server_utils.make_server', side_effect=capture_handler):
+                    with patch('vpn_sentinel.common.server_utils.make_server', side_effect=capture_handler):
                         run_flask_app(mock_app, 8080, 'Dashboard server')
                     
                     # Verify component name is extracted correctly
@@ -288,8 +288,8 @@ class TestCustomRequestHandler:
         mock_server = MagicMock()
         
         with patch.dict('os.environ', {}, clear=True):
-            with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server):
-                with patch('vpn_sentinel_common.server_utils.log_info') as mock_log:
+            with patch('vpn_sentinel.common.server_utils.make_server', return_value=mock_server):
+                with patch('vpn_sentinel.common.server_utils.log_info') as mock_log:
                     run_flask_app(mock_app, 8081, 'Health server')
                     
                     # Verify it completes without error
@@ -309,8 +309,8 @@ class TestServerUtilsIntegration:
         }, clear=True):
             config = get_port_config()
             
-            with patch('vpn_sentinel_common.server_utils.make_server', return_value=mock_server):
-                with patch('vpn_sentinel_common.server_utils.log_info'):
+            with patch('vpn_sentinel.common.server_utils.make_server', return_value=mock_server):
+                with patch('vpn_sentinel.common.server_utils.log_info'):
                     run_flask_app(mock_app, config['api_port'], 'API')
                     
                     # Verify correct port used

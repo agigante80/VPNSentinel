@@ -1,10 +1,10 @@
 """Dashboard server routes for VPN Sentinel."""
-from vpn_sentinel_common.server import dashboard_app
-from vpn_sentinel_common.log_utils import log_info, get_current_time
-from vpn_sentinel_common.server_info import get_server_info
-from vpn_sentinel_common.api_routes import client_status
-from vpn_sentinel_common.version import get_version
-from vpn_sentinel_common.country_codes import compare_country_codes
+from .server import dashboard_app
+from .log_utils import log_info, get_current_time
+from .server_info import get_server_info
+from .api_routes import client_status
+from .version import get_version
+from .country_codes import compare_country_codes
 from flask import render_template_string
 from datetime import datetime, timezone
 import os

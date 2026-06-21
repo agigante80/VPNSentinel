@@ -1,4 +1,4 @@
-from vpn_sentinel_common.utils import sanitize_string, json_escape
+from vpn_sentinel.common.utils import sanitize_string, json_escape
 
 
 def test_utils_shim_cli_sanitize():

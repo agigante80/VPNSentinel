@@ -3,18 +3,22 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vpn-sentinel-common"
+name = "vpn-sentinel"
 version = "0.0.0"
-description = "Shared helpers for VPNSentinel (vpn_sentinel_common)"
+description = "Shared helpers for VPNSentinel (vpn_sentinel.common)"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [ { name = "agigante80" } ]
 license = { text = "MIT" }
 dependencies = ["requests>=2.32.3"]
 
+[project.scripts]
+vpn-sentinel-server = "vpn_sentinel.server.__main__:main"
+vpn-sentinel-client = "vpn_sentinel.client.__main__:main"
+
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["vpn_sentinel_common*"]
+where = ["src"]
+include = ["vpn_sentinel*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

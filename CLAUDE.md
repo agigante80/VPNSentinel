@@ -20,8 +20,8 @@ actually routing through a VPN, detects DNS leaks, and sends Telegram alerts.
 ```
 
 **Traffic-light status model:** 🟢 routing correctly · 🟡 DNS leaking · 🔴 VPN bypass (client public
-IP == server public IP). Red logic lives in `vpn_sentinel_common/api_routes.py`; DNS/yellow logic in
-`vpn_sentinel_common/network.py`.
+IP == server public IP). Red logic lives in `vpn_sentinel.common/api_routes.py`; DNS/yellow logic in
+`vpn_sentinel.common/network.py`.
 
 **Critical constraint:** the client must run inside the VPN network namespace
 (`network_mode: service:vpn-client`) or it cannot detect bypass.
@@ -36,7 +36,7 @@ in any PR that adds features depending on historical data or touches restart log
 |---|---|
 | `vpn-sentinel-server/vpn-sentinel-server.py` | Server entry point (starts 3 Flask apps + cleanup thread) |
 | `vpn-sentinel-client/vpn-sentinel-client.py` | Client entry point (keepalive loop, subprocess mgmt) |
-| `vpn_sentinel_common/` | Shared library (~21 modules) — the bulk of the logic |
+| `vpn_sentinel.common/` | Shared library (~21 modules) — the bulk of the logic |
 | `tests/` | `unit/`, `integration/`, `smoke/` + `run_tests.sh` |
 | `deployments/` | 4 deployment modes (all-in-one, client-standalone, client-with-vpn, server-central) |
 | `docs/` | Architecture, security, testing, Telegram docs |
@@ -51,11 +51,11 @@ in any PR that adds features depending on historical data or touches restart log
 ./tests/run_tests.sh --integration   # integration (needs running server)
 
 # Tests — direct (what CI runs for unit)
-python -m pytest tests/unit/ --tb=short --cov=vpn_sentinel_common --cov-report=term
+python -m pytest tests/unit/ --tb=short --cov=vpn_sentinel.common --cov-report=term
 
 # Lint (CI uses a syntax-error subset; full PEP8 check is max-line-length 120)
-flake8 vpn-sentinel-server/ vpn_sentinel_common/ --select=E9,F63,F7,F82 --show-source --statistics
-flake8 --max-line-length=120 vpn_sentinel_common/
+flake8 vpn-sentinel-server/ vpn_sentinel.common/ --select=E9,F63,F7,F82 --show-source --statistics
+flake8 --max-line-length=120 vpn_sentinel.common/
 
 # Build images (Dockerfiles build from repo root context)
 docker build -t vpn-sentinel-server:latest -f vpn-sentinel-server/Dockerfile .

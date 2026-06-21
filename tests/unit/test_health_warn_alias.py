@@ -1,6 +1,6 @@
 import pytest
 
-from vpn_sentinel_common import health as health_module
+from vpn_sentinel.common import health as health_module
 
 
 def test_component_warn_alias_normalizes_to_degraded():

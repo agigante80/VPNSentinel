@@ -10,13 +10,13 @@ import os
 # Add common library to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
-from vpn_sentinel_common.server_info import get_server_public_ip, get_server_info
+from vpn_sentinel.common.server_info import get_server_public_ip, get_server_info
 
 
 class TestGetServerPublicIp:
     """Tests for get_server_public_ip function."""
     
-    @patch('vpn_sentinel_common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.requests.get')
     def test_success_with_ipinfo(self, mock_get):
         """Test successful IP retrieval from ipinfo.io."""
         mock_response = MagicMock()
@@ -29,7 +29,7 @@ class TestGetServerPublicIp:
         assert result == '79.116.8.43'
         mock_get.assert_called_once_with('https://ipinfo.io/json', timeout=10, verify=True)
     
-    @patch('vpn_sentinel_common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.requests.get')
     def test_fallback_to_ipify(self, mock_get):
         """Test fallback to ipify when ipinfo fails."""
         def mock_responses(url, **kwargs):
@@ -48,7 +48,7 @@ class TestGetServerPublicIp:
         assert result == '1.2.3.4'
         assert mock_get.call_count == 2
     
-    @patch('vpn_sentinel_common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.requests.get')
     def test_returns_unknown_on_failure(self, mock_get):
         """Test returns 'Unknown' when both services fail."""
         mock_get.side_effect = Exception("Network error")
@@ -57,7 +57,7 @@ class TestGetServerPublicIp:
         
         assert result == 'Unknown'
     
-    @patch('vpn_sentinel_common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.requests.get')
     def test_handles_non_200_status(self, mock_get):
         """Test handles non-200 status codes gracefully."""
         mock_response = MagicMock()
@@ -68,7 +68,7 @@ class TestGetServerPublicIp:
         
         assert result == 'Unknown'
     
-    @patch('vpn_sentinel_common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.requests.get')
     def test_handles_missing_ip_field(self, mock_get):
         """Test handles response without 'ip' field."""
         mock_response = MagicMock()
@@ -85,8 +85,8 @@ class TestGetServerInfo:
     """Tests for get_server_info function."""
     
     @patch('socket.gethostbyname')
-    @patch('vpn_sentinel_common.server_info.requests.get')
-    @patch('vpn_sentinel_common.server_info.log_info')
+    @patch('vpn_sentinel.common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.log_info')
     def test_success_with_ipinfo(self, mock_log, mock_get, mock_socket):
         """Test successful info retrieval from ipinfo.io."""
         mock_response = MagicMock()
@@ -109,9 +109,9 @@ class TestGetServerInfo:
         assert result['dns_status'] == 'Operational'
     
     @patch('socket.gethostbyname')
-    @patch('vpn_sentinel_common.server_info.requests.get')
-    @patch('vpn_sentinel_common.server_info.log_info')
-    @patch('vpn_sentinel_common.server_info.log_warn')
+    @patch('vpn_sentinel.common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.log_info')
+    @patch('vpn_sentinel.common.server_info.log_warn')
     def test_fallback_to_ipapi(self, mock_warn, mock_log, mock_get, mock_socket):
         """Test fallback to ip-api.com when ipinfo fails."""
         def mock_responses(url, **kwargs):
@@ -142,8 +142,8 @@ class TestGetServerInfo:
         mock_warn.assert_called_once()
     
     @patch('socket.gethostbyname')
-    @patch('vpn_sentinel_common.server_info.requests.get')
-    @patch('vpn_sentinel_common.server_info.log_info')
+    @patch('vpn_sentinel.common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.log_info')
     def test_location_without_region(self, mock_log, mock_get, mock_socket):
         """Test location formatting when region is missing."""
         mock_response = MagicMock()
@@ -163,8 +163,8 @@ class TestGetServerInfo:
         assert result['location'] == 'Singapore, SG'
     
     @patch('socket.gethostbyname')
-    @patch('vpn_sentinel_common.server_info.requests.get')
-    @patch('vpn_sentinel_common.server_info.log_info')
+    @patch('vpn_sentinel.common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.log_info')
     def test_location_without_city(self, mock_log, mock_get, mock_socket):
         """Test location formatting when city is missing."""
         mock_response = MagicMock()
@@ -184,8 +184,8 @@ class TestGetServerInfo:
         assert result['location'] == 'US'
     
     @patch('socket.gethostbyname')
-    @patch('vpn_sentinel_common.server_info.requests.get')
-    @patch('vpn_sentinel_common.server_info.log_info')
+    @patch('vpn_sentinel.common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.log_info')
     def test_dns_failure_detection(self, mock_log, mock_get, mock_socket):
         """Test DNS status detection when DNS fails."""
         mock_response = MagicMock()
@@ -203,8 +203,8 @@ class TestGetServerInfo:
         
         assert result['dns_status'] == 'Issues Detected'
     
-    @patch('vpn_sentinel_common.server_info.requests.get')
-    @patch('vpn_sentinel_common.server_info.log_error')
+    @patch('vpn_sentinel.common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.log_error')
     def test_complete_failure_returns_defaults(self, mock_log_error, mock_get):
         """Test returns default values when everything fails."""
         mock_get.side_effect = Exception("Network down")
@@ -218,8 +218,8 @@ class TestGetServerInfo:
         mock_log_error.assert_called_once()
     
     @patch('socket.gethostbyname')
-    @patch('vpn_sentinel_common.server_info.requests.get')
-    @patch('vpn_sentinel_common.server_info.log_info')
+    @patch('vpn_sentinel.common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.log_info')
     def test_ipapi_location_without_region(self, mock_log, mock_get, mock_socket):
         """Test ip-api.com location formatting without region."""
         def mock_responses(url, **kwargs):
@@ -247,9 +247,9 @@ class TestGetServerInfo:
         assert result['location'] == 'Tokyo, JP'
     
     @patch('socket.gethostbyname')
-    @patch('vpn_sentinel_common.server_info.requests.get')
-    @patch('vpn_sentinel_common.server_info.log_info')
-    @patch('vpn_sentinel_common.server_info.log_warn')
+    @patch('vpn_sentinel.common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.log_info')
+    @patch('vpn_sentinel.common.server_info.log_warn')
     def test_both_services_fail(self, mock_warn, mock_log, mock_get, mock_socket):
         """Test when both geolocation services fail."""
         def mock_responses(url, **kwargs):
@@ -267,8 +267,8 @@ class TestGetServerInfo:
         assert result['location'] == 'Unknown'
     
     @patch('socket.gethostbyname')
-    @patch('vpn_sentinel_common.server_info.requests.get')
-    @patch('vpn_sentinel_common.server_info.log_info')
+    @patch('vpn_sentinel.common.server_info.requests.get')
+    @patch('vpn_sentinel.common.server_info.log_info')
     def test_handles_missing_provider_field(self, mock_log, mock_get, mock_socket):
         """Test handles missing provider/org field gracefully."""
         mock_response = MagicMock()

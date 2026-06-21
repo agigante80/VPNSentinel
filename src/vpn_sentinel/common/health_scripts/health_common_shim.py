@@ -6,7 +6,7 @@ Provides the same CLI interface as the old health_common.py script.
 
 import json
 import sys
-from vpn_sentinel_common.health_scripts.healthcheck import (
+from vpn_sentinel.common.health_scripts.healthcheck import (
     check_client_process,
     check_network_connectivity,
     get_system_info,

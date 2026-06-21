@@ -1,4 +1,4 @@
-"""Canonical payload helpers for vpn_sentinel_common.
+"""Canonical payload helpers for vpn_sentinel.common.
 
 Provides build_payload_from_env() and post_payload() so clients and server
 can import a single source of truth instead of duplicating logic in the

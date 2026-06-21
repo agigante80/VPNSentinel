@@ -71,7 +71,7 @@ class TestServerFunctions(unittest.TestCase):
     def test_get_current_time(self):
         """Test timezone-aware time generation"""
         from datetime import datetime
-        from vpn_sentinel_common.log_utils import get_current_time
+        from vpn_sentinel.common.log_utils import get_current_time
 
         # Test that get_current_time returns a datetime object
         result = get_current_time()
@@ -447,7 +447,7 @@ class TestTelegramCommands(unittest.TestCase):
         self.env_patcher.start()
 
         # Import security module from canonical location
-        from vpn_sentinel_common import security
+        from vpn_sentinel.common import security
         self.security = security
     
     def tearDown(self):
@@ -635,7 +635,7 @@ class TestInputValidation(unittest.TestCase):
         self.env_patcher.start()
         
         # Import validation functions
-        from vpn_sentinel_common.validation import validate_client_id, validate_public_ip, validate_location_string
+        from vpn_sentinel.common.validation import validate_client_id, validate_public_ip, validate_location_string
         self.validate_client_id = validate_client_id
         self.validate_public_ip = validate_public_ip
         self.validate_location_string = validate_location_string
@@ -745,7 +745,7 @@ class TestServerUtilityFunctions(unittest.TestCase):
         self.env_patcher.start()
 
         # Import security module from canonical location
-        from vpn_sentinel_common import security
+        from vpn_sentinel.common import security
         self.security = security
 
     def tearDown(self):
@@ -838,7 +838,7 @@ class TestAPIPathConfiguration(unittest.TestCase):
             self.assertEqual(api_path, '/api/v1')
 
 
-@pytest.mark.skip(reason="Flask routes not yet migrated to vpn_sentinel_common")
+@pytest.mark.skip(reason="Flask routes not yet migrated to vpn_sentinel.common")
 class TestHealthCheckEndpoints(unittest.TestCase):
     """Test health check endpoints for VPN Sentinel Server"""
 
@@ -857,7 +857,7 @@ class TestHealthCheckEndpoints(unittest.TestCase):
 
         # Import and set up Flask test client
         try:
-            from vpn_sentinel_common.server import api_app
+            from vpn_sentinel.common.server import api_app
             self.app = api_app
             self.app.config['TESTING'] = True
             self.client = self.app.test_client()
@@ -1014,7 +1014,7 @@ class TestHealthCheckEndpoints(unittest.TestCase):
         with patch.dict(os.environ, {'VPN_SENTINEL_API_PATH': '/custom/api'}):
             # Re-import to get new API path
             try:
-                from vpn_sentinel_common.server import health_app as custom_health_app
+                from vpn_sentinel.common.server import health_app as custom_health_app
                 custom_health_app.config['TESTING'] = True
                 custom_client = custom_health_app.test_client()
 
@@ -1035,7 +1035,7 @@ class TestHealthCheckEndpoints(unittest.TestCase):
                 self.skipTest("Cannot re-import with custom API path")
 
 
-@pytest.mark.skip(reason="Flask routes not yet migrated to vpn_sentinel_common")
+@pytest.mark.skip(reason="Flask routes not yet migrated to vpn_sentinel.common")
 class TestHealthServer(unittest.TestCase):
     """Unit tests for dedicated health server functionality"""
 
@@ -1051,7 +1051,7 @@ class TestHealthServer(unittest.TestCase):
         # Import health app after environment is set
         try:
             # Try direct import first
-            from vpn_sentinel_common.server import health_app
+            from vpn_sentinel.common.server import health_app
             self.health_client = health_app.test_client()
             health_app.config['TESTING'] = True
             # Mock Telegram variables to ensure health checks don't try to connect
@@ -1223,7 +1223,7 @@ class TestHealthServer(unittest.TestCase):
                 if 'vpn_sentinel_server' in sys.modules:
                     del sys.modules['vpn_sentinel_server']
 
-                from vpn_sentinel_common.server import health_app as custom_health_app
+                from vpn_sentinel.common.server import health_app as custom_health_app
                 custom_health_app.config['TESTING'] = True
                 custom_client = custom_health_app.test_client()
 

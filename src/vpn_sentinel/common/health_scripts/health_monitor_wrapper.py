@@ -10,7 +10,7 @@ import subprocess
 import time
 from pathlib import Path
 
-# Add the parent directory to sys.path so we can import vpn_sentinel_common
+# Add the parent directory to sys.path so we can import vpn_sentinel.common
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Health monitor main function will be called via subprocess

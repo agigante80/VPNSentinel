@@ -49,7 +49,7 @@ query-filters:
   #
   # Example from tests/unit/test_server_info.py (line 36):
   #   ```python
-  #   @patch('vpn_sentinel_common.server_info.requests.get')
+  #   @patch('vpn_sentinel.common.server_info.requests.get')
   #   def test_fallback_to_ipify(self, mock_get):
   #       def mock_responses(url, **kwargs):
   #           if 'ipinfo.io' in url:      # ← Flagged by CodeQL (Alert #14)
@@ -122,7 +122,7 @@ query-filters:
   #   ```
   #
   # Production code status:
-  #   ✅ Alert #20 (Nov 15): Fixed in vpn_sentinel_common/dashboard_routes.py
+  #   ✅ Alert #20 (Nov 15): Fixed in vpn_sentinel.common/dashboard_routes.py
   #   ✅ Alert #6 (Oct 29): Fixed in vpn-sentinel-server/vpn-sentinel-server.py
   #   ✅ Alerts #1-2 (Oct 15): Fixed in server
   #   ✅ Production uses generic error messages, logs detailed errors server-side

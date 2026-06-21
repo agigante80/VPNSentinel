@@ -1,4 +1,4 @@
-"""Unit tests for vpn_sentinel_common.validation module.
+"""Unit tests for vpn_sentinel.common.validation module.
 
 Tests input validation and sanitization functions.
 """
@@ -6,7 +6,7 @@ import pytest
 import socket
 from unittest.mock import patch, MagicMock
 from flask import Flask
-from vpn_sentinel_common.validation import (
+from vpn_sentinel.common.validation import (
     get_client_ip,
     validate_client_id,
     validate_public_ip,
@@ -228,7 +228,7 @@ class TestValidateLocationString:
     def test_validate_location_string_non_ascii(self):
         """Test non-ASCII characters are rejected."""
         # The regex pattern only allows ASCII characters
-        with patch('vpn_sentinel_common.validation.log_warn'):
+        with patch('vpn_sentinel.common.validation.log_warn'):
             result = validate_location_string('São Paulo', 'city')
             assert result == 'Unknown'
 
@@ -276,7 +276,7 @@ class TestValidateLocationString:
             ('Test@Location', 'org'),
             ('City$Money', 'city')
         ]
-        with patch('vpn_sentinel_common.validation.log_warn') as mock_warn:
+        with patch('vpn_sentinel.common.validation.log_warn') as mock_warn:
             for value, field_name in invalid_strings:
                 result = validate_location_string(value, field_name)
                 assert result == 'Unknown', f"Expected 'Unknown' for {value}"
@@ -286,7 +286,7 @@ class TestValidateLocationString:
 
     def test_validate_location_string_slash_not_in_timezone(self):
         """Test slash is rejected in non-timezone fields."""
-        with patch('vpn_sentinel_common.validation.log_warn') as mock_warn:
+        with patch('vpn_sentinel.common.validation.log_warn') as mock_warn:
             result = validate_location_string('City/Region', 'city')
             assert result == 'Unknown'
             mock_warn.assert_called_once()
@@ -307,7 +307,7 @@ class TestValidateLocationString:
         """Test regex error handling returns Unknown."""
         # Mock re.match to raise re.error (which is caught in the code)
         import re
-        with patch('vpn_sentinel_common.validation.re.match', side_effect=re.error('Pattern error')):
+        with patch('vpn_sentinel.common.validation.re.match', side_effect=re.error('Pattern error')):
             result = validate_location_string('Test', 'city')
             assert result == 'Unknown'
 
@@ -333,7 +333,7 @@ class TestValidationIntegration:
 
     def test_security_injection_attempts(self):
         """Test validation blocks common injection attempts."""
-        with patch('vpn_sentinel_common.validation.log_warn'):
+        with patch('vpn_sentinel.common.validation.log_warn'):
             # SQL injection attempts
             assert validate_location_string("'; DROP TABLE users; --", 'city') == 'Unknown'
             
