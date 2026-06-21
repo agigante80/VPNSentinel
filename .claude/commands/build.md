@@ -5,8 +5,8 @@ description: Build the VPNSentinel server and client Docker images and verify th
 Build both Docker images (build context is the repo root) and verify they run.
 
 ```bash
-docker build -t vpn-sentinel-server:latest -f vpn-sentinel-server/Dockerfile .
-docker build -t vpn-sentinel-client:latest -f vpn-sentinel-client/Dockerfile .
+docker build -t vpn-sentinel-server:latest -f src/vpn_sentinel/server/Dockerfile .
+docker build -t vpn-sentinel-client:latest -f src/vpn_sentinel/client/Dockerfile .
 ```
 
 Then smoke-check that each image's entry point responds:

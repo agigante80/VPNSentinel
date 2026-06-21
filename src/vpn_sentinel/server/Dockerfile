@@ -19,12 +19,12 @@ WORKDIR /app
 
 # Copy Python project files
 COPY pyproject.toml .
-COPY vpn_sentinel_common/ ./vpn_sentinel_common/
+COPY src/ ./src/
 
 # Install Python dependencies and Flask with retry logic
 # Upgrade pip first to fix CVE-2025-8869
 RUN pip install --no-cache-dir --upgrade pip>=25.3 && \
-    pip install --no-cache-dir --user --retries 10 --timeout 60 -e . 'flask>=3.1.0' 'werkzeug>=3.1.0'
+    pip install --no-cache-dir --user --retries 10 --timeout 60 . 'flask>=3.1.0' 'werkzeug>=3.1.0'
 
 # Runtime stage
 FROM python:3.12-alpine
@@ -53,13 +53,6 @@ WORKDIR /app
 # Copy installed Python packages from builder
 COPY --from=builder /root/.local /home/vpnuser/.local
 
-# Copy application code
-COPY vpn_sentinel_common/ ./vpn_sentinel_common/
-COPY vpn-sentinel-server/vpn-sentinel-server.py ./vpn-sentinel-server.py
-
-# Make script executable
-RUN chmod +x ./vpn-sentinel-server.py
-
 # Create logs directory
 RUN mkdir -p /app/logs && \
     chown -R vpnuser:vpnuser /app
@@ -76,5 +69,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD sh -c 'health_port=${VPN_SENTINEL_SERVER_HEALTH_PORT:-8081}; wget -q -O - http://127.0.0.1:$health_port/health || exit 1'
 
 # Default command - run the server
-CMD ["python", "./vpn-sentinel-server.py"]
+CMD ["python", "-m", "vpn_sentinel.server"]
 

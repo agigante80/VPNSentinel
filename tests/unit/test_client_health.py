@@ -115,13 +115,13 @@ class TestClientHealthCheck(unittest.TestCase):
 
     def test_script_included_in_dockerfile(self):
         """Test that health check script is properly included in Dockerfile"""
-        dockerfile_path = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-client/Dockerfile')
+        dockerfile_path = os.path.join(os.path.dirname(__file__), '../../src/vpn_sentinel/client/Dockerfile')
 
         with open(dockerfile_path, 'r') as f:
             content = f.read()
 
-        # Should copy the Python script
-        self.assertIn('COPY vpn_sentinel_common/health_scripts/healthcheck.py /app/healthcheck.py', content)
+        # Should copy the Python script from new src/ layout
+        self.assertIn('COPY src/vpn_sentinel/common/health_scripts/healthcheck.py /app/healthcheck.py', content)
         # Should make it executable (part of the chmod command)
         self.assertIn('/app/healthcheck.py', content)
         self.assertIn('chmod +x', content)
@@ -130,7 +130,7 @@ class TestClientHealthCheck(unittest.TestCase):
 
     def test_dockerfile_healthcheck_configuration(self):
         """Test that Dockerfile has proper HEALTHCHECK configuration"""
-        dockerfile_path = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-client/Dockerfile')
+        dockerfile_path = os.path.join(os.path.dirname(__file__), '../../src/vpn_sentinel/client/Dockerfile')
 
         with open(dockerfile_path, 'r') as f:
             content = f.read()
