@@ -66,7 +66,7 @@ docker compose up -d
 docker compose logs -f vpn-sentinel-server
 ```
 
-Coverage gate is **80%** (`pytest.ini`). Python **3.12** in CI (`requires-python >=3.10`).
+Coverage gate is **80%** (`pyproject.toml`). Python **3.12** in CI (`requires-python >=3.10`).
 
 ## Working agreements
 

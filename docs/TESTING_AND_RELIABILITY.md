@@ -60,7 +60,7 @@ tests/
 │   └── test_server.py       # Mock server for testing
 │
 ├── conftest.py               # Pytest configuration
-├── pytest.ini                # Pytest settings
+├── pyproject.toml            # Pytest settings
 ├── requirements.txt          # Test dependencies
 └── run_tests.sh              # Test runner script
 ```

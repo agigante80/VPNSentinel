@@ -142,7 +142,7 @@ curl -s http://localhost:5000/status | python3 -m json.tool
 - `tests/integration/` — full Docker stack, slower
 - `tests/smoke/` — real-world shell scripts for manual validation
 - Markers: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.network`, `@pytest.mark.docker`
-- Coverage requirement: 80% minimum (enforced in `pytest.ini`)
+- Coverage requirement: 80% minimum (enforced in `pyproject.toml`)
 
 ## Deployment Scenarios
 
