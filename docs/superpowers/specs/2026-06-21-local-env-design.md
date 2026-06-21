@@ -52,6 +52,29 @@ and run a full E2E.
    assertions live once.
 5. **Skill shape:** Thin skill (`disable-model-invocation: true`) calling a real
    `bin/local-env` CLI. Plus a thin `/local-env` command alias for ergonomics.
+6. **Real E2E test (added after a mid-design finding):** Spec 1 adds a NEW dedicated,
+   port-aware E2E test rather than relying on the existing suite (see Findings).
+
+## Findings (discovered during planning — they change verify's scope)
+
+The original plan to make `verify` simply run `pytest tests/integration/` rests on a false
+premise: **the existing suite does not truly E2E-test the Docker stack.**
+
+- `tests/integration/test_e2e.py:69` and `:135` — the only tests exercising the real
+  client→server keepalive→`/status` workflow are `@unittest.skip("Temporarily skipped…")`.
+  They never run.
+- Even un-skipped, `test_e2e.py:63-64` target `http://localhost:5000` / `:8081`, but the
+  compose stack publishes the server on host ports **15554 / 15553**
+  (`tests/docker-compose.test.yaml:9-11`). They would hit nothing and `skipTest` on
+  `ConnectionError` (`:132`).
+- What genuinely hits the live stack today is essentially `test_dashboard.py` (correctly
+  reads host port `18080` via `VPN_SENTINEL_SERVER_DASHBOARD_PORT`). The client-subprocess
+  tests check the client's *own* health endpoints, not a real round-trip to the server.
+- CI bridges readiness with `sleep 10` (`.github/workflows/ci-cd.yml`), not a healthcheck.
+
+**Consequence:** wrapping the current suite would go green without proving the core flow.
+Spec 1 therefore adds a genuine E2E test (below) as `verify`'s backbone. Cleaning up /
+un-skipping the legacy `test_e2e.py` is deferred to Spec 2.
 
 ## Architecture
 
@@ -98,17 +121,43 @@ Implementation notes:
 - Propagates exit codes so CI and pre-commit can call it.
 - `set -euo pipefail`; passes `shellcheck` (already in pre-commit) and `shfmt -i 2 -ci`.
 
+### New genuine E2E test: `tests/integration/test_local_e2e.py`
+
+A dedicated test that hard-asserts the real flow against the **running compose stack**, on
+its actual host ports (read from env, with defaults matching the compose mapping). No silent
+`skipTest` on connection error — if the stack is expected and unreachable, the test FAILS.
+
+Reads (env → default):
+- `VPN_SENTINEL_SERVER_HOST` → `localhost`
+- `VPN_SENTINEL_E2E_API_PORT` → `15554` (host → container 5000)
+- `VPN_SENTINEL_E2E_HEALTH_PORT` → `15553` (host → container 5001)
+- `VPN_SENTINEL_E2E_DASHBOARD_PORT` → `18080` (host → container 8080)
+- `VPN_SENTINEL_API_PATH` → `/test/v1`
+- `VPN_SENTINEL_API_KEY` → `test-api-key-abcdef123456789`
+
+Hard assertions:
+- `GET health` → 200
+- `POST <api_path>/keepalive` (with auth + valid payload) → 200, `status == ok`
+- `GET <api_path>/status` → the posted client present, `status == alive`
+- `GET /dashboard` → 200
+- the compose `vpn-sentinel-client-test` container's keepalive shows up in `/status`
+  (proves the real client→server round trip, not just a synthetic POST)
+
+Gated so it only runs when the stack is up: an env flag `VPN_SENTINEL_E2E=1` (set by
+`verify`); otherwise the test is skipped with a clear reason. The exact health endpoint
+path/port is confirmed in the characterization task before the assertions are finalized.
+
 ### `verify` flow (the E2E)
 
-1. Build + `up -d`; Compose healthchecks gate readiness (no `sleep` guessing).
-2. Run `pytest tests/integration/` against the live stack. These tests already assert:
-   - client keepalive reaches server (≥2 cycles),
-   - `GET /status` reports the client,
-   - client `/health`, `/health/ready`, `/health/startup`,
-   - dashboard returns 200.
-3. Summarize pass/fail; tear down (unless `--keep`).
+1. Ensure host test deps are installed (`pip install -e . && pip install -r tests/requirements.txt`).
+2. Build + `up -d`; Compose healthchecks gate readiness (no `sleep` guessing).
+3. Export the E2E env vars and run, against the live stack:
+   - `tests/integration/test_local_e2e.py` (the genuine backbone), and
+   - `tests/integration/test_dashboard.py` (already stack-aware).
+4. Summarize pass/fail; tear down (unless `--keep`).
 
-Assertions live once, in `tests/integration/`. Same suite runs in CI.
+The new E2E test is the trustworthy assertion. Broader reuse/cleanup of the rest of
+`tests/integration/` (un-skipping `test_e2e.py`, fixing ports) is deferred to Spec 2.
 
 ### Skill: `.claude/skills/local-env/SKILL.md`
 
@@ -154,7 +203,11 @@ Add to `.claude/settings.json` allow:
 
 ## Rollout / acceptance
 
-- `bin/local-env verify` passes locally from a clean checkout.
+- `tests/integration/test_local_e2e.py` hard-asserts the real client→server→status→dashboard
+  flow against the live stack and FAILS (not skips) if the stack is unreachable when expected.
+- `bin/local-env verify` passes locally from a clean checkout and is the command that runs the
+  genuine E2E.
+- Readiness is gated by a restored server healthcheck (no `sleep`).
 - CI integration job can call `bin/local-env verify` (or continues to drive the same stack).
 - `/local-env` (skill or command) runs each subcommand.
 - Smoke script removed; no dangling references in docs/CI.
