@@ -21,17 +21,6 @@ MAX_LOG_SIZE_BYTES = int(os.getenv("VPN_SENTINEL_LOG_MAX_SIZE", str(10 * 1024 * 
 MAX_LOG_BACKUPS = int(os.getenv("VPN_SENTINEL_LOG_MAX_BACKUPS", "5"))  # 5 backup files default
 
 
-def _configure_once():
-    # Basic config: stream to stdout with human-friendly format.
-    if not std_logging.getLogger().handlers:
-        std_logging.basicConfig(
-            level=std_logging.INFO,
-            format="%(asctime)s %(levelname)s %(message)s",
-            datefmt="%Y-%m-%dT%H:%M:%S",
-            handlers=[std_logging.StreamHandler(sys.stdout)],
-        )
-
-
 def _initialize_log_file():
     """Initialize log file with rotation. Uses VPN_SENTINEL_LOG_FILE env var or defaults to /tmp/vpn-sentinel-server.log.  # noqa: E501
 
