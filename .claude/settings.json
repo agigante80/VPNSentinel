@@ -41,5 +41,18 @@
       "Bash(pylint --load-plugins:*)",
       "Bash(pylint --init-hook:*)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/block-dashes.py"
+          }
+        ]
+      }
+    ]
   }
 }
