@@ -470,6 +470,12 @@ jobs:
             [ "$state" = "healthy" ] && break
             sleep 2
           done
+          if [ "$state" != "healthy" ]; then
+            echo "::error::server did not become healthy in time"
+            docker compose -f tests/docker-compose.test.yaml ps
+            docker compose -f tests/docker-compose.test.yaml logs --tail 50 vpn-sentinel-server-test
+            exit 1
+          fi
 
       - name: Run integration tests
         run: |
