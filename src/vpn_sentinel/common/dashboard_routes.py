@@ -3,7 +3,7 @@
 from .server import dashboard_app
 from .log_utils import log_info, get_current_time
 from .server_info import get_server_info
-from .api_routes import client_status
+from .api_routes import client_status, client_status_lock
 from .version import get_version
 from .country_codes import compare_country_codes
 from flask import render_template_string
@@ -56,9 +56,13 @@ def dashboard():
     # Get version
     version = get_version()
 
-    # Get client statistics
-    total_clients = len(client_status)
-    online_clients = sum(1 for c in client_status.values() if c)
+    # Snapshot client_status under lock — prevents RuntimeError from concurrent del
+    with client_status_lock:
+        clients_snapshot = dict(client_status)
+
+    # Get client statistics from snapshot
+    total_clients = len(clients_snapshot)
+    online_clients = sum(1 for c in clients_snapshot.values() if c)
     offline_clients = total_clients - online_clients
 
     # Get current time (timezone-aware based on TZ environment variable)
@@ -69,8 +73,8 @@ def dashboard():
 
     # Build client rows HTML
     client_rows_html = ""
-    if client_status:
-        for client_id, client in client_status.items():
+    if clients_snapshot:
+        for client_id, client in clients_snapshot.items():
             health_class, health_icon, health_text, dns_icon = get_client_health_status(client, server_ip)
 
             client_ip = client.get("ip", "unknown")
