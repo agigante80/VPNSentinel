@@ -27,7 +27,14 @@
       "Bash(git log:*)",
       "Bash(git branch:*)",
       "Bash(git show:*)",
-      "Bash(./get_version.sh)"
+      "Bash(./get_version.sh)",
+      "Bash(bin/local-env start)",
+      "Bash(bin/local-env stop)",
+      "Bash(bin/local-env rebuild)",
+      "Bash(bin/local-env status)",
+      "Bash(bin/local-env logs:*)",
+      "Bash(bin/local-env verify:*)",
+      "Bash(bin/local-env help)"
     ],
     "ask": [],
     "deny": [
