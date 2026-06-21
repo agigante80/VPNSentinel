@@ -123,7 +123,7 @@ def cleanup_stale_pidfile():
                     except ProcessLookupError:
                         pass  # Process already exited
                     print(f"Terminated stale health monitor process {existing_pid}", file=sys.stderr)
-            except (subprocess.TimeoutExpired, subprocess.SubprocessError, ValueError, OSError) as e:
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError, ValueError, OSError):
                 # Process doesn't exist or other error - this is fine
                 pass
 
@@ -131,7 +131,7 @@ def cleanup_stale_pidfile():
         try:
             os.remove(pidfile)
             print(f"Removed stale PID file: {pidfile}", file=sys.stderr)
-        except OSError as e:
+        except OSError:
             pass
     else:
         print(f"DEBUG: PID file does not exist: {pidfile}", file=sys.stderr)

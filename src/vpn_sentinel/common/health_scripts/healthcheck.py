@@ -14,8 +14,8 @@ from pathlib import Path
 # Add src/ to sys.path so standalone execution can import vpn_sentinel.common
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
-from vpn_sentinel.common import health
-from vpn_sentinel.common.log_utils import log_info, log_warn, log_error
+from vpn_sentinel.common import health  # noqa: E402  # after sys.path bootstrap
+from vpn_sentinel.common.log_utils import log_info, log_warn, log_error  # noqa: E402  # after sys.path bootstrap
 
 
 def check_client_process():
@@ -189,7 +189,7 @@ def print_human_readable(results, overall_healthy):
     if results["server_connectivity"] == "healthy":
         log_info("health", "Server connectivity: healthy")
     elif results["server_connectivity"] == "unreachable":
-        log_warn("health", f"Server connectivity: unreachable")
+        log_warn("health", "Server connectivity: unreachable")
     else:
         log_info("health", f'Server connectivity: {results["server_connectivity"]}')
 

@@ -70,7 +70,7 @@ def run_flask_app(app, port: int, name: str, host: str = "0.0.0.0") -> None:
                             log_info(self.component_name, msg)
                     else:
                         log_info(self.component_name, msg)
-                except:
+                except Exception:
                     pass
 
         # Create custom request handler that uses our log format
@@ -90,7 +90,7 @@ def run_flask_app(app, port: int, name: str, host: str = "0.0.0.0") -> None:
 
                     # Use our log_info format
                     log_info(component, f'🌐 {client_ip} "{request_line}" {code}')
-                except:
+                except Exception:
                     pass
 
         # Disable the default Werkzeug logger to prevent duplicate logs
