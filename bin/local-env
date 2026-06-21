@@ -71,6 +71,59 @@ cmd_rebuild() {
 cmd_status() { "${DC[@]}" ps; }
 cmd_logs() { "${DC[@]}" logs -f "${1:-}"; }
 
+cmd_verify() {
+  local keep=0 dry=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+      --keep) keep=1 ;;
+      --dry-run) dry=1 ;;
+      *)
+        err "verify: unknown option $arg"
+        return 2
+        ;;
+    esac
+  done
+
+  if [ "$dry" -eq 1 ]; then
+    log "verify plan: install deps -> up (healthy) -> pytest live E2E -> teardown(keep=$keep)"
+    return 0
+  fi
+
+  log "Installing host test dependencies..."
+  python3 -m pip install --break-system-packages -e "$REPO_ROOT" >/dev/null
+  python3 -m pip install --break-system-packages -r "$REPO_ROOT/tests/requirements.txt" >/dev/null
+
+  cmd_start
+
+  log "Running live-stack E2E tests..."
+  local rc=0
+  (
+    cd "$REPO_ROOT" &&
+      VPN_SENTINEL_E2E=1 \
+        VPN_SENTINEL_SERVER_HOST=localhost \
+        VPN_SENTINEL_E2E_API_PORT="$API_PORT" \
+        VPN_SENTINEL_E2E_HEALTH_PORT="$HEALTH_PORT" \
+        VPN_SENTINEL_E2E_DASHBOARD_PORT="$DASH_PORT" \
+        VPN_SENTINEL_API_PATH=/test/v1 \
+        VPN_SENTINEL_API_KEY=test-api-key-abcdef123456789 \
+        python3 -m pytest tests/integration/test_local_e2e.py tests/integration/test_dashboard.py \
+        --tb=short --color=yes
+  ) || rc=$?
+
+  if [ "$keep" -eq 1 ]; then
+    log "Leaving stack up (--keep). Stop with: bin/local-env stop"
+  else
+    cmd_stop
+  fi
+
+  if [ "$rc" -eq 0 ]; then
+    log "E2E VERIFY PASSED ✅"
+  else
+    err "E2E VERIFY FAILED (pytest rc=$rc) ❌"
+  fi
+  return "$rc"
+}
+
 main() {
   local command="${1:-help}"
   shift || true
@@ -80,10 +133,7 @@ main() {
     rebuild) cmd_rebuild ;;
     status) cmd_status ;;
     logs) cmd_logs "${1:-}" ;;
-    verify)
-      err "verify is implemented in Task 4"
-      exit 2
-      ;;
+    verify) cmd_verify "$@" ;;
     help | -h | --help) usage ;;
     *)
       err "Unknown command: $command"

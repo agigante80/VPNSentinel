@@ -20,3 +20,10 @@ def test_unknown_command_errors():
     res = run("bogus")
     assert res.returncode != 0
     assert "Unknown command" in (res.stdout + res.stderr)
+
+
+def test_verify_is_a_known_command():
+    # With no Docker available in unit context, verify should fail LOUDLY,
+    # not print "Unknown command".
+    res = run("verify", "--dry-run")
+    assert "Unknown command" not in (res.stdout + res.stderr)
