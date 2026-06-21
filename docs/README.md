@@ -40,8 +40,8 @@ python3 -m flake8 vpn-sentinel-server/ vpn-sentinel-client/ vpn_sentinel_common/
 docker build -t vpn-sentinel-server:latest -f vpn-sentinel-server/Dockerfile .
 docker build -t vpn-sentinel-client:latest -f vpn-sentinel-client/Dockerfile .
 
-# Run smoke tests
-bash scripts/smoke/run_local_smoke.sh
+# Full local end-to-end check (Docker)
+bin/local-env verify
 ```
 
 ---
