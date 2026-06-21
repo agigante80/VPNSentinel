@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+# local-env: manage the VPNSentinel local Docker E2E stack.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMPOSE_FILE="$REPO_ROOT/tests/docker-compose.test.yaml"
+ENV_FILE="$REPO_ROOT/tests/.env.test"
+DC=(docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE")
+
+# Host ports (must match tests/docker-compose.test.yaml)
+API_PORT=15554
+HEALTH_PORT=15553
+DASH_PORT=18080
+
+log() { printf '[local-env] %s\n' "$*"; }
+err() { printf '[local-env] ERROR: %s\n' "$*" >&2; }
+
+usage() {
+  cat <<'EOF'
+Usage: bin/local-env <command>
+
+Commands:
+  start     Build and start the stack; wait until healthy; print URLs
+  stop      Stop and remove the stack (down -v)
+  rebuild   Rebuild images with --no-cache, then start
+  status    Show container + health status
+  logs      Follow logs (optional: logs <service>)
+  verify    Full E2E: up (healthy) -> live-stack pytest -> teardown
+  help      Show this help
+
+Stack: tests/docker-compose.test.yaml  (API :15554  health :15553  dashboard :18080)
+EOF
+}
+
+cmd_start() {
+  log "Starting stack (build + up)..."
+  "${DC[@]}" up -d --build
+  log "Waiting for server to become healthy..."
+  local cid
+  cid="$("${DC[@]}" ps -q vpn-sentinel-server-test)"
+  local attempts=0
+  while [ "$attempts" -lt 60 ]; do
+    attempts=$((attempts + 1))
+    local state
+    state="$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo unknown)"
+    if [ "$state" = "healthy" ]; then
+      log "Server healthy."
+      log "API:       http://localhost:${API_PORT}/test/v1"
+      log "Health:    http://localhost:${HEALTH_PORT}/health"
+      log "Dashboard: http://localhost:${DASH_PORT}/dashboard"
+      return 0
+    fi
+    sleep 2
+  done
+  err "Server did not become healthy in time."
+  "${DC[@]}" ps
+  "${DC[@]}" logs --tail 50 vpn-sentinel-server-test || true
+  return 1
+}
+
+cmd_stop() {
+  log "Stopping stack..."
+  "${DC[@]}" down -v
+}
+cmd_rebuild() {
+  log "Rebuilding (no cache)..."
+  "${DC[@]}" build --no-cache
+  cmd_start
+}
+cmd_status() { "${DC[@]}" ps; }
+cmd_logs() { "${DC[@]}" logs -f "${1:-}"; }
+
+main() {
+  local command="${1:-help}"
+  shift || true
+  case "$command" in
+    start) cmd_start ;;
+    stop) cmd_stop ;;
+    rebuild) cmd_rebuild ;;
+    status) cmd_status ;;
+    logs) cmd_logs "${1:-}" ;;
+    verify)
+      err "verify is implemented in Task 4"
+      exit 2
+      ;;
+    help | -h | --help) usage ;;
+    *)
+      err "Unknown command: $command"
+      usage
+      exit 2
+      ;;
+  esac
+}
+
+main "$@"
