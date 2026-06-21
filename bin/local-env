@@ -85,15 +85,28 @@ cmd_verify() {
   done
 
   if [ "$dry" -eq 1 ]; then
-    log "verify plan: install deps -> up (healthy) -> pytest live E2E -> teardown(keep=$keep)"
+    log "verify plan: check host deps (pytest, requests) -> up (healthy) -> live E2E pytest -> teardown(keep=$keep)"
     return 0
   fi
 
-  log "Installing host test dependencies..."
-  python3 -m pip install --break-system-packages -e "$REPO_ROOT" >/dev/null
-  python3 -m pip install --break-system-packages -r "$REPO_ROOT/tests/requirements.txt" >/dev/null
+  if ! python3 -c "import pytest, requests" >/dev/null 2>&1; then
+    if [ -n "${VIRTUAL_ENV:-}" ]; then
+      python3 -m pip install --quiet -e "$REPO_ROOT" -r "$REPO_ROOT/tests/requirements.txt" ||
+        {
+          err "dependency install failed"
+          return 1
+        }
+    else
+      err "Missing host test deps (pytest, requests)."
+      err "Activate a virtualenv and run: python3 -m pip install -e . -r tests/requirements.txt"
+      return 1
+    fi
+  fi
 
-  cmd_start
+  cmd_start || {
+    err "stack failed to start"
+    return 1
+  }
 
   log "Running live-stack E2E tests..."
   local rc=0
