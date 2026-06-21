@@ -16,7 +16,7 @@ class TestVersioning(unittest.TestCase):
         """Set up test environment"""
         self.version_script = os.path.join(
             os.path.dirname(__file__),
-            '../../get_version.sh'
+            '../../scripts/get_version.sh'
         )
 
     def test_version_script_exists(self):

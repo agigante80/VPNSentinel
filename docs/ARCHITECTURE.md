@@ -623,7 +623,7 @@ VPN Sentinel uses **GitHub Actions** for automated continuous integration and de
 │                     CI/CD Pipeline Flow                         │
 └─────────────────────────────────────────────────────────────────┘
 
-1. Version Generation (get_version.sh)
+1. Version Generation (scripts/get_version.sh)
    ├── Main branch (tagged): 1.0.0
    ├── Main branch (untagged): 1.0.0-main-abc1234
    ├── Development branch: 1.0.0-dev-abc1234
@@ -661,7 +661,7 @@ VPN Sentinel uses **GitHub Actions** for automated continuous integration and de
 
 ### Versioning Strategy
 
-**Dynamic Version Generation** using `get_version.sh`:
+**Dynamic Version Generation** using `scripts/get_version.sh`:
 
 | Context | Version Format | Example | Docker Tags |
 |---------|---------------|---------|-------------|

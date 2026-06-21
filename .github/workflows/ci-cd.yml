@@ -55,10 +55,10 @@ jobs:
         id: version
         run: |
           # Make script executable
-          chmod +x get_version.sh
-          
+          chmod +x scripts/get_version.sh
+
           # Generate version
-          VERSION=$(bash get_version.sh)
+          VERSION=$(bash scripts/get_version.sh)
           COMMIT_HASH=$(git rev-parse --short HEAD)
           
           # Determine if this is a release (tagged or main branch)
