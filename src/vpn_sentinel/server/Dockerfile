@@ -62,7 +62,6 @@ USER vpnuser
 
 # Set Python path
 ENV PATH="/home/vpnuser/.local/bin:$PATH"
-ENV PYTHONPATH="/app"
 
 # Health check (using wget since curl is not available in Alpine 3.23+)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
