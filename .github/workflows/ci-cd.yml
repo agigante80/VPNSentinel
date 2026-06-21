@@ -485,6 +485,7 @@ jobs:
           VPN_SENTINEL_E2E_DASHBOARD_PORT=18080 \
           VPN_SENTINEL_API_PATH=/test/v1 \
           python -m pytest tests/integration/ \
+            --no-cov \
             --verbose \
             --tb=short \
             --color=yes
