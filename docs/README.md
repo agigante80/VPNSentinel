@@ -82,7 +82,11 @@ python3 -m flake8 --max-line-length=120 vpn_sentinel_common/
 ```
 
 ### AI-Assisted Development
-When using AI assistants (GitHub Copilot, ChatGPT, etc.):
+This project is maintained with **Claude Code**. AI configuration lives in [`CLAUDE.md`](../CLAUDE.md)
+(the single source of truth for working conventions) and the [`.claude/`](../.claude) directory
+(skills, agents, slash commands, settings). Any AI tool should read `CLAUDE.md` as its instructions.
+
+When using AI assistants:
 - **Always run tests locally** before committing
 - **Update documentation** when code changes
 - **Never expose secrets** in code or logs
