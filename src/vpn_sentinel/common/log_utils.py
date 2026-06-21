@@ -13,7 +13,6 @@ from datetime import datetime
 import zoneinfo
 import os
 
-
 # Global file handle for log file (if configured)
 _log_file_handle = None
 

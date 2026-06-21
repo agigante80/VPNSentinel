@@ -4,6 +4,7 @@
 Replaces the shell-based healthcheck.sh with a pure Python implementation.
 Performs comprehensive health checks for VPN Sentinel client components.
 """
+
 import os
 import sys
 import json

@@ -11,7 +11,6 @@ from .security import check_rate_limit, check_ip_whitelist, ALLOWED_IPS
 from flask import jsonify, request
 import os
 
-
 # In-memory storage for client status (in production this would be a database)
 client_status = {}
 client_status_lock = threading.Lock()

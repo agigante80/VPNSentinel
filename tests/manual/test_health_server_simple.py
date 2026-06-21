@@ -2,6 +2,7 @@
 """
 Simple test script to verify dedicated health port functionality
 """
+
 import os
 import sys
 import json

@@ -6,6 +6,7 @@ Usage:
     export TELEGRAM_CHAT_ID="your-chat-id"
     python3 tests/manual/test_telegram_manual.py
 """
+
 import sys
 import os
 

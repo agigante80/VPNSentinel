@@ -3,6 +3,7 @@
 Tiny dummy TCP server for tests. Listens on a port and accepts one connection then sleeps.
 Usage: python3 tests/fixtures/dummy_server.py <port>
 """
+
 import socket
 import sys
 import time

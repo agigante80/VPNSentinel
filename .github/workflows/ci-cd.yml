@@ -96,7 +96,7 @@ jobs:
       - name: Install linting dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 pylint black==24.10.0
+          pip install flake8 pylint black==26.5.1
 
       - name: Run black --check
         run: black --check --line-length 120 src/ tests/
