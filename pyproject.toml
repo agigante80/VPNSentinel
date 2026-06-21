@@ -15,3 +15,22 @@ dependencies = ["requests>=2.32.3"]
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["vpn_sentinel_common*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+norecursedirs = ["manual"]
+addopts = "-v --strict-markers --disable-warnings --tb=short --cov=vpn-sentinel-server --cov=vpn-sentinel-client --cov-report=html:tests/coverage_html --cov-report=term-missing --cov-report=xml:tests/coverage.xml --cov-fail-under=80"
+markers = [
+  "unit: Unit tests",
+  "integration: Integration tests",
+  "slow: Slow running tests",
+  "network: Tests that require network access",
+  "docker: Tests that require Docker",
+]
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  "ignore::PendingDeprecationWarning",
+]
