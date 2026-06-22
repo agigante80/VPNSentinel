@@ -39,7 +39,6 @@ command.bash
 
 # Local binaries (install separately, but keep README and managed scripts)
 bin/*
-!bin/README.md
 !bin/local-env
 
 # Python
