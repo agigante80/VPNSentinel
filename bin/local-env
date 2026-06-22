@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+# local-env: manage the VPNSentinel local Docker E2E stack.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMPOSE_FILE="$REPO_ROOT/tests/docker-compose.test.yaml"
+ENV_FILE="$REPO_ROOT/tests/.env.test"
+DC=(docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE")
+
+# Host ports (must match tests/docker-compose.test.yaml)
+API_PORT=15554
+HEALTH_PORT=15553
+DASH_PORT=18080
+
+log() { printf '[local-env] %s\n' "$*"; }
+err() { printf '[local-env] ERROR: %s\n' "$*" >&2; }
+
+usage() {
+  cat <<'EOF'
+Usage: bin/local-env <command>
+
+Commands:
+  start     Build and start the stack; wait until healthy; print URLs
+  stop      Stop and remove the stack (down -v)
+  rebuild   Rebuild images with --no-cache, then start
+  status    Show container + health status
+  logs      Follow logs (optional: logs <service>)
+  verify    Full E2E: up (healthy) -> live-stack pytest -> teardown
+  help      Show this help
+
+Stack: tests/docker-compose.test.yaml  (API :15554  health :15553  dashboard :18080)
+EOF
+}
+
+cmd_start() {
+  log "Starting stack (build + up)..."
+  "${DC[@]}" up -d --build
+  log "Waiting for server to become healthy..."
+  local cid
+  cid="$("${DC[@]}" ps -q vpn-sentinel-server-test)"
+  local attempts=0
+  while [ "$attempts" -lt 60 ]; do
+    attempts=$((attempts + 1))
+    local state
+    state="$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo unknown)"
+    if [ "$state" = "healthy" ]; then
+      log "Server healthy."
+      log "API:       http://localhost:${API_PORT}/test/v1"
+      log "Health:    http://localhost:${HEALTH_PORT}/health"
+      log "Dashboard: http://localhost:${DASH_PORT}/dashboard"
+      return 0
+    fi
+    sleep 2
+  done
+  err "Server did not become healthy in time."
+  "${DC[@]}" ps
+  "${DC[@]}" logs --tail 50 vpn-sentinel-server-test || true
+  return 1
+}
+
+cmd_stop() {
+  log "Stopping stack..."
+  "${DC[@]}" down -v
+}
+cmd_rebuild() {
+  log "Rebuilding (no cache)..."
+  "${DC[@]}" build --no-cache
+  cmd_start
+}
+cmd_status() { "${DC[@]}" ps; }
+cmd_logs() { "${DC[@]}" logs -f "${1:-}"; }
+
+cmd_verify() {
+  local keep=0 dry=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+      --keep) keep=1 ;;
+      --dry-run) dry=1 ;;
+      *)
+        err "verify: unknown option $arg"
+        return 2
+        ;;
+    esac
+  done
+
+  if [ "$dry" -eq 1 ]; then
+    log "verify plan: check host deps (pytest, requests) -> up (healthy) -> live E2E pytest -> teardown(keep=$keep)"
+    return 0
+  fi
+
+  if ! python3 -c "import pytest, requests" >/dev/null 2>&1; then
+    if [ -n "${VIRTUAL_ENV:-}" ]; then
+      python3 -m pip install --quiet -e "$REPO_ROOT" -r "$REPO_ROOT/tests/requirements.txt" ||
+        {
+          err "dependency install failed"
+          return 1
+        }
+    else
+      err "Missing host test deps (pytest, requests)."
+      err "Activate a virtualenv and run: python3 -m pip install -e . -r tests/requirements.txt"
+      return 1
+    fi
+  fi
+
+  cmd_start || {
+    err "stack failed to start"
+    return 1
+  }
+
+  log "Running live-stack E2E tests..."
+  local rc=0
+  (
+    cd "$REPO_ROOT" &&
+      VPN_SENTINEL_E2E=1 \
+        VPN_SENTINEL_SERVER_HOST=localhost \
+        VPN_SENTINEL_E2E_API_PORT="$API_PORT" \
+        VPN_SENTINEL_E2E_HEALTH_PORT="$HEALTH_PORT" \
+        VPN_SENTINEL_E2E_DASHBOARD_PORT="$DASH_PORT" \
+        VPN_SENTINEL_API_PATH=/test/v1 \
+        VPN_SENTINEL_API_KEY=test-api-key-abcdef123456789 \
+        python3 -m pytest tests/integration/test_local_e2e.py tests/integration/test_dashboard.py \
+        --no-cov --tb=short --color=yes
+  ) || rc=$?
+
+  if [ "$keep" -eq 1 ]; then
+    log "Leaving stack up (--keep). Stop with: bin/local-env stop"
+  else
+    cmd_stop
+  fi
+
+  if [ "$rc" -eq 0 ]; then
+    log "E2E VERIFY PASSED ✅"
+  else
+    err "E2E VERIFY FAILED (pytest rc=$rc) ❌"
+  fi
+  return "$rc"
+}
+
+main() {
+  local command="${1:-help}"
+  shift || true
+  case "$command" in
+    start) cmd_start ;;
+    stop) cmd_stop ;;
+    rebuild) cmd_rebuild ;;
+    status) cmd_status ;;
+    logs) cmd_logs "${1:-}" ;;
+    verify) cmd_verify "$@" ;;
+    help | -h | --help) usage ;;
+    *)
+      err "Unknown command: $command"
+      usage
+      exit 2
+      ;;
+  esac
+}
+
+main "$@"

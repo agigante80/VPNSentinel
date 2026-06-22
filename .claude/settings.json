@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "Allowlist principle: ':*' (any trailing args) is ONLY used on commands with no code-execution or host-access flags. Commands whose flag set can run arbitrary code (pytest -p, pylint --init-hook/--load-plugins, docker build --secret/--ssh/--push, docker run with entrypoint override + mounts) are listed as EXACT invocations instead, since this matcher is prefix-based and a dangerous flag placed after an allowed prefix would otherwise escape. Anything not listed simply prompts.",
+  "permissions": {
+    "allow": [
+      "Bash(./tests/run_tests.sh:*)",
+      "Bash(python -m pytest tests/unit/ --tb=short --cov=vpn_sentinel --cov-report=term)",
+      "Bash(python3 -m pytest tests/unit/ --tb=short --cov=vpn_sentinel --cov-report=term)",
+      "Bash(flake8 src/:*)",
+      "Bash(flake8 --max-line-length=120 src/:*)",
+      "Bash(shellcheck:*)",
+      "Bash(shfmt:*)",
+      "Bash(docker build -t vpn-sentinel-server:latest -f src/vpn_sentinel/server/Dockerfile .)",
+      "Bash(docker build -t vpn-sentinel-client:latest -f src/vpn_sentinel/client/Dockerfile .)",
+      "Bash(docker run --rm vpn-sentinel-server:latest --help)",
+      "Bash(docker run --rm vpn-sentinel-client:latest --help)",
+      "Bash(docker compose up:*)",
+      "Bash(docker compose down:*)",
+      "Bash(docker compose ps:*)",
+      "Bash(docker compose config:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(docker logs:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+      "Bash(./scripts/get_version.sh)",
+      "Bash(bin/local-env start)",
+      "Bash(bin/local-env stop)",
+      "Bash(bin/local-env rebuild)",
+      "Bash(bin/local-env status)",
+      "Bash(bin/local-env logs:*)",
+      "Bash(bin/local-env verify:*)",
+      "Bash(bin/local-env help)"
+    ],
+    "ask": [],
+    "deny": [
+      "Bash(docker compose run:*)",
+      "Bash(docker compose exec:*)",
+      "Bash(pylint --load-plugins:*)",
+      "Bash(pylint --init-hook:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/block-dashes.py"
+          }
+        ]
+      }
+    ]
+  }
+}

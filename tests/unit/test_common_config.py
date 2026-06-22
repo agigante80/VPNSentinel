@@ -1,5 +1,5 @@
 import os
-from vpn_sentinel_common.config import load_config, generate_client_id
+from vpn_sentinel.common.config import load_config, generate_client_id
 
 
 def test_generate_client_id_from_env():

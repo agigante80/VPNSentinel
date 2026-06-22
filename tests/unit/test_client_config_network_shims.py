@@ -10,8 +10,8 @@ def _load_module_from(path: str, name: str):
     return mod
 
 
-from vpn_sentinel_common import network as net
-from vpn_sentinel_common import config as cfg
+from vpn_sentinel.common import network as net
+from vpn_sentinel.common import config as cfg
 
 
 def test_config_load_defaults():
@@ -22,13 +22,17 @@ def test_config_load_defaults():
 
 
 def test_parse_geolocation_ipinfo():
-    sample = json.dumps({"ip": "1.2.3.4", "country": "US", "city": "Test", "region": "R", "org": "ISP", "timezone": "UTC"})
+    sample = json.dumps(
+        {"ip": "1.2.3.4", "country": "US", "city": "Test", "region": "R", "org": "ISP", "timezone": "UTC"}
+    )
     parsed = net.parse_geolocation(sample, source="ipinfo.io")
     assert parsed["ip"] == "1.2.3.4"
 
 
 def test_parse_geolocation_ipapi():
-    sample = json.dumps({"query": "5.6.7.8", "countryCode": "GB", "city": "City", "regionName": "Reg", "isp": "ISP2", "timezone": "UTC"})
+    sample = json.dumps(
+        {"query": "5.6.7.8", "countryCode": "GB", "city": "City", "regionName": "Reg", "isp": "ISP2", "timezone": "UTC"}
+    )
     parsed = net.parse_geolocation(sample, source="ip-api.com")
     assert parsed["ip"] == "5.6.7.8"
 

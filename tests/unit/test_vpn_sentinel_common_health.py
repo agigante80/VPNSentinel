@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from vpn_sentinel_common import health as health_module
+from vpn_sentinel.common import health as health_module
 
 
 def test_make_health_and_validate_ok():

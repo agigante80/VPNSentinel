@@ -7,7 +7,7 @@ def test_build_payload_has_expected_keys(monkeypatch):
     # Ensure environment variables produce predictable output
     monkeypatch.setenv("CLIENT_ID", "canonical-test-client")
     monkeypatch.setenv("PUBLIC_IP", "9.8.7.6")
-    from vpn_sentinel_common.payload import build_payload_from_env
+    from vpn_sentinel.common.payload import build_payload_from_env
 
     payload = build_payload_from_env()
     assert isinstance(payload, dict)
@@ -19,7 +19,7 @@ def test_build_payload_has_expected_keys(monkeypatch):
 def test_post_payload_writes_capture_and_handles_invalid_json(tmp_path, monkeypatch):
     cap = tmp_path / "capture.log"
     monkeypatch.setenv("VPN_SENTINEL_TEST_CAPTURE_PATH", str(cap))
-    from vpn_sentinel_common.payload import post_payload
+    from vpn_sentinel.common.payload import post_payload
 
     # Valid JSON should be written and return 0
     rc = post_payload(json.dumps({"a": 1}))

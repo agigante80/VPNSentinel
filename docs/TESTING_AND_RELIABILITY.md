@@ -60,7 +60,7 @@ tests/
 │   └── test_server.py       # Mock server for testing
 │
 ├── conftest.py               # Pytest configuration
-├── pytest.ini                # Pytest settings
+├── pyproject.toml            # Pytest settings
 ├── requirements.txt          # Test dependencies
 └── run_tests.sh              # Test runner script
 ```
@@ -130,7 +130,7 @@ python3 -m pytest tests/integration/ -v
 
 ---
 
-### 3. Smoke Tests
+### 3. Local End-to-End Check
 
 **Purpose**: Validate Docker builds and deployments
 
@@ -142,7 +142,7 @@ python3 -m pytest tests/integration/ -v
 
 **Run Command**:
 ```bash
-bash scripts/smoke/run_local_smoke.sh
+bin/local-env verify
 ```
 
 **What It Tests**:
@@ -163,7 +163,7 @@ bash scripts/smoke/run_local_smoke.sh
 python3 -m pytest tests/unit/ -q
 
 # Run with coverage
-python3 -m pytest tests/unit/ --cov=vpn_sentinel_common --cov-report=html
+python3 -m pytest tests/unit/ --cov=vpn_sentinel.common --cov-report=html
 
 # Run specific test file
 python3 -m pytest tests/unit/test_server.py -v
@@ -193,7 +193,7 @@ python3 -m pytest tests/unit/test_server.py::test_keepalive_endpoint -v
 ```bash
 # Same commands as CI uses
 python3 -m pytest tests/unit/ -q
-python3 -m flake8 --max-line-length=120 vpn_sentinel_common/
+python3 -m flake8 --max-line-length=120 src/vpn_sentinel/common/
 ```
 
 ---
@@ -208,7 +208,7 @@ Generate a live coverage report to see current numbers:
 
 ```bash
 # Generate HTML coverage report
-python3 -m pytest tests/unit/ --cov=vpn_sentinel_common --cov-report=html
+python3 -m pytest tests/unit/ --cov=vpn_sentinel.common --cov-report=html
 
 # Open in browser
 open htmlcov/index.html  # macOS
@@ -252,7 +252,7 @@ xdg-open htmlcov/index.html  # Linux
 python3 -m pytest tests/unit/ -q || exit 1
 
 # Run linting
-python3 -m flake8 --max-line-length=120 vpn_sentinel_common/ || exit 1
+python3 -m flake8 --max-line-length=120 src/vpn_sentinel/common/ || exit 1
 
 echo "✅ All pre-commit checks passed"
 ```
@@ -270,7 +270,7 @@ bash scripts/setup/install-hooks.sh
 
 ```python
 import pytest
-from vpn_sentinel_common.logging import log_info
+from vpn_sentinel.common.logging import log_info
 
 def test_log_info_formats_correctly():
     """Test that log_info formats messages with component prefix."""
@@ -437,7 +437,7 @@ jobs:
       - name: Run unit tests
         run: python3 -m pytest tests/unit/ -v
       - name: Run linting
-        run: python3 -m flake8 --max-line-length=120 vpn_sentinel_common/
+        run: python3 -m flake8 --max-line-length=120 src/vpn_sentinel/common/
 
   integration-tests:
     runs-on: ubuntu-latest
