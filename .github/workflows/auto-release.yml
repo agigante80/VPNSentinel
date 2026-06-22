@@ -50,4 +50,9 @@ jobs:
       - name: Auto-release (tag plus GitHub Release)
         env:
           GH_TOKEN: ${{ secrets.ACTIONS_PUSH_TOKEN }}
-        run: bash scripts/release-run.sh
+        run: |
+          # release-run.sh git-mode creates an annotated tag (git tag -a), which needs a
+          # committer identity; its tag-only path does not set one, so set it here.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          bash scripts/release-run.sh
