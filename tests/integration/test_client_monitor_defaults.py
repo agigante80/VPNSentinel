@@ -6,12 +6,20 @@ Covers:
 
 These tests are designed to be lightweight and skip gracefully in constrained CI environments.
 """
+
 import os
 import time
 import subprocess
 import signal
 import requests
-from tests.helpers import probe_url, start_client_with_monitor, stop_client_process, kill_health_monitor_processes, ensure_scripts_exist, assert_health_schema
+from tests.helpers import (
+    probe_url,
+    start_client_with_monitor,
+    stop_client_process,
+    kill_health_monitor_processes,
+    ensure_scripts_exist,
+    assert_health_schema,
+)
 import unittest
 
 
@@ -19,8 +27,10 @@ class TestClientMonitorDefaults(unittest.TestCase):
     def setUp(self):
         self.client_process = None
         self.test_port = "8084"
-        self.client_script = os.path.join(os.path.dirname(__file__), '../../vpn-sentinel-client/vpn-sentinel-client.py')
-        self.health_monitor_script = os.path.join(os.path.dirname(__file__), '../../vpn_sentinel_common/health_scripts/health_monitor_wrapper.py')
+        self.client_script = os.path.join(os.path.dirname(__file__), "../../src/vpn_sentinel/client/__main__.py")
+        self.health_monitor_script = os.path.join(
+            os.path.dirname(__file__), "../../src/vpn_sentinel/common/health_scripts/health_monitor_wrapper.py"
+        )
 
         if not ensure_scripts_exist(self.client_script, self.health_monitor_script):
             self.skipTest("Required scripts not found")
@@ -38,18 +48,20 @@ class TestClientMonitorDefaults(unittest.TestCase):
         env = os.environ.copy()
         # Do NOT set VPN_SENTINEL_HEALTH_MONITOR or VPN_SENTINEL_HEALTH_PORT
         # The monitor should bind to the default port 8082
-        env.update({
-            'VPN_SENTINEL_URL': 'http://localhost:5000',
-            'VPN_SENTINEL_API_PATH': '/api/v1',
-            'VPN_SENTINEL_CLIENT_ID': 'test-default-monitor',
-        })
+        env.update(
+            {
+                "VPN_SENTINEL_URL": "http://localhost:5000",
+                "VPN_SENTINEL_API_PATH": "/api/v1",
+                "VPN_SENTINEL_CLIENT_ID": "test-default-monitor",
+            }
+        )
 
         # Start the client and monitor using shared helper
-        default_port = '8082'
+        default_port = "8082"
         self.client_process = start_client_with_monitor(
             self.client_script,
             default_port,
-            client_id='test-default-monitor',
+            client_id="test-default-monitor",
             extra_env=env,
             wait=4,
         )
@@ -58,11 +70,17 @@ class TestClientMonitorDefaults(unittest.TestCase):
         self.assertIsNone(self.client_process.poll())
 
         # Verify health monitor process was started (search for health_monitor or health-monitor process)
-        result = subprocess.run(['pgrep', '-u', str(os.getuid()), '-f', 'health_monitor'], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, msg=f"health_monitor process not found; stdout={result.stdout}, stderr={result.stderr}")
+        result = subprocess.run(
+            ["pgrep", "-u", str(os.getuid()), "-f", "health_monitor"], capture_output=True, text=True
+        )
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg=f"health_monitor process not found; stdout={result.stdout}, stderr={result.stderr}",
+        )
 
         # Check that the default health port (8082) is being used
-        default_port = '8082'
+        default_port = "8082"
         health_url = f"http://localhost:{default_port}/client/health"
         try:
             resp = probe_url(health_url, timeout=3)
@@ -74,19 +92,21 @@ class TestClientMonitorDefaults(unittest.TestCase):
     def test_health_endpoint_unavailable_when_disabled(self):
         """Health endpoint should be unreachable when monitor is explicitly disabled"""
         env = os.environ.copy()
-        env.update({
-            'VPN_SENTINEL_HEALTH_MONITOR': 'false',
-            'VPN_SENTINEL_HEALTH_PORT': self.test_port,
-            'VPN_SENTINEL_URL': 'http://localhost:5000',
-            'VPN_SENTINEL_API_PATH': '/api/v1',
-            'VPN_SENTINEL_CLIENT_ID': 'test-disabled-monitor',
-        })
+        env.update(
+            {
+                "VPN_SENTINEL_HEALTH_MONITOR": "false",
+                "VPN_SENTINEL_HEALTH_PORT": self.test_port,
+                "VPN_SENTINEL_URL": "http://localhost:5000",
+                "VPN_SENTINEL_API_PATH": "/api/v1",
+                "VPN_SENTINEL_CLIENT_ID": "test-disabled-monitor",
+            }
+        )
 
         # Start client with monitor disabled
         self.client_process = start_client_with_monitor(
             self.client_script,
             self.test_port,
-            client_id='test-disabled-monitor',
+            client_id="test-disabled-monitor",
             extra_env=env,
             wait=3,
         )
@@ -103,21 +123,22 @@ class TestClientMonitorDefaults(unittest.TestCase):
             # Expected: connection refused / timeout / no endpoint
             pass
 
-
     def test_monitor_uses_custom_port(self):
         """When VPN_SENTINEL_HEALTH_PORT is set, the monitor should bind to that port and not the default."""
         env = os.environ.copy()
-        env.update({
-            'VPN_SENTINEL_HEALTH_PORT': self.test_port,
-            'VPN_SENTINEL_URL': 'http://localhost:5000',
-            'VPN_SENTINEL_API_PATH': '/api/v1',
-            'VPN_SENTINEL_CLIENT_ID': 'test-custom-port',
-        })
+        env.update(
+            {
+                "VPN_SENTINEL_HEALTH_PORT": self.test_port,
+                "VPN_SENTINEL_URL": "http://localhost:5000",
+                "VPN_SENTINEL_API_PATH": "/api/v1",
+                "VPN_SENTINEL_CLIENT_ID": "test-custom-port",
+            }
+        )
 
         self.client_process = start_client_with_monitor(
             self.client_script,
             self.test_port,
-            client_id='test-custom-port',
+            client_id="test-custom-port",
             extra_env=env,
             wait=4,
         )
@@ -134,7 +155,7 @@ class TestClientMonitorDefaults(unittest.TestCase):
             self.fail(f"Expected health endpoint at custom port {self.test_port} to be reachable: {e}")
 
         # Default port should NOT be responding when custom port is set
-        default_port = '8082'
+        default_port = "8082"
         health_url_default = f"http://localhost:{default_port}/client/health"
         try:
             # Use fewer retries here; we expect no listener on default port when custom port is set
@@ -146,5 +167,5 @@ class TestClientMonitorDefaults(unittest.TestCase):
             pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -86,7 +86,7 @@ INFO [telegram] ✅ Message sent successfully
 ### Quick Test Script
 
 ```bash
-python3 tests/test_telegram_manual.py
+python3 tests/manual/test_telegram_manual.py
 ```
 
 This sends test notifications for all message types.
@@ -323,7 +323,7 @@ docker compose logs vpn-sentinel-server | grep "telegram.*❌"
 
 ### Custom Notification Threshold
 
-Edit `vpn-sentinel-server/vpn-sentinel-server.py`:
+Edit `src/vpn_sentinel/server/__main__.py`:
 ```python
 telegram.notify_server_started(alert_threshold_min=30, check_interval_min=10)
 ```
@@ -350,7 +350,7 @@ telegram.send_telegram_message("Your message", silent=True)
 
 ## 📚 API Reference
 
-See `vpn_sentinel_common/telegram.py` for full API documentation:
+See `src/vpn_sentinel/common/telegram.py` for full API documentation:
 
 - `notify_server_started(alert_threshold_min, check_interval_min)` - Server startup
 - `notify_client_connected(client_id, vpn_ip, ...)` - Client connection

@@ -1,6 +1,6 @@
 import json
-from vpn_sentinel_common import config as common_config
-from vpn_sentinel_common import network as common_network
+from vpn_sentinel.common import config as common_config
+from vpn_sentinel.common import network as common_network
 
 
 def test_generate_client_id_from_env():

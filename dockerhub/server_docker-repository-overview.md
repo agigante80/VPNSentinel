@@ -26,7 +26,7 @@ docker run --rm -p 5421:5000 \
 
 Dockerfile snippet
 ------------------
-This image is built from `python:3.12-alpine`, installs runtime Python packages (Flask, requests, psutil), and runs `vpn-sentinel-server.py` as a non-root user.
+This image is built from `python:3.12-alpine`, installs runtime Python packages (Flask, requests, psutil), and runs `python -m vpn_sentinel.server` as a non-root user.
 
 Common environment variables
 ----------------------------

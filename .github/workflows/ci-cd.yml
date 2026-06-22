@@ -55,10 +55,10 @@ jobs:
         id: version
         run: |
           # Make script executable
-          chmod +x get_version.sh
-          
+          chmod +x scripts/get_version.sh
+
           # Generate version
-          VERSION=$(bash get_version.sh)
+          VERSION=$(bash scripts/get_version.sh)
           COMMIT_HASH=$(git rev-parse --short HEAD)
           
           # Determine if this is a release (tagged or main branch)
@@ -96,24 +96,19 @@ jobs:
       - name: Install linting dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 pylint
+          pip install flake8 pylint black==26.5.1
+
+      - name: Run black --check
+        run: black --check --line-length 120 src/ tests/
 
       - name: Run flake8
-        continue-on-error: true
-        run: |
-          echo "Running flake8..."
-          flake8 vpn-sentinel-server/ vpn_sentinel_common/ \
-            --count \
-            --select=E9,F63,F7,F82 \
-            --show-source \
-            --statistics \
-            --exclude=__pycache__,*.pyc,venv,htmlcov,.git
+        run: flake8 --max-line-length=120 src/ --count --show-source --statistics --exclude=__pycache__,*.pyc,venv,htmlcov,.git
 
       - name: Run pylint
         continue-on-error: true
         run: |
           echo "Running pylint..."
-          pylint vpn_sentinel_common/ || true
+          pylint src/vpn_sentinel/common/ || true
 
   # ============================================================================
   # Stage 2: Unit Tests
@@ -147,13 +142,14 @@ jobs:
             --tb=short \
             --color=yes \
             --junitxml=test-results.xml \
-            --cov=vpn_sentinel_common \
+            --cov=vpn_sentinel.common \
             --cov-report=xml \
-            --cov-report=term
+            --cov-report=term \
+            --cov-fail-under=80
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: test-results
           path: test-results.xml
@@ -161,7 +157,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage.xml
@@ -179,19 +175,19 @@ jobs:
         component:
           - name: server
             context: .
-            dockerfile: vpn-sentinel-server/Dockerfile
+            dockerfile: src/vpn_sentinel/server/Dockerfile
           - name: client
             context: .
-            dockerfile: vpn-sentinel-client/Dockerfile
+            dockerfile: src/vpn_sentinel/client/Dockerfile
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Test build ${{ matrix.component.name }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.component.context }}
           file: ${{ matrix.component.dockerfile }}
@@ -201,8 +197,8 @@ jobs:
           build-args: |
             VERSION=${{ needs.version.outputs.version }}
             COMMIT_HASH=${{ needs.version.outputs.commit_hash }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=buildkit-${{ matrix.component.name }}
+          cache-to: type=gha,mode=max,scope=buildkit-${{ matrix.component.name }}
 
       - name: Inspect image
         run: |
@@ -225,20 +221,20 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build image for scanning
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
-          file: vpn-sentinel-${{ matrix.component }}/Dockerfile
+          file: src/vpn_sentinel/${{ matrix.component }}/Dockerfile
           push: false
           load: true
           tags: vpn-sentinel-${{ matrix.component }}:scan
           build-args: |
             VERSION=${{ needs.version.outputs.version }}
             COMMIT_HASH=${{ needs.version.outputs.commit_hash }}
-          cache-from: type=gha
+          cache-from: type=gha,scope=buildkit-${{ matrix.component }}
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -275,30 +271,30 @@ jobs:
         component:
           - name: server
             context: .
-            dockerfile: vpn-sentinel-server/Dockerfile
+            dockerfile: src/vpn_sentinel/server/Dockerfile
             dockerhub_repo: agigante80/vpn-sentinel-server
           - name: client
             context: .
-            dockerfile: vpn-sentinel-client/Dockerfile
+            dockerfile: src/vpn_sentinel/client/Dockerfile
             dockerhub_repo: agigante80/vpn-sentinel-client
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -328,11 +324,11 @@ jobs:
           echo "🏷️  Tags: ${TAGS}"
 
       - name: Build and push ${{ matrix.component.name }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.component.context }}
           file: ${{ matrix.component.dockerfile }}
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.ref == 'refs/heads/main' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
@@ -345,8 +341,8 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=buildkit-${{ matrix.component.name }}
+          cache-to: type=gha,mode=max,scope=buildkit-${{ matrix.component.name }}
 
   # ============================================================================
   # Stage 7: Update Docker Hub Descriptions
@@ -463,12 +459,29 @@ jobs:
 
       - name: Start test environment
         run: |
-          docker compose -f tests/docker-compose.test.yaml up -d
-          sleep 10
+          docker compose -f tests/docker-compose.test.yaml up -d --build
+          for i in $(seq 1 60); do
+            cid=$(docker compose -f tests/docker-compose.test.yaml ps -q vpn-sentinel-server-test)
+            state=$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo unknown)
+            [ "$state" = "healthy" ] && break
+            sleep 2
+          done
+          if [ "$state" != "healthy" ]; then
+            echo "::error::server did not become healthy in time"
+            docker compose -f tests/docker-compose.test.yaml ps
+            docker compose -f tests/docker-compose.test.yaml logs --tail 50 vpn-sentinel-server-test
+            exit 1
+          fi
 
       - name: Run integration tests
         run: |
+          VPN_SENTINEL_E2E=1 \
+          VPN_SENTINEL_E2E_API_PORT=15554 \
+          VPN_SENTINEL_E2E_HEALTH_PORT=15553 \
+          VPN_SENTINEL_E2E_DASHBOARD_PORT=18080 \
+          VPN_SENTINEL_API_PATH=/test/v1 \
           python -m pytest tests/integration/ \
+            --no-cov \
             --verbose \
             --tb=short \
             --color=yes

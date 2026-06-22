@@ -31,34 +31,36 @@ def kill_health_monitor_processes():
     # avoid interfering with unrelated system services.
     try:
         # Kill the python monitor modules if present
-        subprocess.run(['pkill', '-f', 'health-monitor.py'], capture_output=True)
+        subprocess.run(["pkill", "-f", "health-monitor.py"], capture_output=True)
     except Exception:
         pass
 
     try:
-        subprocess.run(['pkill', '-f', 'health_monitor_wrapper.py'], capture_output=True)
+        subprocess.run(["pkill", "-f", "health_monitor_wrapper.py"], capture_output=True)
     except Exception:
         pass
 
     try:
         # Check port from env if provided, otherwise default 8082
-        port = os.environ.get('VPN_SENTINEL_HEALTH_PORT', '8082')
+        port = os.environ.get("VPN_SENTINEL_HEALTH_PORT", "8082")
         # Find pids listening on the port (user-owned) and kill them
-        p = subprocess.run(['lsof', '-iTCP:%s' % port, '-sTCP:LISTEN', '-t'], capture_output=True, text=True)
+        p = subprocess.run(["lsof", "-iTCP:%s" % port, "-sTCP:LISTEN", "-t"], capture_output=True, text=True)
         if p.returncode == 0 and p.stdout:
             for pid in p.stdout.split():
                 # ensure process belongs to current user
                 try:
-                    owner = subprocess.run(['ps', '-o', 'uid=', '-p', pid], capture_output=True, text=True)
+                    owner = subprocess.run(["ps", "-o", "uid=", "-p", pid], capture_output=True, text=True)
                     if owner.returncode == 0 and owner.stdout.strip() == str(os.getuid()):
-                        subprocess.run(['kill', pid], capture_output=True)
+                        subprocess.run(["kill", pid], capture_output=True)
                 except Exception:
                     pass
     except Exception:
         pass
 
 
-def start_client_with_monitor(client_script, port, client_id='test-helper', extra_env=None, wait=4, capture_output=True):
+def start_client_with_monitor(
+    client_script, port, client_id="test-helper", extra_env=None, wait=4, capture_output=True
+):
     """Start the vpn-sentinel-client script with a health monitor on the specified port.
 
     Returns the subprocess.Popen object.
@@ -67,16 +69,18 @@ def start_client_with_monitor(client_script, port, client_id='test-helper', extr
     # Do not overwrite PATH here - preserve the test runner's environment so
     # subprocesses (notably the health monitor's Python detection) can find
     # executables installed in CI/toolcache locations.
-    env.update({
-        'VPN_SENTINEL_HEALTH_PORT': str(port),
-        'VPN_SENTINEL_URL': 'http://localhost:5000',
-        'VPN_SENTINEL_API_PATH': '/api/v1',
-    })
+    env.update(
+        {
+            "VPN_SENTINEL_HEALTH_PORT": str(port),
+            "VPN_SENTINEL_URL": "http://localhost:5000",
+            "VPN_SENTINEL_API_PATH": "/api/v1",
+        }
+    )
     # Short timeout for tests to avoid long external HTTP waits
-    env.setdefault('VPN_SENTINEL_TIMEOUT', '2')
+    env.setdefault("VPN_SENTINEL_TIMEOUT", "2")
     # Only set VPN_SENTINEL_CLIENT_ID when a non-empty client_id is provided
     if client_id:
-        env['VPN_SENTINEL_CLIENT_ID'] = client_id
+        env["VPN_SENTINEL_CLIENT_ID"] = client_id
     if extra_env:
         env.update(extra_env)
 
@@ -94,11 +98,11 @@ def start_client_with_monitor(client_script, port, client_id='test-helper', extr
         stderr = None
 
     # If script is a Python file, run it with Python interpreter
-    if client_script.endswith('.py'):
-        cmd = ['python3', client_script]
+    if client_script.endswith(".py"):
+        cmd = ["python3", client_script]
     else:
         cmd = [client_script]
-    
+
     proc = subprocess.Popen(
         cmd,
         env=env,
@@ -138,17 +142,17 @@ def assert_health_schema(data):
     """
     assert isinstance(data, dict), "health response must be a JSON object"
     # status
-    assert 'status' in data, "missing 'status'"
-    assert data['status'] in ('healthy', 'degraded', 'unhealthy'), "invalid 'status' value"
+    assert "status" in data, "missing 'status'"
+    assert data["status"] in ("healthy", "degraded", "unhealthy"), "invalid 'status' value"
     # timestamp
-    assert 'timestamp' in data, "missing 'timestamp'"
+    assert "timestamp" in data, "missing 'timestamp'"
     # checks
-    assert 'checks' in data and isinstance(data['checks'], dict), "missing or invalid 'checks'"
+    assert "checks" in data and isinstance(data["checks"], dict), "missing or invalid 'checks'"
     # system
-    assert 'system' in data and isinstance(data['system'], dict), "missing or invalid 'system'"
+    assert "system" in data and isinstance(data["system"], dict), "missing or invalid 'system'"
     # issues (optional)
-    if 'issues' in data:
-        assert isinstance(data['issues'], list), "'issues' must be a list"
+    if "issues" in data:
+        assert isinstance(data["issues"], list), "'issues' must be a list"
 
 
 def read_server_url_from_proc(proc, timeout=5):
@@ -164,9 +168,9 @@ def read_server_url_from_proc(proc, timeout=5):
         if not line:
             time.sleep(0.1)
             continue
-        if 'Server:' in line:
+        if "Server:" in line:
             # expected format: [TIMESTAMP] LEVEL [config] Server: http://.../api
-            parts = line.split('Server:', 1)
+            parts = line.split("Server:", 1)
             if len(parts) > 1:
                 return parts[1].strip()
-    raise RuntimeError('Timed out waiting for Server: line in process stdout')
+    raise RuntimeError("Timed out waiting for Server: line in process stdout")
