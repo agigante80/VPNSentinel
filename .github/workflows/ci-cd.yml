@@ -357,12 +357,12 @@ jobs:
         component:
           - name: server
             repo: agigante80/vpn-sentinel-server
-            description_file: dockerhub/server_docker-repository-overview.md
-            short_description_file: dockerhub/server_docker-repository-short.txt
+            description_file: .github/dockerhub/server_docker-repository-overview.md
+            short_description_file: .github/dockerhub/server_docker-repository-short.txt
           - name: client
             repo: agigante80/vpn-sentinel-client
-            description_file: dockerhub/client_docker-repository-overview.md
-            short_description_file: dockerhub/client_docker-repository-short.txt
+            description_file: .github/dockerhub/client_docker-repository-overview.md
+            short_description_file: .github/dockerhub/client_docker-repository-short.txt
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
