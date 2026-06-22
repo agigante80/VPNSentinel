@@ -1,0 +1,53 @@
+# Auto-release on merge (release-automation Lane C, VERSION_SOURCE=git).
+#
+# After the "CI/CD Pipeline" workflow succeeds on main, push the next patch tag and cut a GitHub
+# Release, but only when there are unreleased commits since the latest tag. VPNSentinel is
+# tag-derived (scripts/get_version.sh reads git describe), so a release is just the next tag:
+# no version file to bump, no commit. This makes "merged to main without a version bump"
+# structurally impossible.
+#
+# Minor/major releases are still done by pushing that tag by hand (git tag v1.2.0 && git push
+# --tags); the lane resumes auto-patching from there.
+#
+# Token: uses ACTIONS_PUSH_TOKEN (a PAT) for checkout and gh, so the pushed tag CAN trigger
+# downstream tag-based workflows. The default GITHUB_TOKEN would not. See
+# .claude/skills/release-automation/references/github-token-gotcha.md.
+#
+# Mechanics live in scripts/release-run.sh (sources scripts/version-lib.sh): recursion guard,
+# unreleased-commits gate, next-patch tag, idempotent tag + release.
+name: Auto-release on merge
+
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  auto-release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      VERSION_SOURCE: git
+      TAG_GLOB: 'v*'
+      TAG_PREFIX: v
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.ACTIONS_PUSH_TOKEN }}
+
+      - name: Auto-release (tag plus GitHub Release)
+        env:
+          GH_TOKEN: ${{ secrets.ACTIONS_PUSH_TOKEN }}
+        run: bash scripts/release-run.sh
