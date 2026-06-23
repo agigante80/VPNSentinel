@@ -7,6 +7,8 @@ on:
       - develop
       - 'release/**'
       - 'hotfix/**'
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - main
@@ -61,8 +63,9 @@ jobs:
           VERSION=$(bash scripts/get_version.sh)
           COMMIT_HASH=$(git rev-parse --short HEAD)
           
-          # Determine if this is a release (tagged or main branch)
-          if [[ "$GITHUB_REF" == "refs/heads/main" ]] && git describe --exact-match --tags HEAD 2>/dev/null; then
+          # A pushed v* tag is a release: the tag itself is the clean version.
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
             IS_RELEASE="true"
           else
             IS_RELEASE="false"
@@ -265,7 +268,9 @@ jobs:
     name: Build & Publish Docker Images
     runs-on: ubuntu-latest
     needs: [version, test, docker-test-build, security-scan]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    # Publish on develop (rolling :development) and on v* release tags (clean :version + :latest).
+    # Raw main-branch pushes do NOT publish: the release is the tag the auto-release lane cuts.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/v'))
     strategy:
       matrix:
         component:
@@ -310,8 +315,8 @@ jobs:
           # Base tags
           TAGS="${DOCKERHUB_REPO}:${VERSION},${GHCR_REPO}:${VERSION}"
           
-          # Add latest tag for main branch stable releases
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]] && [[ "${{ needs.version.outputs.is_release }}" == "true" ]]; then
+          # Add latest tag for tagged stable releases (is_release is true only on v* tags)
+          if [[ "${{ needs.version.outputs.is_release }}" == "true" ]]; then
             TAGS="${TAGS},${DOCKERHUB_REPO}:latest,${GHCR_REPO}:latest"
           fi
           
@@ -328,7 +333,7 @@ jobs:
         with:
           context: ${{ matrix.component.context }}
           file: ${{ matrix.component.dockerfile }}
-          platforms: ${{ github.ref == 'refs/heads/main' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          platforms: ${{ needs.version.outputs.is_release == 'true' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
@@ -351,7 +356,7 @@ jobs:
     name: Update Docker Hub Descriptions
     runs-on: ubuntu-latest
     needs: [version, docker-publish]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     strategy:
       matrix:
         component:
@@ -389,50 +394,9 @@ jobs:
           readme-filepath: ${{ matrix.component.description_file }}
           short-description: ${{ matrix.component.short_description_file }}
 
-  # ============================================================================
-  # Stage 8: GitHub Release
-  # ============================================================================
-  release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    needs: [version, docker-publish]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.version.outputs.is_release == 'true'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Generate changelog
-        id: changelog
-        run: |
-          # Get previous tag
-          PREVIOUS_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
-          
-          if [ -z "$PREVIOUS_TAG" ]; then
-            echo "No previous tag found, generating full changelog"
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
-          else
-            echo "Generating changelog since $PREVIOUS_TAG"
-            CHANGELOG=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
-          fi
-          
-          # Save to file for multiline output
-          echo "$CHANGELOG" > changelog.txt
-          
-          echo "📝 Changelog generated"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.version.outputs.version }}
-          name: Release v${{ needs.version.outputs.version }}
-          body_path: changelog.txt
-          draft: false
-          prerelease: false
-          make_latest: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # The GitHub Release is created by the auto-release lane (scripts/release-run.sh via
+  # .github/workflows/auto-release.yml), so this pipeline no longer cuts one (it would race
+  # the lane's `gh release create` on the same tag).
 
   # ============================================================================
   # Stage 9: Integration Testing (Post-Deployment)
