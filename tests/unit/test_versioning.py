@@ -54,21 +54,29 @@ class TestVersioning(unittest.TestCase):
             # Should be a development version
             self.assertIn("-dev-", version, f"Expected dev version on develop branch, got: {version}")
         elif current_branch == "main":
-            # Should be production version (clean tag) or with commit count
-            # Read VERSION file to get expected base version
-            with open("VERSION", "r") as f:
-                base_version = f.read().strip()
-
-            # Accept: exact version, version-commits, or version+commits
-            valid_formats = [
-                version == base_version,
-                version.startswith(f"{base_version}-"),
-                version.startswith(f"{base_version}+"),
-            ]
-            self.assertTrue(
-                any(valid_formats),
-                f"Expected production version based on {base_version} on main branch, got: {version}",
+            # On main the production version is derived from the latest git tag (the canonical
+            # source get_version.sh reads). Do NOT compare against the VERSION file: it is a mirror
+            # that lags behind the tags the auto-release lane creates, so it would break on every
+            # new release.
+            tag_result = subprocess.run(
+                ["git", "describe", "--tags", "--abbrev=0", "--match", "v*"],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
+            base_version = tag_result.stdout.strip().lstrip("v")
+            if base_version:
+                # Accept: exact tag, tag-commits, or tag+commits
+                valid_formats = [
+                    version == base_version,
+                    version.startswith(f"{base_version}-"),
+                    version.startswith(f"{base_version}+"),
+                ]
+                self.assertTrue(
+                    any(valid_formats),
+                    f"Expected production version based on latest tag {base_version} on main, got: {version}",
+                )
+            # No tag reachable: the semver-format check above is sufficient.
         # For other branches, just ensure it's a valid version format (already checked above)
 
     def test_version_environment_variable_fallback(self):
