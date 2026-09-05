@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Optional, Dict, Callable
+from typing import Optional, Dict, Callable, List, Tuple
 from .log_utils import log_info, log_error, log_warn
 from .country_codes import compare_country_codes
 
@@ -125,6 +125,50 @@ No active VPN connections detected.
 Time: {format_datetime()}
 
 💡 This alert will not repeat until a client connects and disconnects again."""
+
+    return send_telegram_message(message)
+
+
+def notify_clients_silent(clients: List[Tuple[str, int]]) -> bool:
+    """Send alert when one or more clients stop sending keepalives.
+
+    Handles both the single-client and multi-client case in one call, since a
+    single cleanup sweep can remove several clients at once. Always sends at
+    most one Telegram message regardless of how many clients are silent.
+
+    Args:
+        clients: List of (client_id, minutes_silent) tuples for clients that
+            went silent in this sweep. Must not be empty.
+
+    Returns:
+        True if notification sent successfully, False if the list was empty
+        or the send failed.
+    """
+    if not clients:
+        return False
+
+    if len(clients) == 1:
+        client_id, minutes_silent = clients[0]
+        message = f"""🔇 <b>Client Went Silent</b>
+
+Client <code>{client_id}</code> stopped sending keepalives.
+Last seen: {minutes_silent} minutes ago
+Time: {format_datetime()}
+
+⚠️ Check that the client container and its VPN connection are still up."""
+    else:
+        client_lines = "\n".join(
+            f"  - <code>{client_id}</code>: last seen {minutes_silent} minutes ago"
+            for client_id, minutes_silent in clients
+        )
+        message = f"""🔇 <b>{len(clients)} Clients Went Silent</b>
+
+The following clients stopped sending keepalives:
+{client_lines}
+
+Time: {format_datetime()}
+
+⚠️ Check that these client containers and their VPN connections are still up."""
 
     return send_telegram_message(message)
 
