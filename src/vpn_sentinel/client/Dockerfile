@@ -52,9 +52,11 @@
 # -----------------------------------------------------------------------------
 # Base Image Selection
 # -----------------------------------------------------------------------------
-# Alpine Linux latest - minimal, secure, and frequently updated
-# Provides a ~5MB base image with essential utilities and package manager
-FROM alpine:latest
+# Alpine Linux, pinned to the current stable minor release line - minimal, secure,
+# and frequently updated. Pinning avoids an unreviewed base image change landing
+# silently on every rebuild. Provides a ~5MB base image with essential utilities
+# and package manager. Bump this deliberately when a newer stable minor ships.
+FROM alpine:3.24
 
 # -----------------------------------------------------------------------------
 # Build Arguments
