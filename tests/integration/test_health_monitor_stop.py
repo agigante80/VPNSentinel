@@ -1,6 +1,9 @@
 import os
+import sys
 import time
 import subprocess
+
+PYTHON = sys.executable or "python3"
 
 
 def test_health_monitor_stop_removes_pidfile_and_stops_process(tmp_path):
@@ -30,7 +33,7 @@ def test_health_monitor_stop_removes_pidfile_and_stops_process(tmp_path):
             "health_monitor_wrapper.py",
         )
         script = os.path.abspath(script)
-        rc = subprocess.call(["python3", script, "--stop"], env=env)
+        rc = subprocess.call([PYTHON, script, "--stop"], env=env)
 
         # Ensure script exited successfully
         assert rc == 0
