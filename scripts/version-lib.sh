@@ -12,7 +12,7 @@
 #   behind         working version < latest tag — branch is behind a release; REGRESSION, hard stop
 #
 # Config via env (forge-adapt sets these for the project's canonical version source):
-#   VERSION_SOURCE  file|node|python|cargo|git|cmd   (default: file)
+#   VERSION_SOURCE  file|node|python|cargo|git|cmd   (default: git, VPNSentinel's own source)
 #                   git = tag-derived (setuptools-scm/hatch-vcs): the version IS the latest tag,
 #                   so there is no file to bump; releasing means pushing the next tag.
 #   VERSION_FILE    path to a plain-text version  (default: VERSION)
@@ -28,7 +28,7 @@
 # fetch-tags: true) or `latest_tag` sees nothing and every release looks like a first-release.
 set -uo pipefail
 
-VERSION_SOURCE="${VERSION_SOURCE:-file}"
+VERSION_SOURCE="${VERSION_SOURCE:-git}"
 VERSION_FILE="${VERSION_FILE:-VERSION}"
 TAG_PREFIX="${TAG_PREFIX:-v}"
 TAG_GLOB="${TAG_GLOB:-${TAG_PREFIX}*}"   # derive from the prefix so a custom prefix can't desync the glob
