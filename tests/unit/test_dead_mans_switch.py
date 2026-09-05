@@ -49,6 +49,33 @@ def flask_client():
         yield c
 
 
+class _InjectOnceLock:
+    """Wraps the real client_status_lock; on its Nth `with` use, runs an injected callback
+    right after acquiring, before the caller's own critical section runs.
+
+    Used to deterministically simulate a keepalive that grabs client_status_lock and
+    writes a fresh record in the exact window a real concurrent Flask request thread could
+    land in: between the cleanup sweep's earlier (now-released) lock uses and its next one.
+    """
+
+    def __init__(self, real_lock, trigger_on_use, inject):
+        self._real_lock = real_lock
+        self._trigger_on_use = trigger_on_use
+        self._inject = inject
+        self._use_count = 0
+
+    def __enter__(self):
+        self._real_lock.acquire()
+        self._use_count += 1
+        if self._use_count == self._trigger_on_use:
+            self._inject()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._real_lock.release()
+        return False
+
+
 @patch("vpn_sentinel.common.api_routes.telegram")
 def test_single_client_silent_produces_one_alert_naming_it(mock_telegram, clean_state):
     """One client going silent produces exactly one alert naming it."""
@@ -73,6 +100,45 @@ def test_single_client_silent_produces_one_alert_naming_it(mock_telegram, clean_
 
 
 @patch("vpn_sentinel.common.api_routes.telegram")
+def test_client_alive_again_before_removal_is_not_deleted_or_reported(mock_telegram, clean_state):
+    """A client that sends a fresh keepalive in the window between being snapshotted as
+    stale and its removal executing must NOT be deleted and must NOT be reported as
+    silent, even though it looked stale when the sweep started.
+
+    The race: staleness is computed outside client_status_lock against a snapshot, then
+    the removal loop re-acquires the lock per client. A keepalive can land, under the same
+    lock, in between. This is simulated deterministically with _InjectOnceLock: on the
+    removal loop's lock acquisition for this client, a "concurrent keepalive" write is
+    injected before the removal code's own staleness re-check runs.
+    """
+    client_status["flaky-client"] = {"last_seen": _iso_minutes_ago(45)}
+    _client_first_seen.add("flaky-client")
+    fresh_last_seen = _iso_minutes_ago(0)
+
+    def _simulate_concurrent_keepalive():
+        # Mirrors keepalive()'s own behavior: replace with a brand new dict under the lock.
+        client_status["flaky-client"] = {"last_seen": fresh_last_seen}
+
+    # Use count 2: the 1st use is the fleet-empty check at the top of the sweep; the 2nd is
+    # this client's removal-check-and-delete critical section.
+    injecting_lock = _InjectOnceLock(
+        api_routes.client_status_lock, trigger_on_use=2, inject=_simulate_concurrent_keepalive
+    )
+
+    with patch.object(api_routes, "client_status_lock", injecting_lock):
+        _run_cleanup_sweep()
+
+    # Not deleted: the fresh record written "concurrently" is still there, untouched.
+    assert client_status["flaky-client"]["last_seen"] == fresh_last_seen
+    assert "flaky-client" in _client_first_seen
+
+    # Not reported as silent: a client that is currently alive must never appear in the
+    # alert batch, and with nothing else stale, notify_clients_silent must not be called
+    # at all.
+    mock_telegram.notify_clients_silent.assert_not_called()
+
+
+@patch("vpn_sentinel.common.api_routes.telegram")
 def test_three_clients_silent_in_one_sweep_produce_one_batched_message(mock_telegram, clean_state):
     """Several clients going silent in the same sweep produce ONE message, not one each."""
     for i in range(3):
@@ -89,9 +155,12 @@ def test_three_clients_silent_in_one_sweep_produce_one_batched_message(mock_tele
 
 
 @patch("vpn_sentinel.common.api_routes.telegram")
-def test_fleet_empty_alert_fires_on_transition_to_zero(mock_telegram, clean_state):
-    """The fleet-empty alert fires when the sweep observes an empty dict for the first time
-    after clients have previously been seen (latch already cleared by registration)."""
+def test_fleet_empty_alert_fires_when_dict_already_empty_and_latch_clear(mock_telegram, clean_state):
+    """The fleet-empty alert fires on a sweep that observes an already-empty dict, as long
+    as the latch is clear (i.e. a client had registered since the last time the alert
+    fired). This exercises the latch-flip itself, not the live present-to-empty transition
+    caused by a sweep's own removals: that is covered by
+    test_fleet_empty_alert_fires_again_after_reconnect_then_silent_again below."""
     api_routes._fleet_empty_reported = False
     client_status.clear()
 
@@ -102,9 +171,13 @@ def test_fleet_empty_alert_fires_on_transition_to_zero(mock_telegram, clean_stat
 
 
 @patch("vpn_sentinel.common.api_routes.telegram")
-def test_neither_alert_repeats_on_next_sweep_while_state_unchanged(mock_telegram, clean_state):
-    """Once each alert has fired for a given state, the next sweep over the same
-    (now-settled) state must not fire either alert again."""
+def test_neither_alert_repeats_on_next_sweep_while_latch_state_unchanged(mock_telegram, clean_state):
+    """Once each alert has fired, a following sweep must not fire either alert again, as
+    long as the latch state that gates each alert stays unchanged. Note client_status
+    itself does NOT stay the same across the two sweeps here: the first sweep's own
+    removal empties it. What stays constant, and is what this test asserts on, is the
+    fleet-empty latch (already True throughout) and the absence of any new stale client to
+    report."""
     api_routes._fleet_empty_reported = True  # a fleet-empty alert was already reported earlier
     client_status["stale-client"] = {"last_seen": _iso_minutes_ago(50)}
 
@@ -112,9 +185,8 @@ def test_neither_alert_repeats_on_next_sweep_while_state_unchanged(mock_telegram
     mock_telegram.notify_clients_silent.assert_called_once()
     mock_telegram.notify_no_clients.assert_not_called()
 
-    # State is now settled: client_status is empty (the stale client was removed) and the
-    # fleet-empty latch is already True. A second sweep over this unchanged state must not
-    # produce any new alert calls.
+    # client_status is now empty (the stale client was removed by the sweep above) and the
+    # fleet-empty latch is still True. A second sweep must not produce any new alert calls.
     _run_cleanup_sweep()
 
     mock_telegram.notify_clients_silent.assert_called_once()
