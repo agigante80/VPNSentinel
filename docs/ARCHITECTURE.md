@@ -670,7 +670,7 @@ VPN Sentinel uses **GitHub Actions** for automated continuous integration and de
 | Development | `MAJOR.MINOR.PATCH-dev-HASH` | `1.0.0-dev-abc1234` | `:1.0.0-dev-abc1234`, `:development` |
 | Feature branch | `MAJOR.MINOR.PATCH-branch-HASH` | `1.0.0-auth-fix-abc1234` | `:1.0.0-auth-fix-abc1234` |
 
-**Base Version**: Read from `VERSION` file in repository root
+**Base Version**: Derived from the latest git tag via `git describe` (there is no `VERSION` file; see `scripts/get_version.sh`)
 
 **Version Environment Variables** in Docker:
 ```dockerfile
