@@ -92,7 +92,7 @@ docker compose logs -f vpn-sentinel-server
 
 # Version + dead code
 ./scripts/get_version.sh              # branch-aware version string
-bash scripts/version-lib.sh           # release verdict: first-release | ahead | equal | behind
+bash scripts/version-lib.sh           # bare run is informational only in git mode (see below)
 ./scripts/find-dead-code.sh           # vulture scan filtered by .vulture_allowlist.py
 ```
 
@@ -146,10 +146,14 @@ black-box E2E/integration runs (`bin/local-env verify`) must stay coverage-free.
 
 The version is derived, not declared: there is no `VERSION` file. `scripts/get_version.sh` reads
 the latest git tag (via `git describe`) and turns it plus branch and commit state into the
-published string (`1.1.4` on a clean tag on `main`, `1.1.4-dev-abc1234` on `develop`,
-`1.1.4-<branch>-abc1234` elsewhere), and that string becomes the Docker tag.
-`scripts/version-lib.sh` is the single shared primitive every release lane consumes; it
-compares the working-tree version against the latest release tag and prints one verdict:
+published string (`1.1.6` on a clean tag on `main`, `1.1.6-dev-abc1234` on `develop`,
+`1.1.6-<branch>-abc1234` elsewhere), and that string becomes the Docker tag.
+`scripts/version-lib.sh` is the single shared primitive every release lane consumes; it defaults
+to `VERSION_SOURCE=git` (this repo is tag-derived), so `read_version` returns the latest tag
+itself and a bare invocation can only ever print `equal` (a tag exists) or `first-release` (it
+does not); it is informational, not a release-readiness gate, in that mode. The full four-verdict
+table below is what a lane sees when it sets `VERSION_SOURCE` to a file-backed source (`file`,
+`node`, `python`, `cargo`) explicitly, comparing a bumped working-tree version against the tag:
 
 | Verdict | Meaning | What to do |
 |---|---|---|

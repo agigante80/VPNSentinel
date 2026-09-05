@@ -173,5 +173,9 @@ Resolved choices for wiring this skill here:
   the tag, retiring the 0.0.0 placeholder (the VERSION mirror is already gone, per issue #88).
 - Wire docs/versioning.md, or fold it into the existing docs/VERSIONING.md.
 - Production branch: main. CI provider: GitHub Actions (.github/workflows/ci-cd.yml).
+- Note for a future refresh/drift check: the installed scripts/version-lib.sh intentionally
+  defaults VERSION_SOURCE to git (not the template asset's file default), because this repo is
+  tag-derived; that divergence from
+  .claude/skills/release-automation/assets/version-lib.sh is expected and should not be reverted.
 
 Run this skill to perform the wiring once the App-token secret is in place.
