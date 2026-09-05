@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 import shutil
 
+PYTHON = sys.executable or "python3"
+
 
 class TestClientHealthCheck(unittest.TestCase):
     """Test client health check script functionality"""
@@ -52,7 +54,7 @@ class TestClientHealthCheck(unittest.TestCase):
 
         # This should execute but may fail due to missing dependencies - that's OK for a smoke test
         try:
-            result = subprocess.run(["python3", self.health_script], capture_output=True, text=True, env=env, timeout=5)
+            result = subprocess.run([PYTHON, self.health_script], capture_output=True, text=True, env=env, timeout=5)
             # Script should have executed (even if it failed)
             self.assertIsInstance(result.returncode, int)
         except (subprocess.TimeoutExpired, FileNotFoundError):
