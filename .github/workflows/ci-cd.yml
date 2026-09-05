@@ -240,7 +240,7 @@ jobs:
           cache-from: type=gha,scope=buildkit-${{ matrix.component }}
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: vpn-sentinel-${{ matrix.component }}:scan
           format: 'sarif'
@@ -255,7 +255,7 @@ jobs:
           category: 'trivy-${{ matrix.component }}'
 
       - name: Run Trivy in table format
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: vpn-sentinel-${{ matrix.component }}:scan
           format: 'table'
