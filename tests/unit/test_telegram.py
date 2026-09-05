@@ -245,6 +245,53 @@ class TestNotifications:
         assert "No VPN Clients" in message or "client" in message.lower()
 
     @patch("vpn_sentinel.common.telegram.send_telegram_message")
+    def test_notify_clients_silent_empty_list(self, mock_send):
+        """Test notify_clients_silent with an empty list sends nothing."""
+        result = telegram.notify_clients_silent([])
+
+        assert result is False
+        mock_send.assert_not_called()
+
+    @patch("vpn_sentinel.common.telegram.send_telegram_message")
+    def test_notify_clients_silent_single_client(self, mock_send):
+        """Test notify_clients_silent with one client names it and its silence duration."""
+        mock_send.return_value = True
+
+        result = telegram.notify_clients_silent([("office-vpn-primary", 32)])
+
+        assert result is True
+        mock_send.assert_called_once()
+        message = mock_send.call_args[0][0]
+        assert "office-vpn-primary" in message
+        assert "32" in message
+
+    @patch("vpn_sentinel.common.telegram.send_telegram_message")
+    def test_notify_clients_silent_multiple_clients_one_message(self, mock_send):
+        """Test notify_clients_silent batches several clients into ONE message."""
+        mock_send.return_value = True
+
+        result = telegram.notify_clients_silent([("client-a", 31), ("client-b", 60), ("client-c", 95)])
+
+        assert result is True
+        mock_send.assert_called_once()
+        message = mock_send.call_args[0][0]
+        assert "client-a" in message
+        assert "client-b" in message
+        assert "client-c" in message
+        assert "31" in message
+        assert "60" in message
+        assert "95" in message
+
+    @patch("vpn_sentinel.common.telegram.send_telegram_message")
+    def test_notify_clients_silent_send_fails(self, mock_send):
+        """Test notify_clients_silent propagates a failed send."""
+        mock_send.return_value = False
+
+        result = telegram.notify_clients_silent([("client-a", 31)])
+
+        assert result is False
+
+    @patch("vpn_sentinel.common.telegram.send_telegram_message")
     def test_notify_client_connected(self, mock_send):
         """Test client connected notification."""
         mock_send.return_value = True
