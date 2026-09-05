@@ -264,6 +264,13 @@ def _run_cleanup_sweep():
     2. Only after that does it snapshot and evaluate staleness, remove stale clients, and send
        ONE batched Telegram alert for everything removed in this sweep (not one per client),
        since telegram.py has no rate limiting of its own.
+    3. Staleness is computed outside the lock against a snapshot, so a client can send a fresh
+       keepalive in the window between being snapshotted as stale and its removal running.
+       Immediately before deleting each client, the removal step re-reads its current
+       last_seen under the same lock acquisition and compares it against the value the
+       staleness check used. If it changed, the client is alive right now: it is left in
+       client_status and left out of the alert batch entirely, so operators are never told a
+       currently-healthy client went silent.
     """
     global _fleet_empty_reported
     from datetime import datetime, timezone, timedelta
@@ -308,25 +315,35 @@ def _run_cleanup_sweep():
             # Check if client is stale
             time_since_last_seen = current_time - last_seen
             if time_since_last_seen > timeout_delta:
-                stale_clients.append((client_id, time_since_last_seen))
+                stale_clients.append((client_id, time_since_last_seen, last_seen_str))
 
         except (ValueError, AttributeError) as e:
             log_error("cleanup", f"Error parsing last_seen for {client_id}: {e}")
             continue
 
-    # Remove stale clients, collecting everything removed in this sweep for one alert.
+    # Remove stale clients, collecting everything actually removed in this sweep for one
+    # alert. last_seen_str is the value the staleness check above used; re-checking it here
+    # under the lock, immediately before deleting, catches a client that sent a fresh
+    # keepalive after being snapshotted as stale but before this removal ran.
     removed = []
-    for client_id, time_since_last_seen in stale_clients:
+    for client_id, time_since_last_seen, last_seen_str in stale_clients:
         minutes_ago = int(time_since_last_seen.total_seconds() / 60)
-        log_info("cleanup", f"🗑️ Removing stale client: {client_id} (last seen {minutes_ago} minutes ago)")
 
         # Remove from client status and tracking sets together, under the lock, to avoid
         # racing the keepalive handler's check-then-act on _client_first_seen.
         with client_status_lock:
-            if client_id in client_status:
+            still_stale = client_id in client_status and client_status[client_id].get("last_seen") == last_seen_str
+            if still_stale:
                 del client_status[client_id]
-            _client_first_seen.discard(client_id)
+                _client_first_seen.discard(client_id)
 
+        if not still_stale:
+            # The client sent a fresh keepalive (or was already removed some other way)
+            # between the staleness check and this removal running. It is not silent: do
+            # not delete it again and do not report it in the alert batch.
+            continue
+
+        log_info("cleanup", f"🗑️ Removing stale client: {client_id} (last seen {minutes_ago} minutes ago)")
         removed.append((client_id, minutes_ago))
 
     # One batched alert for the whole sweep, never one message per client.
