@@ -1,10 +1,11 @@
 # VPN Sentinel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub release](https://img.shields.io/github/v/release/agigante80/VPNSentinel?logo=github)](https://github.com/agigante80/VPNSentinel/releases)
 [![CI/CD Pipeline](https://github.com/agigante80/VPNSentinel/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/agigante80/VPNSentinel/actions/workflows/ci-cd.yml)
-[![Docker Server](https://img.shields.io/docker/v/agigante80/vpn-sentinel-server?label=server&logo=docker)](https://hub.docker.com/r/agigante80/vpn-sentinel-server)
-[![Docker Client](https://img.shields.io/docker/v/agigante80/vpn-sentinel-client?label=client&logo=docker)](https://hub.docker.com/r/agigante80/vpn-sentinel-client)
-[![Python](https://img.shields.io/badge/Python-3.12+-green?logo=python)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.10+-green?logo=python)](https://python.org)
+[![Server pulls](https://img.shields.io/docker/pulls/agigante80/vpn-sentinel-server?label=server%20pulls&logo=docker)](https://hub.docker.com/r/agigante80/vpn-sentinel-server)
+[![Client pulls](https://img.shields.io/docker/pulls/agigante80/vpn-sentinel-client?label=client%20pulls&logo=docker)](https://hub.docker.com/r/agigante80/vpn-sentinel-client)
 
 **Real-time VPN monitoring with DNS leak detection, traffic light status indicators, and instant Telegram notifications. Know immediately when your VPN fails.**
 
@@ -196,7 +197,7 @@ VPN Sentinel uses a **client-server architecture** with network isolation to ens
   - Multi-client status tracking
   - Server IP caching (reduces API calls)
   - Rate limiting and security middleware
-  - Auto-cleanup of stale clients
+  - Auto-cleanup of stale clients, with a Telegram alert for each client that goes silent
   - **Structured HTTP Access Logs**: All Flask endpoints (API, Dashboard, Health) log requests with unified format:
     ```
     2025-11-14T17:23:45Z INFO [api] 🌐 127.0.0.1 "GET /api/v1/health HTTP/1.1" 200
@@ -701,12 +702,12 @@ pre-commit install
 ### Run Tests
 
 ```bash
-# Run all tests
+# Run all tests (unit + integration + coverage + cleanup)
 ./tests/run_tests.sh --all
 
 # Run specific test categories
-./tests/run_tests.sh --unit
-./tests/run_tests.sh --integration
+./tests/run_tests.sh                 # unit tests (the default; there is no --unit flag)
+./tests/run_tests.sh --integration   # integration tests (needs a running server)
 
 # Run with coverage
 ./tests/run_tests.sh --coverage
@@ -956,3 +957,9 @@ SOFTWARE.
 ---
 
 **Made with ❤️ for privacy and security**
+
+## Sponsor
+
+I build and maintain this in my own time. It is free, it stays free, and it gets maintained either way.
+
+If it saved you some time and you feel like saying thanks, you can do that at [github.com/sponsors/agigante80](https://github.com/sponsors/agigante80). Entirely optional, and nothing about the project changes either way.

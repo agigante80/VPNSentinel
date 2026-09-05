@@ -52,9 +52,11 @@
 # -----------------------------------------------------------------------------
 # Base Image Selection
 # -----------------------------------------------------------------------------
-# Alpine Linux latest - minimal, secure, and frequently updated
-# Provides a ~5MB base image with essential utilities and package manager
-FROM alpine:latest
+# Alpine Linux, pinned to the current stable minor release line - minimal, secure,
+# and frequently updated. Pinning avoids an unreviewed base image change landing
+# silently on every rebuild. Provides a ~5MB base image with essential utilities
+# and package manager. Bump this deliberately when a newer stable minor ships.
+FROM alpine:3.24
 
 # -----------------------------------------------------------------------------
 # Build Arguments
@@ -75,6 +77,11 @@ ENV COMMIT_HASH=${COMMIT_HASH}
 # python3: Required for Flask-based health monitor
 # jq: Required for JSON processing in health monitor
 # tzdata: Required for timezone support in Python's zoneinfo module
+# Versions intentionally left unpinned: the base image above is pinned to
+# alpine:3.24, and that minor's package repository already fixes what "curl",
+# "python3", etc. resolve to. Pinning each package here would not add
+# reproducibility beyond what the base image pin already gives, only churn
+# every time 3.24's repo rolls a patch version.
 RUN apk add --no-cache curl python3 py3-pip bash jq tzdata bind-tools \
     && echo "✅ Package installation completed" \
     && echo "📦 Installed packages: curl, python3, py3-pip, bash, jq, tzdata" \
@@ -84,10 +91,21 @@ RUN apk add --no-cache curl python3 py3-pip bash jq tzdata bind-tools \
     && jq --version
 
 # Install Flask for health monitor
-# Upgrade pip first to fix CVE-2025-8869
+# Upgrade pip first to fix CVE-2025-8869. The floor (not an exact pin) is
+# intentional and matches the server's own pip upgrade at
+# src/vpn_sentinel/server/Dockerfile: a security-motivated minimum should
+# keep taking newer patches, not freeze at the version that first fixed the
+# CVE.
+# flask is pinned to the same floor the server uses
+# (src/vpn_sentinel/server/Dockerfile) so both images resolve a compatible
+# dependency tree from the same commit. werkzeug is intentionally not pinned
+# here: unlike the server, which imports werkzeug.serving directly
+# (src/vpn_sentinel/common/server_utils.py), the client only reaches
+# werkzeug transitively through flask's own app.run() dev server, and
+# flask>=3.1.0 already declares a compatible werkzeug range as a dependency.
 RUN python3 -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir --upgrade 'pip>=25.3' \
-    && /opt/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 flask \
+    && /opt/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 'flask>=3.1.0' \
     && echo "✅ Python packages installed: flask"
 
 # Make sure virtual environment is in PATH

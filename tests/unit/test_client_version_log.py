@@ -1,6 +1,9 @@
 import os
 import subprocess
+import sys
 import unittest
+
+PYTHON = sys.executable or "python3"
 
 
 class TestClientVersionLog(unittest.TestCase):
@@ -27,7 +30,7 @@ class TestClientVersionLog(unittest.TestCase):
         try:
             # Run the script and allow it to run briefly; capture stdout even if it times out
             result = subprocess.run(
-                ["python3", script_path],
+                [PYTHON, script_path],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 env=env,

@@ -625,7 +625,7 @@ VPN Sentinel uses **GitHub Actions** for automated continuous integration and de
 
 1. Version Generation (scripts/get_version.sh)
    ├── Main branch (tagged): 1.0.0
-   ├── Main branch (untagged): 1.0.0-main-abc1234
+   ├── Main branch (untagged): 1.1.6-3
    ├── Development branch: 1.0.0-dev-abc1234
    └── Feature branches: 1.0.0-feature-name-abc1234
 
@@ -666,11 +666,11 @@ VPN Sentinel uses **GitHub Actions** for automated continuous integration and de
 | Context | Version Format | Example | Docker Tags |
 |---------|---------------|---------|-------------|
 | Main (tagged) | `MAJOR.MINOR.PATCH` | `1.0.0` | `:1.0.0`, `:latest` |
-| Main (untagged) | `MAJOR.MINOR.PATCH-main-HASH` | `1.0.0-main-abc1234` | `:1.0.0-main-abc1234` |
+| Main (untagged) | `MAJOR.MINOR.PATCH-COMMITS_AHEAD` | `1.1.6-3` | `:1.1.6-3` |
 | Development | `MAJOR.MINOR.PATCH-dev-HASH` | `1.0.0-dev-abc1234` | `:1.0.0-dev-abc1234`, `:development` |
 | Feature branch | `MAJOR.MINOR.PATCH-branch-HASH` | `1.0.0-auth-fix-abc1234` | `:1.0.0-auth-fix-abc1234` |
 
-**Base Version**: Read from `VERSION` file in repository root
+**Base Version**: Derived from the latest git tag via `git describe` (there is no `VERSION` file; see `scripts/get_version.sh`)
 
 **Version Environment Variables** in Docker:
 ```dockerfile

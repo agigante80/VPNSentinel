@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$TEST_DIR")"
 COVERAGE_DIR="$TEST_DIR/coverage_html"
-COVERAGE_FILE="$TEST_DIR/coverage.xml"
+COVERAGE_XML="$TEST_DIR/coverage.xml"
 
 echo -e "${BLUE}🧪 VPN Sentinel Test Suite${NC}"
 echo "========================================"
@@ -38,22 +38,59 @@ check_dependencies() {
   echo -e "${GREEN}✅ Dependencies check passed${NC}"
 }
 
-# Install test requirements
+# True if running inside an active virtualenv. Used only to make the install-location
+# message accurate below; it does not change control flow. --break-system-packages inside
+# an active venv still installs into the venv (not system site-packages), so the message
+# needs this check to avoid claiming "system packages" when it did not do that.
+in_virtualenv() {
+  [ -n "${VIRTUAL_ENV:-}" ]
+}
+
+# Install the package under test and its test requirements
 install_requirements() {
-  echo -e "${YELLOW}📦 Installing test requirements...${NC}"
+  echo -e "${YELLOW}📦 Installing package and test requirements...${NC}"
+
+  # Install the package under test first (editable install). This step is fatal: if the
+  # package itself cannot be installed, nothing downstream (syntax checks that import it,
+  # unit tests, coverage) can produce a meaningful result, so a totally broken environment
+  # must stop the script here rather than run on and report a false success.
+  if pip3 install -e "$PROJECT_ROOT" --quiet --user 2>/dev/null; then
+    echo -e "${GREEN}✅ Package installed (editable)${NC}"
+  elif pip3 install -e "$PROJECT_ROOT" --quiet --break-system-packages 2>/dev/null; then
+    if in_virtualenv; then
+      echo -e "${GREEN}✅ Package installed (editable, virtual environment)${NC}"
+    else
+      echo -e "${GREEN}✅ Package installed (editable, system packages)${NC}"
+    fi
+  else
+    echo -e "${RED}❌ Could not install the package under test${NC}"
+    echo -e "${RED}   Consider using: python3 -m venv test_env && source test_env/bin/activate${NC}"
+    return 1
+  fi
 
   if [ -f "$TEST_DIR/requirements.txt" ]; then
     # Try to install with pip3, if it fails due to externally managed environment, suggest virtual environment
     if pip3 install -r "$TEST_DIR/requirements.txt" --quiet --user 2>/dev/null; then
       echo -e "${GREEN}✅ Test requirements installed${NC}"
     elif pip3 install -r "$TEST_DIR/requirements.txt" --quiet --break-system-packages 2>/dev/null; then
-      echo -e "${GREEN}✅ Test requirements installed (system packages)${NC}"
+      if in_virtualenv; then
+        echo -e "${GREEN}✅ Test requirements installed (virtual environment)${NC}"
+      else
+        echo -e "${GREEN}✅ Test requirements installed (system packages)${NC}"
+      fi
     else
+      # Deliberate warning, not fatal: these are optional dev tools (pytest, coverage,
+      # etc). If pytest itself is among what failed to install, that is caught as a fatal
+      # "pytest not available" error later in run_unit_tests, so we do not duplicate the
+      # fatal exit here.
       echo -e "${YELLOW}⚠️ Could not install test requirements${NC}"
       echo -e "${YELLOW}   Consider using: python3 -m venv test_env && source test_env/bin/activate${NC}"
       echo -e "${YELLOW}   Or run with existing packages...${NC}"
     fi
   else
+    # Deliberate warning, not fatal: a missing requirements.txt is unexpected but the
+    # required tool it would have installed (pytest) is still checked for, and treated as
+    # fatal, in run_unit_tests below.
     echo -e "${YELLOW}⚠️ Test requirements file not found, skipping...${NC}"
   fi
 }
@@ -99,6 +136,9 @@ run_syntax_checks() {
       fi
     done
   else
+    # Deliberate warning, not fatal: docker-compose is optional local tooling for
+    # validating compose files. Its absence does not affect Python syntax validity, which
+    # is what this function actually gates on.
     echo -e "${YELLOW}⚠️ Docker Compose not available, skipping compose file checks${NC}"
   fi
 }
@@ -109,22 +149,22 @@ run_unit_tests() {
 
   cd "$TEST_DIR"
 
-  if command -v pytest &>/dev/null; then
-    if pytest unit/ -v --tb=short 2>/dev/null; then
-      echo -e "${GREEN}✅ Unit tests completed (using pytest)${NC}"
-    else
-      echo -e "${YELLOW}⚠️ pytest failed, falling back to unittest${NC}"
-      python3 -m unittest discover unit/ -v 2>/dev/null || echo -e "${YELLOW}⚠️ Some unit tests may require additional dependencies${NC}"
-      echo -e "${GREEN}✅ Unit tests completed (using unittest)${NC}"
-    fi
+  # Both "pytest is missing" and "pytest ran but failed" are fatal here, on purpose. This
+  # script used to fall back to "python3 -m unittest discover" in both cases, but unittest
+  # does not honour this project's pytest.ini config, markers, or coverage settings, so a
+  # silent fallback produced a green run that verified nothing meaningful. There is no
+  # legitimate substitute for pytest actually running and passing.
+  if ! command -v pytest &>/dev/null; then
+    echo -e "${RED}❌ pytest is not available; cannot run the unit test suite${NC}"
+    echo -e "${RED}   Install test requirements first (see install_requirements above)${NC}"
+    return 1
+  fi
+
+  if pytest unit/ -v --tb=short; then
+    echo -e "${GREEN}✅ Unit tests completed (using pytest)${NC}"
   else
-    # Fallback to unittest
-    if python3 -m unittest discover unit/ -v 2>/dev/null; then
-      echo -e "${GREEN}✅ Unit tests completed (using unittest)${NC}"
-    else
-      echo -e "${YELLOW}⚠️ Some unit tests may require additional dependencies${NC}"
-      echo -e "${GREEN}✅ Unit test structure validated${NC}"
-    fi
+    echo -e "${RED}❌ Unit tests failed${NC}"
+    return 1
   fi
 }
 
@@ -169,6 +209,10 @@ run_integration_tests() {
     export VPN_SENTINEL_API_PATH=${VPN_SENTINEL_API_PATH:-/test/v1}
     export VPN_SENTINEL_API_KEY=test-api-key-abcdef123456789
 
+    # This unittest fallback (unlike the one removed from run_unit_tests) is left as is:
+    # it only triggers when pytest is entirely absent, not when it fails, so it does not
+    # swallow a real test failure. Deliberately out of scope for issue #93, which named
+    # install_requirements() and run_unit_tests() specifically.
     if command -v pytest &>/dev/null; then
       pytest integration/ -v --tb=short
     else
@@ -177,6 +221,9 @@ run_integration_tests() {
 
     echo -e "${GREEN}✅ Integration tests completed${NC}"
   else
+    # Deliberate warning, not fatal: integration tests are opt-in (--integration) and need
+    # a live server as a precondition. No server running is an expected local state (the
+    # developer just hasn't started the stack), not evidence of a broken environment.
     echo -e "${YELLOW}⚠️ Server not running, skipping integration tests${NC}"
     echo -e "${YELLOW}   Start server with: docker-compose up -d${NC}"
   fi
@@ -189,17 +236,25 @@ generate_coverage() {
   if command -v pytest &>/dev/null && command -v coverage &>/dev/null; then
     cd "$TEST_DIR"
 
-    # Run tests with coverage
-    coverage run --source="../vpn-sentinel-server" -m pytest unit/ --quiet
+    # Run tests with coverage.
+    # Measure the installed package by module name, matching what CI gates on
+    # (--cov=vpn_sentinel.common, 80% floor). The previous "../vpn-sentinel-server"
+    # was a path from the pre-src/ layout: it no longer exists, so coverage silently
+    # collected nothing and every report here came out empty.
+    coverage run --source="vpn_sentinel.common" -m pytest unit/ --quiet
 
     # Generate reports
     coverage html -d "$COVERAGE_DIR"
-    coverage xml -o "$COVERAGE_FILE"
+    coverage xml -o "$COVERAGE_XML"
     coverage report --show-missing
 
     echo -e "${GREEN}✅ Coverage report generated${NC}"
     echo -e "${BLUE}📁 HTML report: $COVERAGE_DIR/index.html${NC}"
   else
+    # Deliberate warning, not fatal: coverage reporting is optional artifact generation
+    # for humans/CI, gated behind --coverage. By the time this runs, run_unit_tests has
+    # already required pytest to be present and to pass, so missing coverage tooling here
+    # cannot hide a broken test run.
     echo -e "${YELLOW}⚠️ Coverage tools not available, skipping coverage report${NC}"
   fi
 }
@@ -246,6 +301,7 @@ main() {
       --help)
         echo "Usage: $0 [OPTIONS]"
         echo "Options:"
+        echo "  (no options)   Run unit tests only (the default)"
         echo "  --integration  Run integration tests (requires running server)"
         echo "  --coverage     Generate coverage report"
         echo "  --cleanup      Clean up test artifacts after run"
