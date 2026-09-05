@@ -30,11 +30,11 @@ MAJOR.MINOR.PATCH[-CONTEXT][-COMMIT_HASH]
 
 ## Version Source
 
-There is no `VERSION` file in this repository. The version is tag-derived: the latest annotated
-release tag (`vMAJOR.MINOR.PATCH`) reachable from the current commit is the single source of truth,
-and `scripts/get_version.sh` (via `git describe --tags`) turns that tag plus the current branch and
-commit state into the published version string. Nothing bumps a file to release; releasing means
-pushing a tag.
+There is no `VERSION` file in this repository. The version is tag-derived: the latest release tag
+(`vMAJOR.MINOR.PATCH`, annotated or lightweight; `git describe` reads either) reachable from the
+current commit is the single source of truth, and `scripts/get_version.sh` (via `git describe
+--tags`) turns that tag plus the current branch and commit state into the published version
+string. Nothing bumps a file to release; releasing means pushing a tag.
 
 ## Dynamic Version Generation
 

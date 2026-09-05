@@ -144,10 +144,11 @@ black-box E2E/integration runs (`bin/local-env verify`) must stay coverage-free.
 
 ## Versioning and releases
 
-The version is derived, not just declared. `VERSION` holds the base semver; `scripts/get_version.sh`
-turns it plus git state into the published string (`1.1.4` on a clean tag on `main`,
-`1.1.4-dev-abc1234` on `develop`, `1.1.4-<branch>-abc1234` elsewhere), and that string becomes the
-Docker tag. `scripts/version-lib.sh` is the single shared primitive every release lane consumes; it
+The version is derived, not declared: there is no `VERSION` file. `scripts/get_version.sh` reads
+the latest git tag (via `git describe`) and turns it plus branch and commit state into the
+published string (`1.1.4` on a clean tag on `main`, `1.1.4-dev-abc1234` on `develop`,
+`1.1.4-<branch>-abc1234` elsewhere), and that string becomes the Docker tag.
+`scripts/version-lib.sh` is the single shared primitive every release lane consumes; it
 compares the working-tree version against the latest release tag and prints one verdict:
 
 | Verdict | Meaning | What to do |
