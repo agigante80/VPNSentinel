@@ -23,7 +23,7 @@ MAJOR.MINOR.PATCH[-CONTEXT][-COMMIT_HASH]
 | Context | Version Example | Description | Docker Tags |
 |---------|----------------|-------------|-------------|
 | **Main (Tagged)** | `1.0.0` | Stable release from tagged commit | `:1.0.0`, `:latest` |
-| **Main (Untagged)** | `1.0.0-main-abc1234` | Development on main branch | `:1.0.0-main-abc1234` |
+| **Main (Untagged)** | `1.1.6-3` | Commits ahead of the latest tag on main branch | `:1.1.6-3` |
 | **Development** | `1.0.0-dev-abc1234` | Active development branch | `:1.0.0-dev-abc1234`, `:development` |
 | **Feature Branch** | `1.0.0-feature-auth-abc1234` | Feature branch work | `:1.0.0-feature-auth-abc1234` |
 | **Hotfix Branch** | `1.0.1-hotfix-leak-abc1234` | Critical bug fix | `:1.0.1-hotfix-leak-abc1234` |
@@ -161,7 +161,7 @@ jobs:
 | Branch | Condition | Tags |
 |--------|-----------|------|
 | `main` | Tagged release | `:1.0.0`, `:latest` |
-| `main` | Untagged | `:1.0.0-main-abc1234` |
+| `main` | Untagged | `:1.1.6-3` |
 | `development` | Any commit | `:1.0.0-dev-abc1234`, `:development` |
 | Feature/hotfix | Any commit | `:1.0.0-branch-abc1234` |
 

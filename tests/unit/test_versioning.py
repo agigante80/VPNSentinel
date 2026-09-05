@@ -55,9 +55,8 @@ class TestVersioning(unittest.TestCase):
             self.assertIn("-dev-", version, f"Expected dev version on develop branch, got: {version}")
         elif current_branch == "main":
             # On main the production version is derived from the latest git tag (the canonical
-            # source get_version.sh reads). Do NOT compare against the VERSION file: it is a mirror
-            # that lags behind the tags the auto-release lane creates, so it would break on every
-            # new release.
+            # source get_version.sh reads). There is no VERSION file to compare against: the
+            # version is derived from git tags, so compare against the tag directly instead.
             tag_result = subprocess.run(
                 ["git", "describe", "--tags", "--abbrev=0", "--match", "v*"],
                 capture_output=True,
