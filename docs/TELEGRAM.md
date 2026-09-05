@@ -183,6 +183,39 @@ Time: 2025-11-10 22:10:00 UTC
 💡 This alert will not repeat until a client connects and disconnects again.
 ```
 
+### Client Went Silent
+
+Sent by the cleanup sweep when one or more clients stop sending keepalives. A single client
+going silent produces one form of the message; several clients going silent in the same sweep
+are batched into a single message rather than one alert per client.
+
+Single client:
+
+```
+🔇 Client Went Silent
+
+Client office-vpn-primary stopped sending keepalives.
+Last seen: 32 minutes ago
+Time: 2025-11-10 22:12:00 UTC
+
+⚠️ Check that the client container and its VPN connection are still up.
+```
+
+Multiple clients (one message for the whole sweep):
+
+```
+🔇 3 Clients Went Silent
+
+The following clients stopped sending keepalives:
+  - client-a: last seen 31 minutes ago
+  - client-b: last seen 60 minutes ago
+  - client-c: last seen 95 minutes ago
+
+Time: 2025-11-10 22:12:00 UTC
+
+⚠️ Check that these client containers and their VPN connections are still up.
+```
+
 ### /ping Command Response
 
 ```
@@ -356,6 +389,7 @@ See `src/vpn_sentinel/common/telegram.py` for full API documentation:
 - `notify_client_connected(client_id, vpn_ip, ...)` - Client connection
 - `notify_ip_changed(client_id, old_ip, new_ip, ...)` - IP change
 - `notify_no_clients()` - No clients alert
+- `notify_clients_silent(clients)` - Client(s) went silent alert, batched per sweep
 - `send_telegram_message(message, silent)` - Send custom message
 - `register_command(command, handler)` - Register custom command
 - `start_polling()` - Start bot polling loop

@@ -197,7 +197,7 @@ VPN Sentinel uses a **client-server architecture** with network isolation to ens
   - Multi-client status tracking
   - Server IP caching (reduces API calls)
   - Rate limiting and security middleware
-  - Auto-cleanup of stale clients
+  - Auto-cleanup of stale clients, with a Telegram alert for each client that goes silent
   - **Structured HTTP Access Logs**: All Flask endpoints (API, Dashboard, Health) log requests with unified format:
     ```
     2025-11-14T17:23:45Z INFO [api] 🌐 127.0.0.1 "GET /api/v1/health HTTP/1.1" 200

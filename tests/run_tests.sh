@@ -301,6 +301,7 @@ main() {
       --help)
         echo "Usage: $0 [OPTIONS]"
         echo "Options:"
+        echo "  (no options)   Run unit tests only (the default)"
         echo "  --integration  Run integration tests (requires running server)"
         echo "  --coverage     Generate coverage report"
         echo "  --cleanup      Clean up test artifacts after run"

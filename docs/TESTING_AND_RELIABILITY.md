@@ -178,8 +178,8 @@ python3 -m pytest tests/unit/test_server.py::test_keepalive_endpoint -v
 # Run all tests (unit + integration)
 ./tests/run_tests.sh --all
 
-# Run unit tests only
-./tests/run_tests.sh --unit
+# Run unit tests only (the default; there is no --unit flag)
+./tests/run_tests.sh
 
 # Run integration tests only
 ./tests/run_tests.sh --integration
