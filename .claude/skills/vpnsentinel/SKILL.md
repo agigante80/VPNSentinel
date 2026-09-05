@@ -93,7 +93,7 @@ Every 60 seconds (configurable via `VPN_SENTINEL_INTERVAL`), the client:
 4. Server computes traffic light status, updates `client_status`, sends Telegram if status changed
 
 **Timeout detection:** Server marks clients as offline after `VPN_SENTINEL_TIMEOUT` seconds (default
-1800 = 30 min) without a keepalive. A background cleanup thread runs every 60s to evict stale clients.
+1800 = 30 min) without a keepalive. A background cleanup thread runs every 60s to evict stale clients and sends a Telegram alert for each one it evicts (batched per sweep).
 
 ## Key Files
 

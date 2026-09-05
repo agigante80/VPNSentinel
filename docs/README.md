@@ -21,8 +21,8 @@ docker compose up -d
 # Run all tests
 ./tests/run_tests.sh --all
 
-# Run unit tests only
-./tests/run_tests.sh --unit
+# Run unit tests only (the default; there is no --unit flag)
+./tests/run_tests.sh
 
 # Run integration tests only
 ./tests/run_tests.sh --integration
