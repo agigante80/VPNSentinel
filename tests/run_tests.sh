@@ -189,8 +189,12 @@ generate_coverage() {
   if command -v pytest &>/dev/null && command -v coverage &>/dev/null; then
     cd "$TEST_DIR"
 
-    # Run tests with coverage
-    coverage run --source="../vpn-sentinel-server" -m pytest unit/ --quiet
+    # Run tests with coverage.
+    # Measure the installed package by module name, matching what CI gates on
+    # (--cov=vpn_sentinel.common, 80% floor). The previous "../vpn-sentinel-server"
+    # was a path from the pre-src/ layout: it no longer exists, so coverage silently
+    # collected nothing and every report here came out empty.
+    coverage run --source="vpn_sentinel.common" -m pytest unit/ --quiet
 
     # Generate reports
     coverage html -d "$COVERAGE_DIR"
