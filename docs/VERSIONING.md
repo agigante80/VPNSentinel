@@ -28,46 +28,32 @@ MAJOR.MINOR.PATCH[-CONTEXT][-COMMIT_HASH]
 | **Feature Branch** | `1.0.0-feature-auth-abc1234` | Feature branch work | `:1.0.0-feature-auth-abc1234` |
 | **Hotfix Branch** | `1.0.1-hotfix-leak-abc1234` | Critical bug fix | `:1.0.1-hotfix-leak-abc1234` |
 
-## Version File
+## Version Source
 
-The base version is stored in `VERSION` file at repository root:
-
-```bash
-# VERSION file contents
-1.0.0
-```
-
-**Update manually** when releasing new major/minor versions:
-
-```bash
-# Minor version bump
-echo "1.1.0" > VERSION
-git add VERSION
-git commit -m "chore: bump version to 1.1.0"
-
-# Major version bump
-echo "2.0.0" > VERSION
-git add VERSION
-git commit -m "chore: bump version to 2.0.0"
-```
+There is no `VERSION` file in this repository. The version is tag-derived: the latest annotated
+release tag (`vMAJOR.MINOR.PATCH`) reachable from the current commit is the single source of truth,
+and `scripts/get_version.sh` (via `git describe --tags`) turns that tag plus the current branch and
+commit state into the published version string. Nothing bumps a file to release; releasing means
+pushing a tag.
 
 ## Dynamic Version Generation
 
-The `scripts/get_version.sh` script automatically generates context-aware versions:
+The `scripts/get_version.sh` script automatically generates context-aware versions from `git
+describe`:
 
 ```bash
 #!/bin/bash
 # Generates version based on Git context
 
-BASE_VERSION=$(cat VERSION)
+GIT_DESCRIBE=$(git describe --tags --always --dirty=-dirty)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 COMMIT_HASH=$(git rev-parse --short HEAD)
 
-# Logic:
-# - Main + tag → BASE_VERSION
-# - Main + commits → BASE_VERSION-main-HASH
-# - Development → BASE_VERSION-dev-HASH
-# - Other → BASE_VERSION-BRANCH-HASH
+# Logic (BASE_VERSION comes from the nearest tag, via GIT_DESCRIBE, not a file):
+# - Main + clean tag  -> BASE_VERSION
+# - Main + commits    -> BASE_VERSION-COMMITS_AHEAD
+# - Development       -> BASE_VERSION-dev-HASH
+# - Other branch      -> BASE_VERSION-BRANCH-HASH
 ```
 
 ### Usage
@@ -194,36 +180,29 @@ git push origin development
 
 **Result**: Docker images tagged with `:1.0.0-dev-abc1234` and `:development`
 
-### 2. Prepare Release
+### 2. Merge to Main
 
-Update version for release:
+Create a PR from `development` to `main`. There is no version file to bump first: just merge once
+the PR is approved and CI is green.
 
-```bash
-# Update VERSION file
-echo "1.1.0" > VERSION
-git add VERSION
-git commit -m "chore: bump version to 1.1.0"
+### 3. Patch Release (automatic)
 
-# Update changelog
-# Edit CHANGELOG.md with release notes
+`.github/workflows/auto-release.yml` watches the "CI/CD Pipeline" workflow on `main`. When it
+succeeds and there are unreleased commits since the latest tag, the auto-release lane
+(`scripts/release-run.sh`, driven by `scripts/version-lib.sh` with `VERSION_SOURCE=git`)
+automatically:
 
-git push origin development
-```
+- computes the next patch version (`vX.Y.Z` -> `vX.Y.(Z+1)`),
+- pushes that tag, and
+- creates the GitHub Release.
 
-### 3. Merge to Main
+No manual step is needed for a patch release. This makes "merged to main without a release"
+structurally impossible for the patch level.
 
-Create PR from `development` to `main`:
+### 4. Minor / Major Release (manual tag)
 
-```bash
-# Create PR via GitHub UI
-# After approval and merge:
-```
-
-**Result**: Docker images built and tagged with `:1.1.0-main-abc1234`
-
-### 4. Tag Release
-
-Create Git tag for stable release:
+Minor and major bumps are a deliberate decision, so they are still tagged by hand instead of being
+inferred from commit messages:
 
 ```bash
 git checkout main
@@ -232,10 +211,11 @@ git tag -a v1.1.0 -m "Release v1.1.0"
 git push origin v1.1.0
 ```
 
-**Result**: 
-- Docker images re-tagged with `:1.1.0` and `:latest`
+**Result**:
+- Docker images tagged with `:1.1.0` and `:latest`
 - GitHub Release created automatically
 - Docker Hub descriptions updated
+- The auto-release lane resumes cutting patch tags (`v1.1.1`, `v1.1.2`, ...) from this new base
 
 ## Version Validation
 
@@ -292,10 +272,13 @@ Increment when making incompatible API changes:
 Example:
 ```bash
 # API key header changed from X-API-Key to Authorization
-echo "2.0.0" > VERSION
 git commit -m "feat!: change API authentication header
 
 BREAKING CHANGE: API key now uses Authorization header instead of X-API-Key"
+
+# Tag the major release by hand once this lands on main (see Release Process above)
+git tag -a v2.0.0 -m "Release v2.0.0"
+git push origin v2.0.0
 ```
 
 ### Minor Version (NEW FEATURES)
@@ -311,8 +294,11 @@ Increment when adding backward-compatible functionality:
 Example:
 ```bash
 # Add support for webhooks
-echo "1.1.0" > VERSION
 git commit -m "feat: add webhook support for notifications"
+
+# Tag the minor release by hand once this lands on main (see Release Process above)
+git tag -a v1.1.0 -m "Release v1.1.0"
+git push origin v1.1.0
 ```
 
 ### Patch Version (BUG FIXES)
@@ -327,8 +313,10 @@ Increment when making backward-compatible bug fixes:
 Example:
 ```bash
 # Fix DNS trace parsing
-echo "1.0.1" > VERSION
 git commit -m "fix: correct DNS trace parsing for Cloudflare format"
+
+# No manual tag needed: once this merges to main and CI is green, the auto-release
+# lane cuts the next patch tag automatically (see Release Process above).
 ```
 
 ## Conventional Commits
@@ -434,8 +422,8 @@ git status
 - **Use `fetch-depth: 0`** in CI/CD for full Git history
 - **Make `scripts/get_version.sh` executable** before committing
 - **Include commit hash** in development builds
-- **Update VERSION file** manually for major/minor bumps
-- **Tag releases** on main branch for stable versions
+- **Tag minor/major releases by hand** (`git tag -a vX.Y.0`) once they land on main
+- **Let the auto-release lane handle patch tags**: don't tag a patch release yourself
 - **Use conventional commits** for clear changelog
 - **Test version generation** locally before pushing
 - **Verify Docker labels** after building images
@@ -447,13 +435,12 @@ git status
 - **Don't forget to push tags** after creating them
 - **Don't use shallow clones** when version depends on tags
 - **Don't mix pre-release and stable** in production
-- **Don't skip VERSION file updates** for new major/minor releases
+- **Don't manually tag a patch release**: the auto-release lane already does it on merge to main
 
 ## Future Enhancements
 
 Planned versioning improvements:
 
-- [ ] Automatic VERSION file bump based on commit messages
 - [ ] Pre-release tags (alpha, beta, rc)
 - [ ] Automated changelog generation from conventional commits
 - [ ] Version compatibility checks between client and server
