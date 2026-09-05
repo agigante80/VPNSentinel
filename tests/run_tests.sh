@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$TEST_DIR")"
 COVERAGE_DIR="$TEST_DIR/coverage_html"
-COVERAGE_FILE="$TEST_DIR/coverage.xml"
+COVERAGE_XML="$TEST_DIR/coverage.xml"
 
 echo -e "${BLUE}🧪 VPN Sentinel Test Suite${NC}"
 echo "========================================"
@@ -41,6 +41,17 @@ check_dependencies() {
 # Install test requirements
 install_requirements() {
   echo -e "${YELLOW}📦 Installing test requirements...${NC}"
+
+  # Install the package under test first (editable install)
+  if pip3 install -e "$PROJECT_ROOT" --quiet --user 2>/dev/null; then
+    echo -e "${GREEN}✅ Package installed (editable)${NC}"
+  elif pip3 install -e "$PROJECT_ROOT" --quiet --break-system-packages 2>/dev/null; then
+    echo -e "${GREEN}✅ Package installed (editable, system packages)${NC}"
+  else
+    echo -e "${YELLOW}⚠️ Could not install package${NC}"
+    echo -e "${YELLOW}   Consider using: python3 -m venv test_env && source test_env/bin/activate${NC}"
+    echo -e "${YELLOW}   Or run with existing packages...${NC}"
+  fi
 
   if [ -f "$TEST_DIR/requirements.txt" ]; then
     # Try to install with pip3, if it fails due to externally managed environment, suggest virtual environment
@@ -198,7 +209,7 @@ generate_coverage() {
 
     # Generate reports
     coverage html -d "$COVERAGE_DIR"
-    coverage xml -o "$COVERAGE_FILE"
+    coverage xml -o "$COVERAGE_XML"
     coverage report --show-missing
 
     echo -e "${GREEN}✅ Coverage report generated${NC}"
