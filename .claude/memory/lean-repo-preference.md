@@ -14,8 +14,9 @@ doubt between deleting and keeping a no-longer-referenced file, delete it.
 
 **How to apply:**
 - Root stays minimal: `pyproject.toml`, `.gitignore`, `.pre-commit-config.yaml`, `.shellcheckrc`,
-  `README.md`, `LICENSE`, `CLAUDE.md`, `compose.yaml`, `VERSION`, `.env.example`,
-  `.vulture_allowlist.py`. New top-level files need a strong tooling/convention reason.
+  `README.md`, `LICENSE`, `CLAUDE.md`, `compose.yaml`, `.env.example`,
+  `.vulture_allowlist.py`. New top-level files need a strong tooling/convention reason. (There is
+  no `VERSION` file: it was removed as issue #88, since the version is tag-derived.)
 - Process artifacts (design specs/plans, scratch notes) are deleted once merged, not archived in the
   tree. (Done 2026-06-22: removed `docs/superpowers/`, the leftover `.agents/` skill, `bin/README.md`;
   moved `dockerhub/` under `.github/`.)

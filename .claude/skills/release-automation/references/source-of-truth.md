@@ -10,7 +10,7 @@ gate ends up asking an unanswerable question. **Pick one canonical source per pr
 
 | Project shape | Canonical source | `version-lib.sh` config |
 |---|---|---|
-| Docker image / service / app, **not** a published package (e.g. Flask+Docker, the VPNSentinel case) | a plain-text `VERSION` file, read at runtime and baked into the image | `VERSION_SOURCE=file`, `VERSION_FILE=VERSION` |
+| Docker image / service / app, **not** a published package (e.g. a Flask+Docker app with no tags to derive from) | a plain-text `VERSION` file, read at runtime and baked into the image | `VERSION_SOURCE=file`, `VERSION_FILE=VERSION` |
 | Node / TS package | `package.json` `version` | `VERSION_SOURCE=node` |
 | Python **package** (builds a wheel) | tag-derived via `setuptools-scm`/`hatch-vcs` — *no file at all* | `VERSION_SOURCE=git` — see `references/python-tag-derived.md` |
 | Python app, no wheel | a `VERSION` file or `pyproject.toml` `project.version` | `VERSION_SOURCE=file` or `python` |

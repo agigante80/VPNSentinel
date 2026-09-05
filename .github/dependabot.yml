@@ -1,76 +1,76 @@
 version: 2
+
+# Version-update PRs target `develop`. `main` is the release branch, so a bot PR
+# opened against it cannot be merged under our branch model.
+#
+# KNOWN LIMITATION, do not re-investigate: Dependabot SECURITY-update PRs ignore
+# `target-branch` and always open against the default branch (`main`), and the
+# `allow` filter below does NOT apply to them. This is a platform behaviour, not
+# a mistake in this file. If transitive security PRs on `main` become noise, the
+# levers are repository settings (Dependabot security updates on/off) and alert
+# auto-triage rules, not this config.
+
 updates:
-  # Python dependencies
+  # Python: direct dependencies only, both manifests.
   - package-ecosystem: "pip"
-    directory: "/"
+    directories:
+      - "/"        # pyproject.toml (runtime: requests; build: setuptools)
+      - "/tests"   # tests/requirements.txt (test and dev tooling)
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 10
-    reviewers:
-      - "agigante80"
+    # Explicit direct-only policy. This matches Dependabot's default for version
+    # updates today; it is stated so the intent survives adding a lock file.
+    allow:
+      - dependency-type: "direct"
     labels:
       - "dependencies"
-      - "security"
+      - "python"
     commit-message:
-      prefix: "security"
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
       include: "scope"
-    
-  # Docker base images
-  - package-ecosystem: "docker"
-    directory: "/vpn-sentinel-server"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    reviewers:
-      - "agigante80"
-    labels:
-      - "dependencies"
-      - "docker"
-    commit-message:
-      prefix: "docker"
-      include: "scope"
-    # Ignore unstable Python versions (3.13+)
-    # Stay on 3.12 LTS until 3.13 is proven stable in production
-    ignore:
-      - dependency-name: "python"
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
-        versions: ["3.13", "3.14", "3.15", "3.16", "3.17", "3.18"]
-      
-  - package-ecosystem: "docker"
-    directory: "/vpn-sentinel-client"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    reviewers:
-      - "agigante80"
-    labels:
-      - "dependencies"
-      - "docker"
-    commit-message:
-      prefix: "docker"
-      include: "scope"
-    # Ignore unstable Python versions (3.13+)
-    # Stay on 3.12 LTS until 3.13 is proven stable in production
-    ignore:
-      - dependency-name: "python"
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
-        versions: ["3.13", "3.14", "3.15", "3.16", "3.17", "3.18"]
 
-  # GitHub Actions (if re-added in future)
+  # GitHub Actions: every `uses:` pin is a direct dependency.
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
-    reviewers:
-      - "agigante80"
     labels:
       - "dependencies"
       - "github-actions"
     commit-message:
       prefix: "ci"
       include: "scope"
+
+  # Docker base images. These paths must contain a Dockerfile; the previous
+  # `/vpn-sentinel-server` and `/vpn-sentinel-client` no longer exist, so base
+  # image updates were never actually tracked.
+  - package-ecosystem: "docker"
+    directories:
+      - "/src/vpn_sentinel/server"
+      - "/src/vpn_sentinel/client"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    # Stay on the 3.12 line. Expressed as update-types only, so it never needs
+    # editing again; the previous explicit `versions: ["3.13" ... "3.18"]` list
+    # would have gone stale with each new Python release.
+    ignore:
+      - dependency-name: "python"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"

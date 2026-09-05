@@ -27,6 +27,14 @@ if _allowed_ips_env:
 # Track if clients have ever connected (to avoid spam on first connect)
 _client_first_seen = set()
 
+# Latch for the fleet-empty ("no clients connected") alert: True means the alert has
+# already been sent for the current empty state and must not repeat until a client
+# registers again. Starts True: on a fresh server start client_status is empty, but no
+# client has ever been seen, so a "no clients connected" alert would be spurious. Reads
+# and writes of this latch are protected by client_status_lock (shared with the Flask
+# keepalive handler and the cleanup thread).
+_fleet_empty_reported = True
+
 # Cache server's public IP (fetched once at startup)
 _server_public_ip = None
 
@@ -160,9 +168,12 @@ def keepalive():
         # Extract client version (optional field)
         client_version = validate_location_string(data.get("client_version", "Unknown"), "version")
 
-        # Read old IP and write new record under the lock; release before any network I/O.
-        is_new_client = client_id not in _client_first_seen
+        # Read old IP, membership in _client_first_seen, and write new record all under the
+        # same lock (avoids the check-then-act race between this handler and the cleanup
+        # thread); release the lock before any network I/O.
+        global _fleet_empty_reported
         with client_status_lock:
+            is_new_client = client_id not in _client_first_seen
             old_ip = client_status.get(client_id, {}).get("ip", None) if not is_new_client else None
             client_status[client_id] = {
                 "last_seen": datetime.now(timezone.utc).isoformat(),
@@ -177,6 +188,11 @@ def keepalive():
                 "dns_colo": dns_colo,
                 "client_version": client_version,
             }
+            if is_new_client:
+                _client_first_seen.add(client_id)
+            # A client just registered, so the fleet is no longer empty. Clear the latch
+            # so the next genuine transition to zero clients can alert again.
+            _fleet_empty_reported = False
         ip_changed = old_ip and old_ip != vpn_ip
 
         # Get server IP for comparison (network call — outside the lock)
@@ -190,9 +206,9 @@ def keepalive():
         if vpn_ip == server_ip or vpn_ip == "unknown":
             log_warn("security", f"⚠️ VPN BYPASS WARNING: Client {client_id} has same IP as server ({vpn_ip})")
 
-        # Send Telegram notifications
+        # Send Telegram notifications (membership in _client_first_seen was already
+        # updated above, under client_status_lock)
         if is_new_client:
-            _client_first_seen.add(client_id)
             telegram.notify_client_connected(
                 client_id,
                 vpn_ip,
@@ -232,6 +248,109 @@ def keepalive():
         return jsonify({"error": "Internal server error"}), 500
 
 
+def _run_cleanup_sweep():
+    """Run one stale-client sweep: fleet-empty check, staleness detection, removal, alerts.
+
+    Split out of cleanup_stale_clients() so it can be exercised directly in tests without
+    driving the surrounding infinite loop/sleep.
+
+    Order of operations, and why:
+    1. Check (and possibly latch) the fleet-empty state FIRST, before any early exit. The
+       previous implementation bailed out with `if not client_status: continue` before ever
+       reaching a zero-clients check, which made notify_no_clients() unreachable whenever the
+       dict was already empty -- exactly the state it exists to report. Checking first makes
+       that state reachable, at the cost of a check that is a no-op group when the fleet is
+       non-empty.
+    2. Only after that does it snapshot and evaluate staleness, remove stale clients, and send
+       ONE batched Telegram alert for everything removed in this sweep (not one per client),
+       since telegram.py has no rate limiting of its own.
+    3. Staleness is computed outside the lock against a snapshot, so a client can send a fresh
+       keepalive in the window between being snapshotted as stale and its removal running.
+       Immediately before deleting each client, the removal step re-reads its current
+       last_seen under the same lock acquisition and compares it against the value the
+       staleness check used. If it changed, the client is alive right now: it is left in
+       client_status and left out of the alert batch entirely, so operators are never told a
+       currently-healthy client went silent.
+    """
+    global _fleet_empty_reported
+    from datetime import datetime, timezone, timedelta
+
+    # Step 1: fleet-empty latch check. Reachable even when client_status is empty.
+    with client_status_lock:
+        fleet_is_empty = not client_status
+        fire_empty_alert = fleet_is_empty and not _fleet_empty_reported
+        if fire_empty_alert:
+            _fleet_empty_reported = True
+        items_snapshot = [] if fleet_is_empty else list(client_status.items())
+
+    # Send the alert outside the lock (network I/O).
+    if fire_empty_alert:
+        telegram.notify_no_clients()
+
+    if fleet_is_empty:
+        return
+
+    # Step 2: staleness detection (no lock needed; items_snapshot is a private copy).
+    current_time = datetime.now(timezone.utc)
+    timeout_delta = timedelta(minutes=CLIENT_TIMEOUT_MINUTES)
+    stale_clients = []
+
+    for client_id, client_data in items_snapshot:
+        last_seen_str = client_data.get("last_seen")
+        if not last_seen_str:
+            continue
+
+        try:
+            # Parse ISO format timestamp
+            last_seen = datetime.fromisoformat(last_seen_str.replace("Z", "+00:00"))
+
+            # Ensure timezone-aware
+            if last_seen.tzinfo is None:
+                last_seen = last_seen.replace(tzinfo=timezone.utc)
+
+            # Convert to UTC if not already
+            if last_seen.tzinfo != timezone.utc:
+                last_seen = last_seen.astimezone(timezone.utc)
+
+            # Check if client is stale
+            time_since_last_seen = current_time - last_seen
+            if time_since_last_seen > timeout_delta:
+                stale_clients.append((client_id, time_since_last_seen, last_seen_str))
+
+        except (ValueError, AttributeError) as e:
+            log_error("cleanup", f"Error parsing last_seen for {client_id}: {e}")
+            continue
+
+    # Remove stale clients, collecting everything actually removed in this sweep for one
+    # alert. last_seen_str is the value the staleness check above used; re-checking it here
+    # under the lock, immediately before deleting, catches a client that sent a fresh
+    # keepalive after being snapshotted as stale but before this removal ran.
+    removed = []
+    for client_id, time_since_last_seen, last_seen_str in stale_clients:
+        minutes_ago = int(time_since_last_seen.total_seconds() / 60)
+
+        # Remove from client status and tracking sets together, under the lock, to avoid
+        # racing the keepalive handler's check-then-act on _client_first_seen.
+        with client_status_lock:
+            still_stale = client_id in client_status and client_status[client_id].get("last_seen") == last_seen_str
+            if still_stale:
+                del client_status[client_id]
+                _client_first_seen.discard(client_id)
+
+        if not still_stale:
+            # The client sent a fresh keepalive (or was already removed some other way)
+            # between the staleness check and this removal running. It is not silent: do
+            # not delete it again and do not report it in the alert batch.
+            continue
+
+        log_info("cleanup", f"🗑️ Removing stale client: {client_id} (last seen {minutes_ago} minutes ago)")
+        removed.append((client_id, minutes_ago))
+
+    # One batched alert for the whole sweep, never one message per client.
+    if removed:
+        telegram.notify_clients_silent(removed)
+
+
 def cleanup_stale_clients():
     """Remove clients that haven't sent a keepalive within the timeout period.
 
@@ -239,7 +358,6 @@ def cleanup_stale_clients():
     Clients are considered stale if they haven't sent a keepalive within CLIENT_TIMEOUT_MINUTES.
     """
     import time
-    from datetime import datetime, timezone, timedelta
 
     log_info("cleanup", f"🧹 Starting stale client cleanup thread (timeout: {CLIENT_TIMEOUT_MINUTES} minutes)")
 
@@ -249,56 +367,7 @@ def cleanup_stale_clients():
     while True:
         try:
             time.sleep(check_interval)
-
-            # Snapshot the dict under the lock; staleness computation happens outside.
-            with client_status_lock:
-                if not client_status:
-                    continue
-                items_snapshot = list(client_status.items())
-
-            current_time = datetime.now(timezone.utc)
-            timeout_delta = timedelta(minutes=CLIENT_TIMEOUT_MINUTES)
-            stale_clients = []
-
-            for client_id, client_data in items_snapshot:
-                last_seen_str = client_data.get("last_seen")
-                if not last_seen_str:
-                    continue
-
-                try:
-                    # Parse ISO format timestamp
-                    last_seen = datetime.fromisoformat(last_seen_str.replace("Z", "+00:00"))
-
-                    # Ensure timezone-aware
-                    if last_seen.tzinfo is None:
-                        last_seen = last_seen.replace(tzinfo=timezone.utc)
-
-                    # Convert to UTC if not already
-                    if last_seen.tzinfo != timezone.utc:
-                        last_seen = last_seen.astimezone(timezone.utc)
-
-                    # Check if client is stale
-                    time_since_last_seen = current_time - last_seen
-                    if time_since_last_seen > timeout_delta:
-                        stale_clients.append((client_id, time_since_last_seen))
-
-                except (ValueError, AttributeError) as e:
-                    log_error("cleanup", f"Error parsing last_seen for {client_id}: {e}")
-                    continue
-
-            # Remove stale clients: re-acquire the lock only for the dict delete.
-            for client_id, time_since_last_seen in stale_clients:
-                minutes_ago = int(time_since_last_seen.total_seconds() / 60)
-                log_info("cleanup", f"🗑️ Removing stale client: {client_id} (last seen {minutes_ago} minutes ago)")
-
-                # Remove from tracking sets
-                if client_id in _client_first_seen:
-                    _client_first_seen.discard(client_id)
-
-                # Remove from client status under the lock
-                with client_status_lock:
-                    if client_id in client_status:
-                        del client_status[client_id]
+            _run_cleanup_sweep()
 
         except Exception as e:
             log_error("cleanup", f"Error in cleanup thread: {e}")

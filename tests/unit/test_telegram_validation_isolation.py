@@ -5,7 +5,10 @@ They test the initialization logic by using subprocess.
 """
 
 import subprocess
+import sys
 import os
+
+PYTHON = sys.executable or "python3"
 
 
 class TestTelegramValidationIsolated:
@@ -24,7 +27,7 @@ class TestTelegramValidationIsolated:
         )
 
         result = subprocess.run(
-            ["python", "-c", "from vpn_sentinel.common import telegram"], env=env, capture_output=True, cwd=os.getcwd()
+            [PYTHON, "-c", "from vpn_sentinel.common import telegram"], env=env, capture_output=True, cwd=os.getcwd()
         )
 
         assert result.returncode == 1
@@ -42,7 +45,7 @@ class TestTelegramValidationIsolated:
         )
 
         result = subprocess.run(
-            ["python", "-c", "from vpn_sentinel.common import telegram"], env=env, capture_output=True, cwd=os.getcwd()
+            [PYTHON, "-c", "from vpn_sentinel.common import telegram"], env=env, capture_output=True, cwd=os.getcwd()
         )
 
         assert result.returncode == 1
@@ -62,7 +65,7 @@ class TestTelegramValidationIsolated:
         # Test that import succeeds (no sys.exit)
         result = subprocess.run(
             [
-                "python",
+                PYTHON,
                 "-c",
                 "from vpn_sentinel.common import telegram; "
                 'print(f"enabled={telegram.TELEGRAM_ENABLED}"); '
@@ -94,7 +97,7 @@ class TestTelegramValidationIsolated:
 
         result = subprocess.run(
             [
-                "python",
+                PYTHON,
                 "-c",
                 "from vpn_sentinel.common import telegram; " 'print(f"enabled={telegram.TELEGRAM_ENABLED}")',
             ],
@@ -116,7 +119,7 @@ class TestTelegramValidationIsolated:
 
         result = subprocess.run(
             [
-                "python",
+                PYTHON,
                 "-c",
                 "from vpn_sentinel.common import telegram; " 'print(f"enabled={telegram.TELEGRAM_ENABLED}")',
             ],

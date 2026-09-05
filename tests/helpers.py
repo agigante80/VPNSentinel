@@ -5,6 +5,8 @@ import os
 import signal
 import sys
 
+PYTHON = sys.executable or "python3"
+
 
 def probe_url(url, timeout=5, retries=5, backoff_factor=0.5):
     """Probe a URL with retries and exponential backoff.
@@ -99,7 +101,7 @@ def start_client_with_monitor(
 
     # If script is a Python file, run it with Python interpreter
     if client_script.endswith(".py"):
-        cmd = ["python3", client_script]
+        cmd = [PYTHON, client_script]
     else:
         cmd = [client_script]
 
