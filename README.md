@@ -701,12 +701,12 @@ pre-commit install
 ### Run Tests
 
 ```bash
-# Run all tests
+# Run all tests (unit + integration + coverage + cleanup)
 ./tests/run_tests.sh --all
 
 # Run specific test categories
-./tests/run_tests.sh --unit
-./tests/run_tests.sh --integration
+./tests/run_tests.sh                 # unit tests (the default; there is no --unit flag)
+./tests/run_tests.sh --integration   # integration tests (needs a running server)
 
 # Run with coverage
 ./tests/run_tests.sh --coverage

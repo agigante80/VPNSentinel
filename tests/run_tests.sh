@@ -209,6 +209,10 @@ run_integration_tests() {
     export VPN_SENTINEL_API_PATH=${VPN_SENTINEL_API_PATH:-/test/v1}
     export VPN_SENTINEL_API_KEY=test-api-key-abcdef123456789
 
+    # This unittest fallback (unlike the one removed from run_unit_tests) is left as is:
+    # it only triggers when pytest is entirely absent, not when it fails, so it does not
+    # swallow a real test failure. Deliberately out of scope for issue #93, which named
+    # install_requirements() and run_unit_tests() specifically.
     if command -v pytest &>/dev/null; then
       pytest integration/ -v --tb=short
     else
