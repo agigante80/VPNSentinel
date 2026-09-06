@@ -194,6 +194,40 @@ def mutate(old, new, source=None):
     return _parse(mutated_text)
 
 
+# Every guard, named, so a negative test can assert "this one fails and ALL FIVE
+# OTHERS still pass" in one call. Registering here also means a future guard added
+# to this module without a matching entry (and therefore without the non-interference
+# check below covering it) is a visible, deliberate omission rather than a silent gap.
+GUARDS = {
+    "invariant_1_push_token": checkout_uses_push_token,
+    "invariant_2_fetch_full_history": checkout_fetches_full_history_and_tags,
+    "invariant_3_version_source_git": version_source_is_explicit_git,
+    "invariant_4_branch_filter": workflow_run_filtered_to_main,
+    "invariant_5_success_gate": gated_on_workflow_run_success,
+    "invariant_6_sha_assertion_order": sha_assertion_precedes_release,
+}
+
+
+def assert_only_guard_fails(workflow, failing_guard):
+    """Assert that exactly ONE guard, `failing_guard`, rejects `workflow`, and every
+    other registered guard still accepts it.
+
+    This is the cross-check the ticket's Part 3 and its fourth Given/When/Then
+    scenario require ("confirm no other guard fails"): a guard that fires on every
+    mutation is exactly as useless as one that never fires on any, and asserting only
+    the targeted guard's own False result (as a first pass of these tests did) cannot
+    tell the two apart. Nothing else in this suite would catch a guard drifting into
+    "rejects everything."
+    """
+    assert failing_guard in GUARDS, f"unknown guard name: {failing_guard!r}"
+    results = {name: fn(workflow) for name, fn in GUARDS.items()}
+    assert results[failing_guard] is False, f"{failing_guard} was expected to reject this fixture but accepted it"
+    collateral = {name: r for name, r in results.items() if name != failing_guard and r is not True}
+    assert not collateral, (
+        f"mutation aimed at {failing_guard} also broke unrelated guard(s): {collateral} " f"(full results: {results})"
+    )
+
+
 # ===================================================================================
 # Non-vacuity: prove each guard's selector actually finds something on the real,
 # compliant workflow before trusting a negative result on a mutated copy.
@@ -258,13 +292,7 @@ def test_invariant_1_negative_github_token_swap():
         "fetch-tags: true\n          token: ${{ secrets.ACTIONS_PUSH_TOKEN }}",
         "fetch-tags: true\n          token: ${{ secrets.GITHUB_TOKEN }}",
     )
-    assert checkout_uses_push_token(mutated) is False, "swapping in GITHUB_TOKEN must be rejected"
-    # the other invariants are untouched by this mutation
-    assert checkout_fetches_full_history_and_tags(mutated) is True
-    assert version_source_is_explicit_git(mutated) is True
-    assert workflow_run_filtered_to_main(mutated) is True
-    assert gated_on_workflow_run_success(mutated) is True
-    assert sha_assertion_precedes_release(mutated) is True
+    assert_only_guard_fails(mutated, "invariant_1_push_token")
 
 
 def test_invariant_1_negative_token_missing():
@@ -272,7 +300,7 @@ def test_invariant_1_negative_token_missing():
         "          fetch-tags: true\n          token: ${{ secrets.ACTIONS_PUSH_TOKEN }}\n",
         "          fetch-tags: true\n",
     )
-    assert checkout_uses_push_token(mutated) is False, "a checkout with no token: at all must be rejected"
+    assert_only_guard_fails(mutated, "invariant_1_push_token")
 
 
 def test_invariant_2_negative_fetch_depth_missing():
@@ -280,38 +308,37 @@ def test_invariant_2_negative_fetch_depth_missing():
         "          ref: ${{ github.event.workflow_run.head_sha }}\n          fetch-depth: 0\n",
         "          ref: ${{ github.event.workflow_run.head_sha }}\n",
     )
-    assert checkout_fetches_full_history_and_tags(mutated) is False, "a missing fetch-depth: 0 must be rejected"
-    assert checkout_uses_push_token(mutated) is True
+    assert_only_guard_fails(mutated, "invariant_2_fetch_full_history")
 
 
 def test_invariant_2_negative_fetch_tags_false():
     mutated = mutate("fetch-tags: true", "fetch-tags: false")
-    assert checkout_fetches_full_history_and_tags(mutated) is False, "fetch-tags: false must be rejected"
+    assert_only_guard_fails(mutated, "invariant_2_fetch_full_history")
 
 
 def test_invariant_3_negative_version_source_missing():
     mutated = mutate("      VERSION_SOURCE: git\n", "")
-    assert version_source_is_explicit_git(mutated) is False, "a missing explicit VERSION_SOURCE must be rejected"
+    assert_only_guard_fails(mutated, "invariant_3_version_source_git")
 
 
 def test_invariant_3_negative_version_source_wrong_value():
     mutated = mutate("VERSION_SOURCE: git", "VERSION_SOURCE: file")
-    assert version_source_is_explicit_git(mutated) is False, "VERSION_SOURCE != git must be rejected"
+    assert_only_guard_fails(mutated, "invariant_3_version_source_git")
 
 
 def test_invariant_4_negative_branch_filter_removed():
     mutated = mutate("    branches: [main]\n", "")
-    assert workflow_run_filtered_to_main(mutated) is False, "removing the branch filter must be rejected"
+    assert_only_guard_fails(mutated, "invariant_4_branch_filter")
 
 
 def test_invariant_4_negative_branch_filter_widened():
     mutated = mutate("branches: [main]", "branches: [main, develop]")
-    assert workflow_run_filtered_to_main(mutated) is False, "widening the branch filter must be rejected"
+    assert_only_guard_fails(mutated, "invariant_4_branch_filter")
 
 
 def test_invariant_5_negative_success_gate_removed():
     mutated = mutate("    if: ${{ github.event.workflow_run.conclusion == 'success' }}\n", "")
-    assert gated_on_workflow_run_success(mutated) is False, "removing the success gate must be rejected"
+    assert_only_guard_fails(mutated, "invariant_5_success_gate")
 
 
 def test_invariant_5_negative_gate_weakened_to_always():
@@ -319,7 +346,7 @@ def test_invariant_5_negative_gate_weakened_to_always():
         "if: ${{ github.event.workflow_run.conclusion == 'success' }}",
         "if: ${{ always() }}",
     )
-    assert gated_on_workflow_run_success(mutated) is False, "an always() gate must be rejected"
+    assert_only_guard_fails(mutated, "invariant_5_success_gate")
 
 
 def test_invariant_6_negative_assertion_step_removed():
@@ -341,13 +368,7 @@ def test_invariant_6_negative_assertion_step_removed():
         '          echo "Checkout verified: $actual"\n\n'
     )
     mutated = mutate(assertion_block, "")
-    assert sha_assertion_precedes_release(mutated) is False, "removing the SHA assertion entirely must be rejected"
-    # other invariants must be unaffected by removing this unrelated step
-    assert checkout_uses_push_token(mutated) is True
-    assert checkout_fetches_full_history_and_tags(mutated) is True
-    assert version_source_is_explicit_git(mutated) is True
-    assert workflow_run_filtered_to_main(mutated) is True
-    assert gated_on_workflow_run_success(mutated) is True
+    assert_only_guard_fails(mutated, "invariant_6_sha_assertion_order")
 
 
 def test_invariant_6_negative_assertion_moved_after_release():
@@ -364,9 +385,7 @@ def test_invariant_6_negative_assertion_moved_after_release():
     reordered_workflow = copy.deepcopy(REAL)
     reordered_workflow["jobs"][JOB_NAME]["steps"] = reordered
 
-    assert (
-        sha_assertion_precedes_release(reordered_workflow) is False
-    ), "the assertion running after release-run.sh must be rejected, not just its presence"
+    assert_only_guard_fails(reordered_workflow, "invariant_6_sha_assertion_order")
 
 
 def test_invariant_6_negative_expected_sha_not_head_sha():
@@ -377,9 +396,7 @@ def test_invariant_6_negative_expected_sha_not_head_sha():
         "EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}",
         "EXPECTED_SHA: ${{ github.sha }}",
     )
-    assert (
-        sha_assertion_precedes_release(mutated) is False
-    ), "comparing against github.sha instead of workflow_run.head_sha must be rejected"
+    assert_only_guard_fails(mutated, "invariant_6_sha_assertion_order")
 
 
 def test_invariant_6_negative_missing_git_rev_parse():
@@ -389,9 +406,7 @@ def test_invariant_6_negative_missing_git_rev_parse():
         'actual="$(git rev-parse HEAD)"',
         'actual="$GITHUB_SHA"',
     )
-    assert (
-        sha_assertion_precedes_release(mutated) is False
-    ), "a step lacking the actual git rev-parse HEAD check must be rejected"
+    assert_only_guard_fails(mutated, "invariant_6_sha_assertion_order")
 
 
 # ===================================================================================
