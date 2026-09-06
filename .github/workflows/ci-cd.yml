@@ -335,6 +335,8 @@ jobs:
           file: ${{ matrix.component.dockerfile }}
           platforms: ${{ needs.version.outputs.is_release == 'true' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: true
+          sbom: true
+          provenance: mode=max
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
             VERSION=${{ needs.version.outputs.version }}
