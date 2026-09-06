@@ -695,3 +695,231 @@ class TestIntegration:
         assert callable(telegram.process_command)
         assert callable(telegram.polling_loop)
         assert callable(telegram.start_polling)
+
+
+class TestSendTelegramMessageRetry:
+    """Tests for the bounded 429 retry_after handling in send_telegram_message()."""
+
+    @patch("vpn_sentinel.common.telegram.TELEGRAM_ENABLED", True)
+    @patch("vpn_sentinel.common.telegram.time.sleep")
+    @patch("vpn_sentinel.common.telegram.requests.post")
+    def test_retries_after_429_using_api_retry_after(self, mock_post, mock_sleep):
+        """A 429 with a retry_after inside the cap is retried using the API's own value."""
+        rate_limited = Mock()
+        rate_limited.status_code = 429
+        rate_limited.json.return_value = {"ok": False, "parameters": {"retry_after": 2}}
+
+        success = Mock()
+        success.status_code = 200
+
+        mock_post.side_effect = [rate_limited, success]
+
+        result = telegram.send_telegram_message("Test message")
+
+        assert result is True
+        assert mock_post.call_count == 2
+        mock_sleep.assert_called_once_with(2)
+
+    @patch("vpn_sentinel.common.telegram.TELEGRAM_ENABLED", True)
+    @patch("vpn_sentinel.common.telegram.log_error")
+    @patch("vpn_sentinel.common.telegram.time.sleep")
+    @patch("vpn_sentinel.common.telegram.requests.post")
+    def test_does_not_sleep_when_retry_after_exceeds_cap(self, mock_post, mock_sleep, mock_log_error):
+        """A retry_after above the cap is never slept on: give up immediately and log an error."""
+        rate_limited = Mock()
+        rate_limited.status_code = 429
+        rate_limited.json.return_value = {
+            "ok": False,
+            "parameters": {"retry_after": telegram.TELEGRAM_RETRY_AFTER_CAP_SECONDS + 100},
+        }
+        mock_post.return_value = rate_limited
+
+        result = telegram.send_telegram_message("Test message")
+
+        assert result is False
+        mock_sleep.assert_not_called()
+        mock_post.assert_called_once()
+        assert any("giving up" in str(c.args).lower() for c in mock_log_error.call_args_list)
+
+    @patch("vpn_sentinel.common.telegram.TELEGRAM_ENABLED", True)
+    @patch("vpn_sentinel.common.telegram.time.sleep")
+    @patch("vpn_sentinel.common.telegram.requests.post")
+    def test_retry_after_at_cap_boundary_is_honoured(self, mock_post, mock_sleep):
+        """retry_after exactly equal to the cap is still honoured (cap is inclusive)."""
+        rate_limited = Mock()
+        rate_limited.status_code = 429
+        rate_limited.json.return_value = {"parameters": {"retry_after": telegram.TELEGRAM_RETRY_AFTER_CAP_SECONDS}}
+        success = Mock()
+        success.status_code = 200
+        mock_post.side_effect = [rate_limited, success]
+
+        result = telegram.send_telegram_message("Test message")
+
+        assert result is True
+        mock_sleep.assert_called_once_with(telegram.TELEGRAM_RETRY_AFTER_CAP_SECONDS)
+
+    @patch("vpn_sentinel.common.telegram.TELEGRAM_ENABLED", True)
+    @patch("vpn_sentinel.common.telegram.log_error")
+    @patch("vpn_sentinel.common.telegram.time.sleep")
+    @patch("vpn_sentinel.common.telegram.requests.post")
+    def test_permanent_failure_is_bounded_and_logged_at_error_level(self, mock_post, mock_sleep, mock_log_error):
+        """Repeated 429s within the cap still stop at TELEGRAM_MAX_SEND_ATTEMPTS and log an error."""
+        rate_limited = Mock()
+        rate_limited.status_code = 429
+        rate_limited.json.return_value = {"parameters": {"retry_after": 1}}
+        mock_post.return_value = rate_limited
+
+        result = telegram.send_telegram_message("Client Went Silent alert")
+
+        assert result is False
+        assert mock_post.call_count == telegram.TELEGRAM_MAX_SEND_ATTEMPTS
+        # Only one sleep: after the cap is reached, the final attempt does not sleep again.
+        assert mock_sleep.call_count == telegram.TELEGRAM_MAX_SEND_ATTEMPTS - 1
+        assert mock_log_error.called
+        error_messages = " ".join(str(c.args) for c in mock_log_error.call_args_list)
+        assert "Client Went Silent" in error_messages
+
+    @patch("vpn_sentinel.common.telegram.TELEGRAM_ENABLED", True)
+    @patch("vpn_sentinel.common.telegram.log_error")
+    @patch("vpn_sentinel.common.telegram.requests.post")
+    def test_non_429_failure_is_not_retried_and_is_logged(self, mock_post, mock_log_error):
+        """A non-429 failure (e.g. 400) fails immediately without retrying, and logs an error."""
+        bad_request = Mock()
+        bad_request.status_code = 400
+        bad_request.text = "Bad Request: message is too long"
+        mock_post.return_value = bad_request
+
+        result = telegram.send_telegram_message("Some notification")
+
+        assert result is False
+        mock_post.assert_called_once()
+        assert mock_log_error.called
+
+    @patch("vpn_sentinel.common.telegram.TELEGRAM_ENABLED", True)
+    @patch("vpn_sentinel.common.telegram.time.sleep")
+    @patch("vpn_sentinel.common.telegram.requests.post")
+    def test_retry_after_missing_from_body_gives_up_without_sleep(self, mock_post, mock_sleep):
+        """A 429 whose body carries no parseable retry_after is not retried."""
+        rate_limited = Mock()
+        rate_limited.status_code = 429
+        rate_limited.json.return_value = {"ok": False}
+        mock_post.return_value = rate_limited
+
+        result = telegram.send_telegram_message("Test message")
+
+        assert result is False
+        mock_sleep.assert_not_called()
+
+    @patch("vpn_sentinel.common.telegram.TELEGRAM_ENABLED", True)
+    @patch("vpn_sentinel.common.telegram.time.sleep")
+    @patch("vpn_sentinel.common.telegram.requests.post")
+    def test_retry_after_wrong_type_gives_up_without_sleep(self, mock_post, mock_sleep):
+        """A retry_after that is not a number (e.g. a bool or string) is treated as absent."""
+        rate_limited = Mock()
+        rate_limited.status_code = 429
+        rate_limited.json.return_value = {"parameters": {"retry_after": True}}
+        mock_post.return_value = rate_limited
+
+        result = telegram.send_telegram_message("Test message")
+
+        assert result is False
+        mock_sleep.assert_not_called()
+
+    @patch("vpn_sentinel.common.telegram.TELEGRAM_ENABLED", True)
+    @patch("vpn_sentinel.common.telegram.time.sleep")
+    @patch("vpn_sentinel.common.telegram.requests.post")
+    def test_retry_after_unparseable_json_body_gives_up_without_sleep(self, mock_post, mock_sleep):
+        """A 429 whose body is not JSON at all is not retried."""
+        rate_limited = Mock()
+        rate_limited.status_code = 429
+        rate_limited.json.side_effect = ValueError("not JSON")
+        rate_limited.text = "not json"
+        mock_post.return_value = rate_limited
+
+        result = telegram.send_telegram_message("Test message")
+
+        assert result is False
+        mock_sleep.assert_not_called()
+
+
+class TestNotifyClientsSilentChunking:
+    """Tests for bounded chunking in notify_clients_silent (issue #95)."""
+
+    @patch("vpn_sentinel.common.telegram.send_telegram_message")
+    def test_small_batch_is_a_single_message(self, mock_send):
+        """3 clients going silent in one sweep still produce exactly one message naming all three."""
+        mock_send.return_value = True
+
+        clients = [("client-a", 31), ("client-b", 60), ("client-c", 95)]
+        result = telegram.notify_clients_silent(clients)
+
+        assert result is True
+        mock_send.assert_called_once()
+        message = mock_send.call_args[0][0]
+        assert "client-a" in message
+        assert "client-b" in message
+        assert "client-c" in message
+        assert len(message) < telegram.TELEGRAM_MESSAGE_CHAR_LIMIT
+
+    @patch("vpn_sentinel.common.telegram.send_telegram_message")
+    def test_oversized_batch_stays_under_the_character_limit(self, mock_send):
+        """A 200-client sweep is split so every message is under Telegram's limit, none lost."""
+        mock_send.return_value = True
+
+        clients = [(f"client-{i:04d}", 30 + i) for i in range(200)]
+        result = telegram.notify_clients_silent(clients)
+
+        assert result is True
+        assert mock_send.call_count >= 1
+        sent_messages = [c.args[0] for c in mock_send.call_args_list]
+        for message in sent_messages:
+            assert len(message) < telegram.TELEGRAM_MESSAGE_CHAR_LIMIT
+
+        # The operator can always learn the total count of silent clients from any message.
+        for message in sent_messages:
+            assert f"{len(clients)} Clients Went Silent" in message
+
+    @patch("vpn_sentinel.common.telegram.send_telegram_message")
+    def test_oversized_batch_never_exceeds_the_message_cap(self, mock_send):
+        """Regardless of batch size, no more than MAX_SILENT_CLIENT_MESSAGES are ever sent."""
+        mock_send.return_value = True
+
+        # Long client ids to force many pages, deliberately larger than the cap could hold
+        # if every client were listed individually.
+        clients = [(f"office-vpn-branch-location-{i:04d}-primary-uplink", 30 + i) for i in range(260)]
+        result = telegram.notify_clients_silent(clients)
+
+        assert result is True
+        assert mock_send.call_count == telegram.MAX_SILENT_CLIENT_MESSAGES
+
+        sent_messages = [c.args[0] for c in mock_send.call_args_list]
+        for message in sent_messages:
+            assert len(message) < telegram.TELEGRAM_MESSAGE_CHAR_LIMIT
+
+        # The final message summarises the remainder as a count rather than naming it, and
+        # the total silent-client count is still stated even though names were truncated away.
+        last_message = sent_messages[-1]
+        assert "more client" in last_message
+        assert f"{len(clients)} Clients Went Silent" in last_message
+
+    @patch("vpn_sentinel.common.telegram.send_telegram_message")
+    def test_partial_send_failure_reports_false(self, mock_send):
+        """If any chunk fails to send, notify_clients_silent reports the sweep as not fully sent."""
+        clients = [(f"office-vpn-branch-location-{i:04d}-primary-uplink", 30 + i) for i in range(260)]
+        # One failure among the messages this batch produces (== MAX_SILENT_CLIENT_MESSAGES).
+        mock_send.side_effect = [True, False] + [True] * (telegram.MAX_SILENT_CLIENT_MESSAGES - 2)
+        result = telegram.notify_clients_silent(clients)
+
+        assert result is False
+        assert mock_send.call_count == telegram.MAX_SILENT_CLIENT_MESSAGES
+
+    def test_chunk_helper_never_exceeds_char_limit_across_sizes(self):
+        """Direct check of the chunking helper across a range of batch sizes and id lengths."""
+        for count, id_len in [(2, 5), (50, 10), (200, 20), (500, 40)]:
+            clients = [(f"{'c' * id_len}-{i:05d}", i) for i in range(count)]
+            messages = telegram._chunk_silent_clients_messages(clients)
+
+            assert len(messages) <= telegram.MAX_SILENT_CLIENT_MESSAGES
+            for message in messages:
+                assert len(message) < telegram.TELEGRAM_MESSAGE_CHAR_LIMIT
+                assert f"{count} Clients Went Silent" in message
