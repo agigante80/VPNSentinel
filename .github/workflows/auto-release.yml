@@ -47,6 +47,22 @@ jobs:
           fetch-tags: true
           token: ${{ secrets.ACTIONS_PUSH_TOKEN }}
 
+      # Fail-closed guard (issue #100): nothing else asserts that the checkout actually
+      # resolved to the commit CI went green on. If a future actions/checkout behaviour
+      # change (see #99) ever resolves a workflow_run + explicit-ref checkout to a
+      # different commit, this stops the lane before it tags the wrong commit and
+      # reports success, instead of silently mis-releasing.
+      - name: Assert the checkout is the commit CI went green on
+        env:
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          if [ "$actual" != "$EXPECTED_SHA" ]; then
+            echo "::error::Refusing to release. Checked out $actual but the green CI run was $EXPECTED_SHA."
+            exit 1
+          fi
+          echo "Checkout verified: $actual"
+
       - name: Auto-release (tag plus GitHub Release)
         env:
           GH_TOKEN: ${{ secrets.ACTIONS_PUSH_TOKEN }}
