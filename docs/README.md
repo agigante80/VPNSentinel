@@ -110,7 +110,7 @@ VPNSentinel/
 │   ├── geolocation.py         # IP geolocation
 │   ├── telegram.py            # Telegram integration
 │   └── ...                    # 17 more modules
-├── tests/                     # Test suite (249 tests)
+├── tests/                     # Test suite
 │   ├── unit/                  # Unit tests (115 passed)
 │   ├── integration/           # Integration tests (36 passed)
 │   └── run_tests.sh           # Test runner
