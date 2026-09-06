@@ -246,3 +246,55 @@ def test_fleet_empty_alert_fires_again_after_reconnect_then_silent_again(
     _run_cleanup_sweep()
 
     mock_telegram.notify_no_clients.assert_called_once()
+
+
+@patch("vpn_sentinel.common.api_routes.telegram")
+def test_unparseable_last_seen_does_not_permanently_suppress_fleet_empty_alert(mock_telegram, clean_state):
+    """A client whose last_seen cannot be parsed must not be skipped forever.
+
+    Before the fix, the ValueError/AttributeError branch did `continue`, leaving the
+    client in client_status permanently: client_status could never become empty again, so
+    the fleet-empty latch could never re-fire. This client is now treated as stale (as of
+    right now) instead, so it flows through the normal removal + alert path like any other
+    stale client and the dict empties out.
+    """
+    client_status["corrupted-client"] = {"last_seen": "not-a-real-timestamp"}
+    _client_first_seen.add("corrupted-client")
+    api_routes._fleet_empty_reported = False
+
+    # First sweep: the corrupted client is treated as stale right now and removed/alerted.
+    _run_cleanup_sweep()
+
+    assert client_status == {}
+    assert "corrupted-client" not in _client_first_seen
+    mock_telegram.notify_clients_silent.assert_called_once()
+    (clients_arg,), _ = mock_telegram.notify_clients_silent.call_args
+    assert clients_arg[0][0] == "corrupted-client"
+    # This sweep's top-of-sweep emptiness check ran before the removal, so it still saw a
+    # non-empty dict and must not have fired the fleet-empty alert yet.
+    mock_telegram.notify_no_clients.assert_not_called()
+
+    # Second sweep: client_status is genuinely empty now and the latch is clear, so the
+    # fleet-empty alert is reachable and fires. This is the behaviour that was permanently
+    # broken before the fix: with the old `continue`, client_status would still contain
+    # "corrupted-client" here and this alert would never fire.
+    _run_cleanup_sweep()
+
+    mock_telegram.notify_no_clients.assert_called_once()
+    assert api_routes._fleet_empty_reported is True
+
+
+@patch("vpn_sentinel.common.api_routes.telegram")
+def test_unparseable_last_seen_alongside_healthy_client_does_not_block_its_removal(mock_telegram, clean_state):
+    """A corrupted client is removed and reported even when other clients are healthy."""
+    client_status["healthy-client"] = {"last_seen": _iso_minutes_ago(0)}
+    client_status["corrupted-client"] = {"last_seen": "garbage"}
+    _client_first_seen.update({"healthy-client", "corrupted-client"})
+
+    _run_cleanup_sweep()
+
+    assert "corrupted-client" not in client_status
+    assert "healthy-client" in client_status
+    mock_telegram.notify_clients_silent.assert_called_once()
+    (clients_arg,), _ = mock_telegram.notify_clients_silent.call_args
+    assert [c[0] for c in clients_arg] == ["corrupted-client"]
