@@ -116,6 +116,17 @@ black-box E2E/integration runs (`bin/local-env verify`) must stay coverage-free.
   (default `/api/v1`) is baked into the route strings in `api_routes.py` at import time and into the
   client URL in `payload.py`. The local test stack deliberately runs on `/test/v1`, which is why
   hardcoding `/api/v1` in a test or a route passes unit tests and then fails `bin/local-env verify`.
+- **Silence is an alert, and its state machine is latched.** The cleanup thread does not only evict
+  stale clients, it reports them: `notify_clients_silent` sends ONE batched message per sweep (never
+  one per client), and `notify_no_clients` fires once per transition to zero. `_fleet_empty_reported`
+  starts True at import so a freshly restarted server, whose `client_status` is empty but has never
+  seen a client, does not alert. Both latches live under `client_status_lock`. Before deleting a
+  client the sweep re-verifies staleness inside the same lock acquisition as the delete, so a client
+  that reconnected between the snapshot and the removal is neither deleted nor falsely reported.
+- **No network call may happen while `client_status_lock` is held.** `send_telegram_message` can now
+  sleep (a bounded 429 retry) and is reached from the Flask keepalive handler as well as the cleanup
+  thread, so a send under the lock would stall client keepalives. Every send sits outside the lock;
+  keep it that way.
 - **The client supervises a health subprocess.** `client/__main__.py` runs the keepalive loop in the
   foreground and spawns the health monitor with `subprocess.Popen`, then terminates it on shutdown.
 - **`common/health_scripts/` holds backward-compatible CLI shims.** They re-export from
@@ -141,6 +152,41 @@ black-box E2E/integration runs (`bin/local-env verify`) must stay coverage-free.
   `tests/`, trailing-whitespace and end-of-file fixes.
 - **CI fails on `black --check`**, which is easy to miss because the repo has no formatter in the
   test script. Run black before pushing Python changes.
+
+## The release lane is guarded, and the guards have rules
+
+`.github/workflows/auto-release.yml` cannot be exercised by any pull request: it runs only on
+`workflow_run` after CI succeeds on `main`. Its failure mode is silence, so it is protected two ways.
+
+**A fail-closed assertion inside the lane.** Between the checkout and `scripts/release-run.sh`, a step
+asserts `git rev-parse HEAD` equals `github.event.workflow_run.head_sha` and exits non-zero otherwise.
+Without it the lane would tag whatever `HEAD` happened to be and report success. Do not remove it, and
+do not let a step come between it and the release step.
+
+**Guard tests over the workflow definition**, in `tests/unit/test_release_workflow_guards.py`, run in
+the ordinary unit suite so a pull request that weakens the lane goes red. They assert: the checkout
+uses `secrets.ACTIONS_PUSH_TOKEN` (a tag pushed with `GITHUB_TOKEN` does not trigger tag-based
+workflows, so publishing would silently stop), `fetch-depth: 0` and `fetch-tags: true` are set
+(without them `latest_tag` sees nothing and every release looks like `first-release`),
+`VERSION_SOURCE: git` is explicit, the trigger stays filtered to `branches: [main]`, the job is gated
+on `conclusion == 'success'`, and the SHA assertion is present and correctly positioned. A separate
+guard pins `sbom: true` and `provenance: mode=max` on the publish step.
+
+**If you add a guard anywhere, it must obey both rules:**
+
+1. **Prove it can fail.** Mutate a fixture copy so the invariant is broken and assert the guard
+   rejects it. A guard never observed red is decoration, not protection.
+2. **Prove it is not over-broad.** Assert every OTHER guard still passes on that same mutation. Use
+   the existing `assert_only_guard_fails` helper. A guard that fires on everything is as useless as
+   one that fires on nothing.
+
+Where a guard uses a selector, assert the selector actually selects something, or it can pass by
+matching nothing. Select by behaviour rather than by step or job name, so a newly added step is
+covered without anyone remembering to update a list.
+
+`scripts/version-lib.sh`'s `classify_version` has direct tests in
+`tests/unit/test_version_lib_classify.py`; keep decisions there pure and testable rather than pushing
+logic into the workflow.
 
 ## Versioning and releases
 
@@ -207,7 +253,9 @@ Any workflow or script that calls it needs full history and tags (`fetch-depth: 
 - [ ] Anything touching `client_status` → holds `client_status_lock` for read-modify-write
 - [ ] New route module → imported in `server/__main__.py`, handler name added to `.vulture_allowlist.py`
 - [ ] New/changed route path → derived from `API_PATH`, not a hardcoded `/api/v1`
-- [ ] New Telegram notifications → can they burst? rate-limit if so
+- [ ] New Telegram notifications → can they burst? `send_telegram_message` already bounds a 429
+      retry and `notify_clients_silent` already chunks, so reuse those rather than adding a new path
+- [ ] New guard test → mutation-proven red, and asserts no other guard fires on that mutation
 - [ ] Tests added, ≥80% coverage for new code
 - [ ] `black --check --line-length 120 src/ tests/` and `flake8 --max-line-length=120 src/` both clean
 - [ ] Shell changes → `shellcheck` and `shfmt -i 2 -ci` clean

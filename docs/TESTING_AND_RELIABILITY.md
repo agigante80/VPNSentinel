@@ -30,7 +30,7 @@ tests/
 ├── unit/                     # Unit tests (fast, isolated)
 │   ├── test_api_routes.py    # API keepalive/status endpoints (13 tests)
 │   ├── test_config.py        # Configuration loading (34 tests)
-│   ├── test_dashboard_routes.py  # Dashboard rendering (13 tests)
+│   ├── test_dashboard_routes.py  # Dashboard rendering (20 tests)
 │   ├── test_geolocation.py   # Geolocation APIs (21 tests)
 │   ├── test_health_monitor.py # Health monitor (8 tests)
 │   ├── test_health_routes.py # Health check endpoints (4 tests)
@@ -69,7 +69,7 @@ tests/
 
 ## Test Categories
 
-### 1. Unit Tests (291 tests)
+### 1. Unit Tests
 
 **Purpose**: Test individual functions and classes in isolation
 
