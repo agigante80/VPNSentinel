@@ -30,6 +30,16 @@ Guards are pure functions of a parsed workflow dict (or its `steps` list) so a m
 fixture can be fed to them directly, mirroring the reference implementation's approach
 (actual-mcp-server's tests/unit/workflow_release_guards.test.js).
 
+This file also carries one guard over a second workflow, .github/workflows/ci-cd.yml
+(issue #96): the step that actually publishes images (selected by BEHAVIOUR - a
+docker/build-push-action step with push: true - not by job or step name, so a rename
+or a newly added publishing step stays covered) must carry both sbom: true and
+provenance: mode=max. Nothing else stops someone quietly deleting those two lines.
+It uses its own guard registry (CI_CD_GUARDS) and its own parsed fixture (CI_CD_REAL),
+kept separate from the auto-release ones above: the two workflows have unrelated job
+shapes, so running the auto-release guards against ci-cd.yml (or vice versa) would
+only ever report "job not found" noise, never a meaningful pass/fail.
+
 Run: pytest tests/unit/test_release_workflow_guards.py -v
 """
 
@@ -43,6 +53,9 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "auto-release.yml"
 JOB_NAME = "auto-release"
+
+# ci-cd.yml (issue #96): a second, unrelated workflow guarded by this same file.
+CI_CD_WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "ci-cd.yml"
 
 
 def _read_workflow_text():
@@ -171,6 +184,44 @@ def sha_assertion_precedes_release(workflow):
     return checkout_idx < assertion_idx < release_idx
 
 
+# --- ci-cd.yml guard (issue #96) ----------------------------------------------------
+def find_publish_step(workflow):
+    """Find the step, across ALL jobs, that actually publishes an image: a
+    docker/build-push-action step with push: true.
+
+    Selected by BEHAVIOUR, not by job or step name. ci-cd.yml has three
+    docker/build-push-action steps (docker-test-build and security-scan both build
+    with push: false so they can load and scan locally; only the docker-publish job's
+    step pushes), and this deliberately does not hardcode "docker-publish" or "Build
+    and push" as a name, so a renamed job or a newly added publishing step is still
+    covered, and the two push: false steps are excluded by what they DO rather than
+    by an exclusion list of names.
+    """
+    for job in get_jobs(workflow).values():
+        if not isinstance(job, dict):
+            continue
+        for step in job.get("steps") or []:
+            if not isinstance(step, dict):
+                continue
+            if not str(step.get("uses", "")).startswith("docker/build-push-action"):
+                continue
+            if (step.get("with") or {}).get("push") is True:
+                return step
+    return None
+
+
+def publish_step_has_sbom_and_max_provenance(workflow):
+    """The step that actually pushes images must carry both sbom: true and
+    provenance: mode=max (issue #96). Both are required together: an SBOM without
+    full provenance, or provenance without an SBOM, does not answer the ticket's CVE
+    scenario, which needs the package list attested."""
+    step = find_publish_step(workflow)
+    if step is None:
+        return False
+    with_block = step.get("with") or {}
+    return with_block.get("sbom") is True and with_block.get("provenance") == "mode=max"
+
+
 # ---------------------------------------------------------------------------------
 # Fixtures: the real (compliant) workflow, and mutated (broken) copies used to prove
 # each guard can actually fail. Mutations operate on the raw TEXT (mirroring the
@@ -181,6 +232,9 @@ def sha_assertion_precedes_release(workflow):
 
 REAL_TEXT = _read_workflow_text()
 REAL = _parse(REAL_TEXT)
+
+CI_CD_TEXT = CI_CD_WORKFLOW_PATH.read_text()
+CI_CD_REAL = _parse(CI_CD_TEXT)
 
 
 def mutate(old, new, source=None):
@@ -207,8 +261,16 @@ GUARDS = {
     "invariant_6_sha_assertion_order": sha_assertion_precedes_release,
 }
 
+# ci-cd.yml (issue #96) has its own registry, kept separate from GUARDS above: the two
+# workflows have unrelated job shapes, so a guard from one registry evaluated against
+# the other workflow's parsed dict would only ever report "job not found", never a
+# meaningful pass/fail.
+CI_CD_GUARDS = {
+    "publish_step_sbom_and_max_provenance": publish_step_has_sbom_and_max_provenance,
+}
 
-def assert_only_guard_fails(workflow, failing_guard):
+
+def assert_only_guard_fails(workflow, failing_guard, guards=None):
     """Assert that exactly ONE guard, `failing_guard`, rejects `workflow`, and every
     other registered guard still accepts it.
 
@@ -218,9 +280,16 @@ def assert_only_guard_fails(workflow, failing_guard):
     the targeted guard's own False result (as a first pass of these tests did) cannot
     tell the two apart. Nothing else in this suite would catch a guard drifting into
     "rejects everything."
+
+    `guards` selects which registry to cross-check against; it defaults to GUARDS
+    (the auto-release invariants) so every existing call site is unaffected, but a
+    mutated ci-cd.yml fixture must pass CI_CD_GUARDS here instead, or this would
+    compare it against auto-release guards operating on a workflow that has no
+    auto-release job at all.
     """
-    assert failing_guard in GUARDS, f"unknown guard name: {failing_guard!r}"
-    results = {name: fn(workflow) for name, fn in GUARDS.items()}
+    registry = GUARDS if guards is None else guards
+    assert failing_guard in registry, f"unknown guard name: {failing_guard!r}"
+    results = {name: fn(workflow) for name, fn in registry.items()}
     assert results[failing_guard] is False, f"{failing_guard} was expected to reject this fixture but accepted it"
     collateral = {name: r for name, r in results.items() if name != failing_guard and r is not True}
     assert not collateral, (
@@ -252,6 +321,13 @@ def test_non_vacuous_selectors():
     assert get_job(REAL) != {}, "the auto-release job must exist, or guards 3 and 5 are vacuous"
 
 
+def test_non_vacuous_selector_ci_cd_publish_step():
+    assert find_publish_step(CI_CD_REAL) is not None, (
+        "ci-cd.yml must have a docker/build-push-action step with push: true, "
+        "or the sbom/provenance guard (issue #96) is vacuous"
+    )
+
+
 # ===================================================================================
 # Positive: each invariant holds over the real, currently-committed workflow.
 # ===================================================================================
@@ -279,6 +355,10 @@ def test_invariant_5_gated_on_workflow_run_success_positive():
 
 def test_invariant_6_sha_assertion_precedes_release_positive():
     assert sha_assertion_precedes_release(REAL) is True
+
+
+def test_ci_cd_publish_step_has_sbom_and_max_provenance_positive():
+    assert publish_step_has_sbom_and_max_provenance(CI_CD_REAL) is True
 
 
 # ===================================================================================
@@ -409,6 +489,37 @@ def test_invariant_6_negative_missing_git_rev_parse():
     assert_only_guard_fails(mutated, "invariant_6_sha_assertion_order")
 
 
+def test_ci_cd_publish_step_negative_flags_removed_entirely():
+    mutated = mutate(
+        "          sbom: true\n          provenance: mode=max\n",
+        "",
+        source=CI_CD_TEXT,
+    )
+    assert_only_guard_fails(mutated, "publish_step_sbom_and_max_provenance", guards=CI_CD_GUARDS)
+
+
+def test_ci_cd_publish_step_negative_sbom_removed_provenance_kept():
+    mutated = mutate(
+        "          sbom: true\n          provenance: mode=max\n",
+        "          provenance: mode=max\n",
+        source=CI_CD_TEXT,
+    )
+    assert_only_guard_fails(mutated, "publish_step_sbom_and_max_provenance", guards=CI_CD_GUARDS)
+
+
+def test_ci_cd_publish_step_negative_provenance_downgraded_to_min():
+    mutated = mutate("provenance: mode=max", "provenance: mode=min", source=CI_CD_TEXT)
+    assert_only_guard_fails(mutated, "publish_step_sbom_and_max_provenance", guards=CI_CD_GUARDS)
+
+
+def test_ci_cd_publish_step_negative_provenance_downgraded_to_bare_true():
+    """provenance: true is a legal build-push-action input (the default-provenance
+    behaviour), but it is not mode=max, and the guard must not be fooled by any
+    truthy provenance value."""
+    mutated = mutate("provenance: mode=max", "provenance: true", source=CI_CD_TEXT)
+    assert_only_guard_fails(mutated, "publish_step_sbom_and_max_provenance", guards=CI_CD_GUARDS)
+
+
 # ===================================================================================
 # Sanity: the mutation helper itself must not be trivially satisfiable (it must
 # really change the text and really be parseable YAML), and the real file must
@@ -424,3 +535,7 @@ def test_all_six_invariants_hold_simultaneously_on_the_real_workflow():
     assert workflow_run_filtered_to_main(REAL) is True
     assert gated_on_workflow_run_success(REAL) is True
     assert sha_assertion_precedes_release(REAL) is True
+
+
+def test_ci_cd_guard_holds_on_the_real_workflow():
+    assert publish_step_has_sbom_and_max_provenance(CI_CD_REAL) is True
