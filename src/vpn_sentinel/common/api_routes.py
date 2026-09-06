@@ -318,7 +318,14 @@ def _run_cleanup_sweep():
                 stale_clients.append((client_id, time_since_last_seen, last_seen_str))
 
         except (ValueError, AttributeError) as e:
-            log_error("cleanup", f"Error parsing last_seen for {client_id}: {e}")
+            # An unparseable last_seen must not skip this client forever: `continue` here
+            # would leave it in client_status permanently (it never becomes stale by the
+            # normal path below), which means client_status can never become empty again
+            # and the fleet-empty latch could never re-fire. Instead, treat it as stale as
+            # of right now (time_since_last_seen == timeout_delta) so it flows through the
+            # same removal and alerting path as any other stale client.
+            log_error("cleanup", f"Error parsing last_seen for {client_id}: {e}; treating as stale")
+            stale_clients.append((client_id, timeout_delta, last_seen_str))
             continue
 
     # Remove stale clients, collecting everything actually removed in this sweep for one
