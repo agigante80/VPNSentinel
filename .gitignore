@@ -209,3 +209,5 @@ node_modules/
 *.swp
 *.swo
 # --- end leak-guard baseline ---
+# tests/.env.test is a non-sensitive CI fixture (see its header); the baseline's .env.* would hide it.
+!tests/.env.test
