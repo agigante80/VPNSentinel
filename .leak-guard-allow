@@ -1,0 +1,11 @@
+# Things this project has decided it may show. Tracked and public on purpose.
+# Keys: root, prefix, email (public scanner); skip (both).
+# NEVER put a private NAME here — the file is public, and a name would be an index.
+root proj
+# src/vpn_sentinel/server/Dockerfile: an application-specific container user, not a person
+prefix /home/vpnuser
+# tests/unit/test_client.py: obviously fake fixture address
+email client@domain.com
+
+# .githooks/pre-commit: the project's own guard carries a regex that mentions /home/.
+skip .githooks/pre-commit
