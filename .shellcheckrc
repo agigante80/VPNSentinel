@@ -1,6 +1,7 @@
-# Basic shellcheck configuration for this repository
-# Exclude warnings that don't apply to our POSIX-style scripts
+# ShellCheck configuration for this repository.
+#
+# No `shell=` line, deliberately. Every script here declares bash in its shebang, and a
+# `shell=dash` override made ShellCheck check them all as POSIX dash: over a hundred false
+# errors (arrays, [[ ]], PIPESTATUS) that buried every real finding (#121). Let the shebang
+# decide.
 exclude=SC1090,SC1091,SC2034
-
-# Use dash/sh POSIX mode where applicable
-shell=dash

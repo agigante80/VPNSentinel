@@ -16,7 +16,7 @@
 #   DRY_RUN           — "1" prints would-be actions instead of pushing/tagging/releasing (testable)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=version-lib.sh
+# shellcheck source=SCRIPTDIR/version-lib.sh
 source "$HERE/version-lib.sh"
 
 BRANCH="${BRANCH:?BRANCH required}"
@@ -27,32 +27,42 @@ TAG_PREFIX="${TAG_PREFIX:-v}"
 
 # --- Recursion guard: never act on our own bump commit (quoted case = literal match, no regex) ---
 case "$(git log -1 --pretty=%s)" in
-  "$BUMP_SUBJECT"*) echo "::notice::own auto-bump commit — nothing to do."; exit 0 ;;
+  "$BUMP_SUBJECT"*)
+    echo "::notice::own auto-bump commit — nothing to do."
+    exit 0
+    ;;
 esac
 
 # --- Optional dependency scope gate (lane B): bot author + dependency-only diff, at least one dep file ---
 if [ "$REQUIRE_DEP_SCOPE" = 1 ]; then
   if git rev-parse -q --verify HEAD~1 >/dev/null 2>&1; then
-    authors=$(git log --format='%an' HEAD~1..HEAD); changed=$(git diff --name-only HEAD~1 HEAD)
+    authors=$(git log --format='%an' HEAD~1..HEAD)
+    changed=$(git diff --name-only HEAD~1 HEAD)
   else
-    authors=$(git log -1 --format='%an'); changed=$(git show --name-only --pretty='' HEAD)
+    authors=$(git log -1 --format='%an')
+    changed=$(git show --name-only --pretty='' HEAD)
   fi
-  set -f                                   # keep [bot] / *.txt literal during word-split
+  set -f # keep [bot] / *.txt literal during word-split
   is_bot=false
   for b in ${BOT_LOGINS:-}; do
     printf '%s\n' "$authors" | grep -qxF "$b" && is_bot=true
     [ "${ACTOR:-}" = "$b" ] && is_bot=true
   done
-  only_deps=true; dep_hits=0
+  only_deps=true
+  dep_hits=0
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     m=false
     for g in ${DEP_PATHS:-}; do
-      case "$f" in $g) m=true;; esac          # full path
-      case "${f##*/}" in $g) m=true;; esac    # or basename (monorepo subdirs)
+      # DEP_PATHS entries are globs (requirements*.txt, *.lock), so $g is unquoted on purpose:
+      # quoting it would match only the literal pattern text.
+      # shellcheck disable=SC2254
+      case "$f" in $g) m=true ;; esac # full path
+      # shellcheck disable=SC2254
+      case "${f##*/}" in $g) m=true ;; esac # or basename (monorepo subdirs)
     done
     if $m; then dep_hits=$((dep_hits + 1)); else only_deps=false; fi
-  done <<< "$changed"
+  done <<<"$changed"
   set +f
   # Require at least one matched dependency file: an empty/no-file-change merge must NOT release.
   if ! { [ "$is_bot" = true ] && [ "$only_deps" = true ] && [ "$dep_hits" -gt 0 ]; }; then
@@ -70,19 +80,24 @@ if [ "$VERSION_SOURCE" = git ]; then
   # else a CI re-run on an already-tagged HEAD would cut a phantom tag every time.
   cur=$(read_version)
   if [ -z "$cur" ]; then
-    echo "::notice::tag-derived project with no release tag reachable from HEAD — push an initial tag (e.g. ${TAG_PREFIX}0.1.0) to bootstrap."; exit 0
+    echo "::notice::tag-derived project with no release tag reachable from HEAD — push an initial tag (e.g. ${TAG_PREFIX}0.1.0) to bootstrap."
+    exit 0
   fi
   if [ "$(unreleased_commits)" -eq 0 ]; then
-    echo "::notice::no commits since the latest tag (${TAG_PREFIX}${cur}) — nothing to release."; exit 0
+    echo "::notice::no commits since the latest tag (${TAG_PREFIX}${cur}) — nothing to release."
+    exit 0
   fi
   version=$(next_patch)
 else
   verdict=$(classify_version)
   case "$verdict" in
     behind)
-      echo "::error::version is behind the latest release — refusing to publish a regression."; exit 1 ;;
-    ahead|first-release)
-      version=$(read_version) ;;            # already at / establishing the version — tag as-is
+      echo "::error::version is behind the latest release — refusing to publish a regression."
+      exit 1
+      ;;
+    ahead | first-release)
+      version=$(read_version)
+      ;; # already at / establishing the version — tag as-is
     equal)
       version=$(next_patch)
       if [ "$DRY_RUN" = 1 ]; then
@@ -90,7 +105,7 @@ else
       else
         # forge-adapt: for non-file sources replace this write with the project's bump,
         # e.g.  npm version "$version" --no-git-tag-version  (node). File-mode default:
-        printf '%s\n' "$version" > "${VERSION_FILE:?VERSION_FILE required for file source}"
+        printf '%s\n' "$version" >"${VERSION_FILE:?VERSION_FILE required for file source}"
         git config user.name 'github-actions[bot]'
         git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
         git add -A
@@ -101,15 +116,20 @@ else
         git rebase FETCH_HEAD
         git push origin "HEAD:$BRANCH"
       fi
-      committed=1 ;;
+      committed=1
+      ;;
   esac
 fi
-[ -n "$version" ] || { echo "::error::no version decided"; exit 1; }
+[ -n "$version" ] || {
+  echo "::error::no version decided"
+  exit 1
+}
 
 # --- Tag + release (idempotent): a half-finished or retried run converges, never double-tags ---
 tag="${TAG_PREFIX}${version}"
 if [ "$DRY_RUN" = 1 ]; then
-  echo "[dry-run] would tag $tag and create release (committed=$committed)"; exit 0
+  echo "[dry-run] would tag $tag and create release (committed=$committed)"
+  exit 0
 fi
 if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
   echo "::notice::tag $tag already exists — not re-tagging."

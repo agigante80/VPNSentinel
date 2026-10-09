@@ -23,12 +23,12 @@ echo "================================================"
 echo ""
 
 # Check if server is running
-if ! curl -sf "${HEALTH_URL}/health" > /dev/null 2>&1; then
-    echo "❌ Server not running (health check at ${HEALTH_URL}/health failed)"
-    echo "Please start the server first:"
-    echo "  cd ${ROOT_DIR}"
-    echo "  PYTHONPATH=${ROOT_DIR} python -m vpn_sentinel.server"
-    exit 1
+if ! curl -sf "${HEALTH_URL}/health" >/dev/null 2>&1; then
+  echo "❌ Server not running (health check at ${HEALTH_URL}/health failed)"
+  echo "Please start the server first:"
+  echo "  cd ${ROOT_DIR}"
+  echo "  PYTHONPATH=${ROOT_DIR} python -m vpn_sentinel.server"
+  exit 1
 fi
 
 echo "✅ Server is running"
@@ -38,29 +38,30 @@ echo ""
 
 # Function to send keepalive
 send_keepalive() {
-    local client_id="$1"
-    local client_version="$2"
-    local public_ip="$3"
-    local city="$4"
-    local region="$5"
-    local country="$6"
-    local provider="$7"
-    local dns_country="$8"
-    local dns_colo="$9"
-    local last_seen="${10:-0}"
-    
-    # Calculate timestamp for last_seen minutes ago
-    local timestamp
-    if [ "$(uname)" = "Darwin" ]; then
-        # macOS
-        timestamp=$(date -u -v-"${last_seen}M" +"%Y-%m-%dT%H:%M:%SZ")
-    else
-        # Linux
-        timestamp=$(date -u -d "${last_seen} minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
-    fi
-    
-    local payload
-    payload=$(cat <<EOF
+  local client_id="$1"
+  local client_version="$2"
+  local public_ip="$3"
+  local city="$4"
+  local region="$5"
+  local country="$6"
+  local provider="$7"
+  local dns_country="$8"
+  local dns_colo="$9"
+  local last_seen="${10:-0}"
+
+  # Calculate timestamp for last_seen minutes ago
+  local timestamp
+  if [ "$(uname)" = "Darwin" ]; then
+    # macOS
+    timestamp=$(date -u -v-"${last_seen}M" +"%Y-%m-%dT%H:%M:%SZ")
+  else
+    # Linux
+    timestamp=$(date -u -d "${last_seen} minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
+  fi
+
+  local payload
+  payload=$(
+    cat <<EOF
 {
     "client_id": "${client_id}",
     "timestamp": "${timestamp}",
@@ -74,14 +75,14 @@ send_keepalive() {
     "client_version": "${client_version}"
 }
 EOF
-)
-    
-    curl -sf -X POST \
-        -H "Content-Type: application/json" \
-        -d "${payload}" \
-        "${BASE_URL}${API_PATH}/keepalive" > /dev/null
-    
-    echo "  ✓ ${client_id} (${city}, ${country})"
+  )
+
+  curl -sf -X POST \
+    -H "Content-Type: application/json" \
+    -d "${payload}" \
+    "${BASE_URL}${API_PATH}/keepalive" >/dev/null
+
+  echo "  ✓ ${client_id} (${city}, ${country})"
 }
 
 echo "📡 Populating server with demo clients..."
@@ -92,8 +93,8 @@ echo ""
 echo "   Fetching server information from dashboard..."
 SERVER_IP=$(curl -sf "${DASHBOARD_URL}" 2>/dev/null | grep -oP 'Server IP:\s*<code>\K[^<]+' || echo "unknown")
 if [ "${SERVER_IP}" = "unknown" ] || [ -z "${SERVER_IP}" ]; then
-    # Fallback: try to get from ipinfo.io
-    SERVER_IP=$(curl -sf https://ipinfo.io/ip 2>/dev/null || echo "203.0.113.10")
+  # Fallback: try to get from ipinfo.io
+  SERVER_IP=$(curl -sf https://ipinfo.io/ip 2>/dev/null || echo "203.0.113.10")
 fi
 echo "   Server IP: ${SERVER_IP}"
 echo ""
@@ -101,57 +102,57 @@ echo ""
 # Client 1: Green (Healthy) - USA VPN, DNS matches location
 # vpn-media-usa 1.0.0-dev-8aa4ecc 45.130.86.7 New York City, New York, US AS42201 PVDataNet AB DNS US / EWR
 send_keepalive \
-    "vpn-media-usa" \
-    "1.0.0-dev-8aa4ecc" \
-    "45.130.86.7" \
-    "New York City" \
-    "New York" \
-    "US" \
-    "AS42201 PVDataNet AB" \
-    "US" \
-    "EWR" \
-    "0"
+  "vpn-media-usa" \
+  "1.0.0-dev-8aa4ecc" \
+  "45.130.86.7" \
+  "New York City" \
+  "New York" \
+  "US" \
+  "AS42201 PVDataNet AB" \
+  "US" \
+  "EWR" \
+  "0"
 
 # Client 2: Green (Healthy) - Bulgaria VPN, DNS matches location
 # vpn-media Unknown 185.94.192.162 Sofia, Sofia-city, Bulgaria M LTD Sofia Infrastructure DNS BG / FRA
 send_keepalive \
-    "vpn-media" \
-    "Unknown" \
-    "185.94.192.162" \
-    "Sofia" \
-    "Sofia-city" \
-    "BG" \
-    "M LTD Sofia Infrastructure" \
-    "BG" \
-    "FRA" \
-    "1"
+  "vpn-media" \
+  "Unknown" \
+  "185.94.192.162" \
+  "Sofia" \
+  "Sofia-city" \
+  "BG" \
+  "M LTD Sofia Infrastructure" \
+  "BG" \
+  "FRA" \
+  "1"
 
 # Client 3: Yellow (DNS Leak) - Netherlands VPN but US DNS leak
 send_keepalive \
-    "office-vpn-primary" \
-    "1.2.0" \
-    "185.220.100.245" \
-    "Amsterdam" \
-    "North Holland" \
-    "NL" \
-    "PrivacyGuard BV" \
-    "US" \
-    "IAD" \
-    "3"
+  "office-vpn-primary" \
+  "1.2.0" \
+  "185.220.100.245" \
+  "Amsterdam" \
+  "North Holland" \
+  "NL" \
+  "PrivacyGuard BV" \
+  "US" \
+  "IAD" \
+  "3"
 
 # Client 4: Red (VPN Bypass) - Same IP as server (home ISP connection leaked)
 # This simulates when VPN fails and client connects with home IP
 send_keepalive \
-    "home-network-leaked" \
-    "1.1.5" \
-    "${SERVER_IP}" \
-    "Chicago" \
-    "Illinois" \
-    "US" \
-    "Comcast Cable Communications" \
-    "US" \
-    "ORD" \
-    "7"
+  "home-network-leaked" \
+  "1.1.5" \
+  "${SERVER_IP}" \
+  "Chicago" \
+  "Illinois" \
+  "US" \
+  "Comcast Cable Communications" \
+  "US" \
+  "ORD" \
+  "7"
 
 echo ""
 echo "✅ Demo clients populated"
@@ -169,95 +170,95 @@ echo "📸 Capturing screenshots with all available browsers..."
 echo ""
 
 # Try chromium-browser
-if command -v chromium-browser > /dev/null 2>&1; then
-    SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chromium-browser.png"
-    echo "  🌐 chromium-browser..."
-    chromium-browser --headless=new --disable-gpu --disable-software-rasterizer --disable-features=PaintHolding --run-all-compositor-stages-before-draw --hide-scrollbars --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
-    if [ -f "${SCREENSHOT_FILE}" ]; then
-        FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
-        echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
-        SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
-        BROWSER_NAMES+=("chromium-browser")
-        # Copy as default
-        cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
-    fi
-    echo ""
+if command -v chromium-browser >/dev/null 2>&1; then
+  SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chromium-browser.png"
+  echo "  🌐 chromium-browser..."
+  chromium-browser --headless=new --disable-gpu --disable-software-rasterizer --disable-features=PaintHolding --run-all-compositor-stages-before-draw --hide-scrollbars --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
+  if [ -f "${SCREENSHOT_FILE}" ]; then
+    FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
+    echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
+    SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
+    BROWSER_NAMES+=("chromium-browser")
+    # Copy as default
+    cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
+  fi
+  echo ""
 fi
 
 # Try chromium
-if command -v chromium > /dev/null 2>&1; then
-    SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chromium.png"
-    echo "  🌐 chromium..."
-    chromium --headless=new --disable-gpu --disable-software-rasterizer --disable-features=PaintHolding --run-all-compositor-stages-before-draw --hide-scrollbars --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
-    if [ -f "${SCREENSHOT_FILE}" ]; then
-        FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
-        echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
-        SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
-        BROWSER_NAMES+=("chromium")
-        # Copy as default if first
-        if [ $SCREENSHOTS_TAKEN -eq 1 ]; then
-            cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
-        fi
+if command -v chromium >/dev/null 2>&1; then
+  SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chromium.png"
+  echo "  🌐 chromium..."
+  chromium --headless=new --disable-gpu --disable-software-rasterizer --disable-features=PaintHolding --run-all-compositor-stages-before-draw --hide-scrollbars --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
+  if [ -f "${SCREENSHOT_FILE}" ]; then
+    FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
+    echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
+    SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
+    BROWSER_NAMES+=("chromium")
+    # Copy as default if first
+    if [ $SCREENSHOTS_TAKEN -eq 1 ]; then
+      cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
     fi
-    echo ""
+  fi
+  echo ""
 fi
 
 # Try google-chrome
-if command -v google-chrome > /dev/null 2>&1; then
-    SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chrome.png"
-    echo "  🌐 google-chrome..."
-    google-chrome --headless=new --disable-gpu --disable-software-rasterizer --disable-features=PaintHolding --run-all-compositor-stages-before-draw --hide-scrollbars --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
-    if [ -f "${SCREENSHOT_FILE}" ]; then
-        FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
-        echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
-        SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
-        BROWSER_NAMES+=("chrome")
-        # Copy as default if first
-        if [ $SCREENSHOTS_TAKEN -eq 1 ]; then
-            cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
-        fi
+if command -v google-chrome >/dev/null 2>&1; then
+  SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chrome.png"
+  echo "  🌐 google-chrome..."
+  google-chrome --headless=new --disable-gpu --disable-software-rasterizer --disable-features=PaintHolding --run-all-compositor-stages-before-draw --hide-scrollbars --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
+  if [ -f "${SCREENSHOT_FILE}" ]; then
+    FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
+    echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
+    SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
+    BROWSER_NAMES+=("chrome")
+    # Copy as default if first
+    if [ $SCREENSHOTS_TAKEN -eq 1 ]; then
+      cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
     fi
-    echo ""
+  fi
+  echo ""
 fi
 
 # Try firefox
-if command -v firefox > /dev/null 2>&1; then
-    SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-firefox.png"
-    echo "  🌐 firefox..."
-    firefox --headless --screenshot "${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars "${DASHBOARD_URL}"
-    if [ -f "${SCREENSHOT_FILE}" ]; then
-        FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
-        echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
-        SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
-        BROWSER_NAMES+=("firefox")
-        # Copy as default if first
-        if [ $SCREENSHOTS_TAKEN -eq 1 ]; then
-            cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
-        fi
+if command -v firefox >/dev/null 2>&1; then
+  SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-firefox.png"
+  echo "  🌐 firefox..."
+  firefox --headless --screenshot "${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars "${DASHBOARD_URL}"
+  if [ -f "${SCREENSHOT_FILE}" ]; then
+    FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
+    echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
+    SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
+    BROWSER_NAMES+=("firefox")
+    # Copy as default if first
+    if [ $SCREENSHOTS_TAKEN -eq 1 ]; then
+      cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
     fi
-    echo ""
+  fi
+  echo ""
 fi
 
 if [ $SCREENSHOTS_TAKEN -eq 0 ]; then
-    echo "❌ No headless browser found (chromium, chrome, or firefox)"
-    echo ""
-    echo "Install one of:"
-    echo "  sudo apt install chromium-browser    # Debian/Ubuntu"
-    echo "  sudo dnf install chromium             # Fedora"
-    echo "  brew install chromium                 # macOS"
-    echo ""
-    echo "Or manually take a screenshot of:"
-    echo "  ${DASHBOARD_URL}"
-    echo ""
-    echo "Dashboard is ready for manual screenshot!"
-    exit 0
+  echo "❌ No headless browser found (chromium, chrome, or firefox)"
+  echo ""
+  echo "Install one of:"
+  echo "  sudo apt install chromium-browser    # Debian/Ubuntu"
+  echo "  sudo dnf install chromium             # Fedora"
+  echo "  brew install chromium                 # macOS"
+  echo ""
+  echo "Or manually take a screenshot of:"
+  echo "  ${DASHBOARD_URL}"
+  echo ""
+  echo "Dashboard is ready for manual screenshot!"
+  exit 0
 fi
 
 echo "✅ ${SCREENSHOTS_TAKEN} screenshot(s) captured!"
 echo ""
 echo "Screenshots saved:"
 for browser in "${BROWSER_NAMES[@]}"; do
-    echo "  - docs/images/dashboard-screenshot-${browser}.png"
+  echo "  - docs/images/dashboard-screenshot-${browser}.png"
 done
 echo ""
 echo "Default screenshot: ${SCREENSHOT_PATH}"

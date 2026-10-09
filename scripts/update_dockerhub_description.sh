@@ -4,7 +4,7 @@
 #   ./scripts/update_dockerhub_description.sh <username> <password_or_token> <namespace/repo> <path_to_markdown>
 # Example:
 #   ./scripts/update_dockerhub_description.sh myuser mypass agigante80/vpn-sentinel-client .github/dockerhub/client_docker-repository-overview.md
- 
+
 # Make this script executable: chmod +x update_dockerhub_description.sh
 # Note: This script updates the Docker Hub repository description using the provided markdown file.
 
@@ -87,7 +87,7 @@ echo "Preparing payload for $REPO..."
 API_URL="https://hub.docker.com/v2/repositories/$REPO/"
 PAYLOAD_FILE=$(mktemp)
 ## Build payload from markdown by reading the file directly to avoid stdin/heredoc timing issues
-python3 - <<PY > "$PAYLOAD_FILE"
+python3 - <<PY >"$PAYLOAD_FILE"
 import json
 import os
 full = ''
@@ -123,7 +123,7 @@ if [ "$REPO_CHECK_STATUS" -eq 404 ]; then
   REPO_NAME=$(echo "$REPO" | cut -d'/' -f2)
   CREATE_PAYLOAD=$(mktemp)
   # Use a safe heredoc to avoid argv/indexing issues when constructing JSON
-  cat > "$CREATE_PAYLOAD" <<JSON
+  cat >"$CREATE_PAYLOAD" <<JSON
 {
   "name": "${REPO_NAME}",
   "namespace": "${NAMESPACE}",

@@ -17,7 +17,8 @@ echo ""
 # Test 1: Romania (full name) vs RO (code) - Should NOT be DNS leak
 echo "Test 1: VPN in Romania, DNS in RO (was false positive)"
 echo "-------------------------------------------------------"
-PAYLOAD_1=$(cat <<EOF
+PAYLOAD_1=$(
+  cat <<EOF
 {
   "client_id": "test-romania-client",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%S%z")",
@@ -46,17 +47,18 @@ RESPONSE_1=$(curl -s -X POST "$SERVER_URL$API_PATH/keepalive" \
 
 echo "Response: $RESPONSE_1"
 if echo "$RESPONSE_1" | grep -q '"status":"ok"'; then
-    echo "✅ Test 1 PASSED: Server accepted payload"
+  echo "✅ Test 1 PASSED: Server accepted payload"
 else
-    echo "❌ Test 1 FAILED: Server rejected payload"
-    exit 1
+  echo "❌ Test 1 FAILED: Server rejected payload"
+  exit 1
 fi
 echo ""
 
-# Test 2: RO (code) vs RO (code) - Should NOT be DNS leak  
+# Test 2: RO (code) vs RO (code) - Should NOT be DNS leak
 echo "Test 2: VPN in RO, DNS in RO"
 echo "-----------------------------"
-PAYLOAD_2=$(cat <<EOF
+PAYLOAD_2=$(
+  cat <<EOF
 {
   "client_id": "test-ro-client",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%S%z")",
@@ -85,17 +87,18 @@ RESPONSE_2=$(curl -s -X POST "$SERVER_URL$API_PATH/keepalive" \
 
 echo "Response: $RESPONSE_2"
 if echo "$RESPONSE_2" | grep -q '"status":"ok"'; then
-    echo "✅ Test 2 PASSED"
+  echo "✅ Test 2 PASSED"
 else
-    echo "❌ Test 2 FAILED"
-    exit 1
+  echo "❌ Test 2 FAILED"
+  exit 1
 fi
 echo ""
 
 # Test 3: United States vs US - Should NOT be DNS leak
 echo "Test 3: VPN in United States, DNS in US (was false positive)"
 echo "-------------------------------------------------------------"
-PAYLOAD_3=$(cat <<EOF
+PAYLOAD_3=$(
+  cat <<EOF
 {
   "client_id": "test-us-client",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%S%z")",
@@ -124,17 +127,18 @@ RESPONSE_3=$(curl -s -X POST "$SERVER_URL$API_PATH/keepalive" \
 
 echo "Response: $RESPONSE_3"
 if echo "$RESPONSE_3" | grep -q '"status":"ok"'; then
-    echo "✅ Test 3 PASSED"
+  echo "✅ Test 3 PASSED"
 else
-    echo "❌ Test 3 FAILED"
-    exit 1
+  echo "❌ Test 3 FAILED"
+  exit 1
 fi
 echo ""
 
 # Test 4: Real DNS leak - Spain vs Germany - SHOULD be DNS leak
 echo "Test 4: Real DNS leak - VPN in Spain, DNS in Germany"
 echo "------------------------------------------------------"
-PAYLOAD_4=$(cat <<EOF
+PAYLOAD_4=$(
+  cat <<EOF
 {
   "client_id": "test-leak-client",
   "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%S%z")",
@@ -163,10 +167,10 @@ RESPONSE_4=$(curl -s -X POST "$SERVER_URL$API_PATH/keepalive" \
 
 echo "Response: $RESPONSE_4"
 if echo "$RESPONSE_4" | grep -q '"status":"ok"'; then
-    echo "✅ Test 4 PASSED: Server accepted payload (leak will be detected in notification)"
+  echo "✅ Test 4 PASSED: Server accepted payload (leak will be detected in notification)"
 else
-    echo "❌ Test 4 FAILED"
-    exit 1
+  echo "❌ Test 4 FAILED"
+  exit 1
 fi
 echo ""
 
