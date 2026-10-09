@@ -4,12 +4,12 @@
 # Core testing framework
 pytest>=9.1.1
 pytest-cov>=7.1.0
-pytest-mock>=3.15.1
+pytest-mock>=3.16.0
 pytest-asyncio>=1.4.0
 
 # HTTP testing
 requests-mock>=1.12.1
-pytest-httpserver>=1.1.5
+pytest-httpserver>=1.2.0
 requests>=2.34.2
 
 # Flask testing
@@ -20,17 +20,17 @@ freezegun>=1.5.5
 
 # Test data generation
 factory-boy>=3.3.3
-faker>=40.38.0
+faker>=40.41.0
 
 # System monitoring (for health checks)
 psutil>=7.2.2
 
 # Coverage reporting
-coverage>=7.16.0
+coverage>=7.16.2
 
 # Code quality (optional but recommended)
-flake8>=7.3.0
-black>=26.5.1
+flake8>=7.4.1
+black>=26.10.0
 # Dead-code detection (dev-only, used by scripts/find-dead-code.sh)
 vulture>=2.16
 

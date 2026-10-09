@@ -102,10 +102,10 @@ RUN apk add --no-cache curl python3 py3-pip bash jq tzdata bind-tools \
 # here: unlike the server, which imports werkzeug.serving directly
 # (src/vpn_sentinel/common/server_utils.py), the client only reaches
 # werkzeug transitively through flask's own app.run() dev server, and
-# flask>=3.1.0 already declares a compatible werkzeug range as a dependency.
+# flask>=3.1.3 already declares a compatible werkzeug range as a dependency.
 RUN python3 -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir --upgrade 'pip>=25.3' \
-    && /opt/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 'flask>=3.1.0' \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade 'pip>=26.2.1' \
+    && /opt/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 'flask>=3.1.3' \
     && echo "✅ Python packages installed: flask"
 
 # Make sure virtual environment is in PATH

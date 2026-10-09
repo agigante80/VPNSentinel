@@ -23,8 +23,8 @@ COPY src/ ./src/
 
 # Install Python dependencies and Flask with retry logic
 # Upgrade pip first to fix CVE-2025-8869
-RUN pip install --no-cache-dir --upgrade pip>=25.3 && \
-    pip install --no-cache-dir --user --retries 10 --timeout 60 . 'flask>=3.1.0' 'werkzeug>=3.1.0'
+RUN pip install --no-cache-dir --upgrade 'pip>=26.2.1' && \
+    pip install --no-cache-dir --user --retries 10 --timeout 60 . 'flask>=3.1.3' 'werkzeug>=3.1.9'
 
 # Runtime stage
 FROM python:3.12-alpine
