@@ -22,7 +22,8 @@ COPY pyproject.toml .
 COPY src/ ./src/
 
 # Install Python dependencies and Flask with retry logic
-# Upgrade pip first to fix CVE-2025-8869
+# Upgrade the build-time pip first. This does not reach the shipped image: the runtime
+# stage below upgrades its own pip for CVE-2025-8869.
 RUN pip install --no-cache-dir --upgrade 'pip>=26.2.1' && \
     pip install --no-cache-dir --user --retries 10 --timeout 60 . 'flask>=3.1.3' 'werkzeug>=3.1.9'
 
@@ -42,6 +43,11 @@ ENV COMMIT_HASH=${COMMIT_HASH}
 RUN apk add --no-cache \
     tzdata \
     ca-certificates
+
+# Upgrade pip in the stage that ships (CVE-2025-8869, fixed in pip 25.3). The builder
+# stage's upgrade does not carry over: only /root/.local is copied, so without this the
+# image keeps whatever pip the base image bundles (25.0.1 when this was added, #119).
+RUN pip install --no-cache-dir --upgrade 'pip>=26.2.1'
 
 # Create non-root user
 RUN addgroup -g 1001 -S vpnuser && \

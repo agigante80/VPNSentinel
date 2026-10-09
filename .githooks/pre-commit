@@ -34,7 +34,10 @@ for f in $staged_files; do
   # Skip files that are part of the hook installation itself
   skip=0
   for s in "${SKIP_PATHS[@]}"; do
-    if [[ "$f" == "$s"* ]]; then skip=1; break; fi
+    if [[ "$f" == "$s"* ]]; then
+      skip=1
+      break
+    fi
   done
   if [ $skip -eq 1 ]; then
     continue
@@ -52,7 +55,10 @@ for f in $staged_files; do
   # Skip files that are part of the hook installation itself
   skip=0
   for s in "${SKIP_PATHS[@]}"; do
-    if [[ "$f" == "$s"* ]]; then skip=1; break; fi
+    if [[ "$f" == "$s"* ]]; then
+      skip=1
+      break
+    fi
   done
   if [ $skip -eq 1 ]; then
     continue
