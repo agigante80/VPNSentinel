@@ -12,10 +12,14 @@ version: 2
 
 updates:
   # Python: direct dependencies only, both manifests.
+  #
+  # One directory covers both manifests: Dependabot's scan of "/" already picks
+  # up tests/requirements.txt as well as pyproject.toml (runtime: requests;
+  # build: setuptools). Do NOT add "/tests" back: it makes every test-dependency
+  # bump arrive as two identical PRs editing the same file (see #118, where
+  # #107 for "/" and #108 for "/tests" both bumped flake8 in tests/requirements.txt).
   - package-ecosystem: "pip"
-    directories:
-      - "/"        # pyproject.toml (runtime: requests; build: setuptools)
-      - "/tests"   # tests/requirements.txt (test and dev tooling)
+    directory: "/"
     target-branch: "develop"
     schedule:
       interval: "weekly"
