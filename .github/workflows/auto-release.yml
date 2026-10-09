@@ -10,8 +10,8 @@
 # --tags); the lane resumes auto-patching from there.
 #
 # Token: uses ACTIONS_PUSH_TOKEN (a PAT) for checkout and gh, so the pushed tag CAN trigger
-# downstream tag-based workflows. The default GITHUB_TOKEN would not. See
-# .claude/skills/release-automation/references/github-token-gotcha.md.
+# downstream tag-based workflows. The default GITHUB_TOKEN would not: GitHub suppresses
+# workflow triggers for events created with it, so publishing would silently stop.
 #
 # Mechanics live in scripts/release-run.sh (sources scripts/version-lib.sh): recursion guard,
 # unreleased-commits gate, next-patch tag, idempotent tag + release.

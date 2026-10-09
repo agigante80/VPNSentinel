@@ -82,9 +82,8 @@ python3 -m flake8 --max-line-length=120 src/vpn_sentinel/common/
 ```
 
 ### AI-Assisted Development
-This project is maintained with **Claude Code**. AI configuration lives in [`CLAUDE.md`](../CLAUDE.md)
-(the single source of truth for working conventions) and the [`.claude/`](../.claude) directory
-(skills, agents, slash commands, settings). Any AI tool should read `CLAUDE.md` as its instructions.
+AI assistants may be used to help maintain this project. Their configuration is kept local to each
+contributor and is not part of the repository.
 
 When using AI assistants:
 - **Always run tests locally** before committing
