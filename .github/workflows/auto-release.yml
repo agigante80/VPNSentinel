@@ -32,7 +32,14 @@ concurrency:
 
 jobs:
   auto-release:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # Only a green CI run from a same-repo push to main may release. The `branches: [main]`
+    # trigger filter above is NOT enough on its own: it matches the triggering run's branch by
+    # NAME only, and "CI/CD Pipeline" also runs on pull_request, so a run from another
+    # repository's branch that happens to be called main would pass it. This job runs with
+    # ACTIONS_PUSH_TOKEN, so it must check the event, the source repository and the branch.
+    # Do not add `persist-credentials: false` to the checkout below: release-run.sh pushes
+    # the tag through the checkout's persisted token.
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     env:
       VERSION_SOURCE: git
