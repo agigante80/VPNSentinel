@@ -5,7 +5,7 @@ behaviour we assert INVARIANTS over the workflow's DEFINITION, parsed with PyYAM
 hand-rolled parser, never regex alone for structure), so a PR that quietly weakens the lane
 fails CI instead of failing in production.
 
-Six invariants, each mapped to a documented gotcha in this repo:
+Seven invariants, each mapped to a documented gotcha in this repo:
   1. checkout authenticates with secrets.ACTIONS_PUSH_TOKEN, not GITHUB_TOKEN
      (a tag pushed with GITHUB_TOKEN does not trigger tag-based workflows)
   2. checkout sets fetch-depth: 0 and fetch-tags: true
@@ -19,6 +19,11 @@ Six invariants, each mapped to a documented gotcha in this repo:
      (otherwise a failed pipeline can cut a release)
   6. the Part 1 SHA assertion (git rev-parse HEAD == workflow_run.head_sha) is present
      and sits between the checkout step and the release step
+  7. the job is gated on a same-repo push to main: workflow_run.event == 'push',
+     head_repository.full_name == github.repository and head_branch == 'main', all
+     ANDed, with no `||` (the `branches: [main]` filter matches a branch by name only,
+     so on its own it also admits a pull_request run from another repository's branch
+     called main, and this job holds ACTIONS_PUSH_TOKEN)
 
 Every guard below is mutation-tested (Part 3): each invariant has a fixture with that
 invariant broken, and the test proves the SPECIFIC guard rejects it. A guard never observed
@@ -171,6 +176,21 @@ def gated_on_workflow_run_success(workflow):
     return "workflow_run.conclusion" in condition and "success" in condition
 
 
+# --- Invariant 7 -------------------------------------------------------------------
+SAME_REPO_PUSH_TO_MAIN_CLAUSES = (
+    "github.event.workflow_run.event == 'push'",
+    "github.event.workflow_run.head_repository.full_name == github.repository",
+    "github.event.workflow_run.head_branch == 'main'",
+)
+
+
+def gated_on_same_repo_push_to_main(workflow):
+    """The job must only run for a push to main in THIS repository. Every clause must be
+    present, and the condition must contain no `||`, which could OR the clauses away."""
+    condition = str(get_job(workflow).get("if", ""))
+    return "||" not in condition and all(clause in condition for clause in SAME_REPO_PUSH_TO_MAIN_CLAUSES)
+
+
 # --- Invariant 6 -------------------------------------------------------------------
 def sha_assertion_precedes_release(workflow):
     """The Part 1 SHA assertion must exist and sit strictly between the checkout step
@@ -248,7 +268,7 @@ def mutate(old, new, source=None):
     return _parse(mutated_text)
 
 
-# Every guard, named, so a negative test can assert "this one fails and ALL FIVE
+# Every guard, named, so a negative test can assert "this one fails and ALL THE
 # OTHERS still pass" in one call. Registering here also means a future guard added
 # to this module without a matching entry (and therefore without the non-interference
 # check below covering it) is a visible, deliberate omission rather than a silent gap.
@@ -259,6 +279,7 @@ GUARDS = {
     "invariant_4_branch_filter": workflow_run_filtered_to_main,
     "invariant_5_success_gate": gated_on_workflow_run_success,
     "invariant_6_sha_assertion_order": sha_assertion_precedes_release,
+    "invariant_7_same_repo_push_to_main": gated_on_same_repo_push_to_main,
 }
 
 # ci-cd.yml (issue #96) has its own registry, kept separate from GUARDS above: the two
@@ -357,6 +378,10 @@ def test_invariant_6_sha_assertion_precedes_release_positive():
     assert sha_assertion_precedes_release(REAL) is True
 
 
+def test_invariant_7_gated_on_same_repo_push_to_main_positive():
+    assert gated_on_same_repo_push_to_main(REAL) is True
+
+
 def test_ci_cd_publish_step_has_sbom_and_max_provenance_positive():
     assert publish_step_has_sbom_and_max_provenance(CI_CD_REAL) is True
 
@@ -417,16 +442,41 @@ def test_invariant_4_negative_branch_filter_widened():
 
 
 def test_invariant_5_negative_success_gate_removed():
-    mutated = mutate("    if: ${{ github.event.workflow_run.conclusion == 'success' }}\n", "")
+    mutated = mutate("github.event.workflow_run.conclusion == 'success' && ", "")
     assert_only_guard_fails(mutated, "invariant_5_success_gate")
 
 
 def test_invariant_5_negative_gate_weakened_to_always():
-    mutated = mutate(
-        "if: ${{ github.event.workflow_run.conclusion == 'success' }}",
-        "if: ${{ always() }}",
-    )
+    mutated = mutate("github.event.workflow_run.conclusion == 'success'", "always()")
     assert_only_guard_fails(mutated, "invariant_5_success_gate")
+
+
+def test_invariant_7_negative_event_clause_removed():
+    mutated = mutate(" && github.event.workflow_run.event == 'push'", "")
+    assert_only_guard_fails(mutated, "invariant_7_same_repo_push_to_main")
+
+
+def test_invariant_7_negative_head_repository_clause_removed():
+    mutated = mutate(" && github.event.workflow_run.head_repository.full_name == github.repository", "")
+    assert_only_guard_fails(mutated, "invariant_7_same_repo_push_to_main")
+
+
+def test_invariant_7_negative_head_branch_clause_removed():
+    mutated = mutate(" && github.event.workflow_run.head_branch == 'main'", "")
+    assert_only_guard_fails(mutated, "invariant_7_same_repo_push_to_main")
+
+
+def test_invariant_7_negative_event_widened_to_pull_request():
+    mutated = mutate("workflow_run.event == 'push'", "workflow_run.event == 'pull_request'")
+    assert_only_guard_fails(mutated, "invariant_7_same_repo_push_to_main")
+
+
+def test_invariant_7_negative_clauses_ored_away():
+    mutated = mutate(
+        " && github.event.workflow_run.event == 'push'",
+        " && (github.event.workflow_run.event == 'push' || true)",
+    )
+    assert_only_guard_fails(mutated, "invariant_7_same_repo_push_to_main")
 
 
 def test_invariant_6_negative_assertion_step_removed():

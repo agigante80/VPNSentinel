@@ -1,6 +1,6 @@
 # vulture allowlist for VPNSentinel — curated dynamic-reference false positives.
 # Used by scripts/find-dead-code.sh. Each name here looks unused to vulture but is
-# load-bearing (see the dynamic-reference table in .claude/skills/find-dead-code/SKILL.md).
+# load-bearing: referenced dynamically (Flask route decorators, getattr, import side effects).
 # Add a name here ONLY after confirming it is dynamically referenced; never to hide real dead code.
 # Regenerate a fresh baseline with: scripts/find-dead-code.sh --baseline  (then prune).
 

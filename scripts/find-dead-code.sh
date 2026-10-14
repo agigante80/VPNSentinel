@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 # Whole-program dead-code scan for VPNSentinel (vulture).
 # Finds unused functions/classes/methods/branches that flake8's local rules miss.
-# Companion to the .claude/skills/find-dead-code skill: candidates, NOT verdicts —
+# Output is candidates, NOT verdicts:
 # verify each against dynamic refs, then confirm with `pytest tests/unit/` + `bin/local-env verify`.
 set -euo pipefail
 
@@ -58,5 +58,5 @@ ARGS=("$TARGET")
 [ -f "$ALLOWLIST" ] && ARGS+=("$ALLOWLIST")
 
 echo "vulture scan: $TARGET (min-confidence $CONF, allowlist: $([ -f "$ALLOWLIST" ] && echo applied || echo none))"
-echo "--- candidates (verify dynamic refs before deleting; see .claude/skills/find-dead-code) ---"
+echo "--- candidates (verify dynamic refs before deleting) ---"
 python3 -m vulture "${ARGS[@]}" --min-confidence "$CONF"
