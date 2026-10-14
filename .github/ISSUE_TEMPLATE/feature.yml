@@ -1,0 +1,229 @@
+name: Feature Request
+description: Propose a new feature or enhancement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        <!-- template-version: 6 -->
+        ## Feature Request
+        Please fill in all required fields. This template ensures alignment with architecture,
+        security, and privacy requirements before implementation begins.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What does this feature do and why is it needed?
+      placeholder: "One paragraph describing the feature and its value."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 - Critical (blocks release or safety-impacting)
+        - P1 - High (important for current milestone)
+        - P2 - Medium (should do, not blocking)
+        - P3 - Low (nice to have)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Affected areas
+      description: Which areas does this touch? If 3+, consider splitting into separate tickets.
+      multiple: true
+      options:
+        - Server API (new or modified routes)
+        - Dashboard
+        - Health endpoint
+        - Client keepalive
+        - DNS leak / network detection
+        - Telegram notifications
+        - Docker / deployments
+        - CI / release
+        - Tests
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Files to create/modify
+      description: List all files that will be created or changed.
+      placeholder: |
+        - `src/vpn_sentinel/common/api_routes.py` - new route (path derived from `API_PATH`)
+        - `src/vpn_sentinel/common/validation.py` - input validation
+        - `.vulture_allowlist.py` - new handler names
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation details
+      description: How should this be implemented? Include code snippets if helpful.
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What must be true for this feature to be considered complete?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: personal_data
+    attributes:
+      label: Personal data handling
+      description: How does this change handle personal data? Name your privacy regime if you have one; the defaults below are regime-agnostic.
+      value: |
+        - **Personal-data fields affected:**
+        - **Storage location and encryption at rest:**
+        - **Erasure, including cascading deletion:**
+        - **Portability (export on request):**
+        - **Minimisation and retention:**
+        - **Legal basis:**
+        - **Cross-border transfer:**
+    validations:
+      required: true
+
+  - type: textarea
+    id: security
+    attributes:
+      label: Security considerations
+      description: Auth, validation, data exposure, rate limiting.
+      value: |
+        - **Authentication:** API key required / public (justify if public; health endpoints are public by design)
+        - **Input validation:** client-provided IPs, client IDs (kebab-case) and locations sanitized?
+        - **Data exposure:** any sensitive fields in response, dashboard or Telegram message?
+        - **Rate limiting:** covered by the API middleware (30 req/min/IP) or a new limit needed?
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Other issues that must be completed before this one.
+      placeholder: "Depends on: #54, #55"
+    validations:
+      required: false
+
+  - type: textarea
+    id: scenarios
+    attributes:
+      label: Test scenarios (Given / When / Then)
+      description: |
+        One positive and one negative scenario per condition being added. For features with
+        multiple independent conditions, repeat the block for each.
+      placeholder: |
+        **Condition: [name the condition]**
+
+        Positive
+        - Given: [valid starting state]
+        - When: [action is performed]
+        - Then: [expected correct result]
+
+        Negative
+        - Given: [invalid or edge-case state]
+        - When: [action is performed]
+        - Then: [expected error / rejection message]
+    validations:
+      required: true
+
+  - type: textarea
+    id: unit_tests
+    attributes:
+      label: Unit tests
+      description: |
+        Specific test cases. State file path, input, and expected output for each case.
+      placeholder: |
+        - [ ] Positive: `tests/unit/test_[module].py` - call with [valid input] -> [expected return value / response field]
+        - [ ] Negative: `tests/unit/test_[module].py` - call with [bad input] -> HTTP [4xx] / raises [Error] / message contains "[text]"
+        - [ ] Unit test suite passes
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: agent_reviews
+    attributes:
+      label: Required reviews (mandatory)
+      description: |
+        The gate runs its mechanical checks plus one critic, with the security lens joining by label.
+        The gate must return PASS before implementation begins.
+      options:
+        - label: "**ticket-gate** - mandatory before implementation. Mechanical checks + one critic (plus the security lens by label). Must return PASS."
+          required: true
+
+  - type: textarea
+    id: qa_security
+    attributes:
+      label: QA & Security testing
+      description: Security and quality assurance requirements for this feature.
+      value: |
+        ### Security tests
+        - [ ] **Auth bypass:** Tested without API key / with an invalid API key / from an IP outside the allowlist
+        - [ ] **Injection:** Tested with XSS and command injection payloads in client ID, location and other string inputs (including dashboard and Telegram rendering)
+        - [ ] **Client isolation:** Verified one client cannot overwrite or read another client's status
+        - [ ] **Malformed input:** Tested with empty body, wrong Content-Type, oversized payload, unexpected fields
+        - [ ] **Rate limiting:** Confirmed the 30 req/min/IP limit is enforced on this endpoint
+
+        ### QA tests
+        - [ ] **Unit tests:** Pure function logic covered
+        - [ ] **Integration tests:** Full request to `client_status` to response round-trip for happy + error paths (`tests/integration/`)
+        - [ ] **Error responses:** Error responses carry a specific status and message - no stack traces
+        - [ ] **Edge cases:** Missing/None inputs, boundary values, concurrent access (any `client_status` read-modify-write holds `client_status_lock`)
+    validations:
+      required: true
+
+  - type: textarea
+    id: e2e_tests
+    attributes:
+      label: E2E test scenarios
+      description: |
+        List specific end-to-end test cases for this feature against the live Docker stack
+        (`bin/local-env verify`, tests under `tests/integration/`) - both happy and unhappy paths.
+        Every new dashboard-visible feature MUST have automated E2E tests. Features with no
+        dashboard or running-stack surface can mark this N/A with justification.
+      placeholder: |
+        ### Happy path
+        - [ ] Client sends keepalive, dashboard shows the expected client card
+        - [ ] Client reaches the expected state, Telegram message is sent once
+
+        ### Unhappy path
+        - [ ] Invalid API key -> 401 and no client registered
+        - [ ] Telegram API returns 429 -> bounded retry, keepalive handler not stalled
+        - [ ] Server restarts -> client re-registers on next keepalive
+    validations:
+      required: true
+
+  - type: textarea
+    id: docs_impact
+    attributes:
+      label: Documentation impact
+      description: Which documentation does this change affect, in the docs tree and the root README? "None" needs a reason.
+      placeholder: |
+        - **Docs affected:**
+        - **README impact:**
+        - **Why not, if none:**
+    validations:
+      required: true
+
+  - type: textarea
+    id: codebase_context
+    attributes:
+      label: Codebase Context
+      description: "Auto-populated by ticket-gate. Do not edit manually."
+      placeholder: "Populated automatically when you run /gate-ticket"
+    validations:
+      required: false

@@ -1,0 +1,151 @@
+name: Design / UX Task
+description: Dashboard layout, Telegram message design, UX improvements, accessibility
+labels: ["design"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        <!-- template-version: 6 -->
+        ## Design / UX Task
+        For dashboard layout, Telegram message design, UX improvements, and accessibility work.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What design work is needed and why?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 - Critical
+        - P1 - High
+        - P2 - Medium
+        - P3 - Low
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Platform(s)
+      multiple: true
+      options:
+        - Dashboard (web UI, port 8080)
+        - Telegram messages and commands
+        - Both
+    validations:
+      required: true
+
+  - type: textarea
+    id: screens
+    attributes:
+      label: Screens / components affected
+      description: Which screens or UI components does this touch?
+      placeholder: |
+        - Dashboard -> client status card (`src/vpn_sentinel/common/dashboard_routes.py`)
+        - Telegram -> silent-clients alert (`src/vpn_sentinel/common/telegram.py`)
+    validations:
+      required: true
+
+  - type: textarea
+    id: wireframes
+    attributes:
+      label: Wireframe references
+      description: Link to existing wireframes if updating, or describe new ones needed.
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What must be true for this design work to be complete?
+      placeholder: |
+        - [ ] Wireframe created and approved
+        - [ ] Traffic-light status (green / yellow / red) remains distinguishable without color alone
+    validations:
+      required: true
+
+  - type: textarea
+    id: accessibility
+    attributes:
+      label: Accessibility requirements
+      description: WCAG 2.2 AA requirements for this design work.
+      value: |
+        - [ ] Touch targets >= 44x44 CSS px (dashboard on mobile browsers)
+        - [ ] Color contrast >= 4.5:1 (normal text) / 3:1 (large text)
+        - [ ] Focus order annotated
+        - [ ] Screen reader labels (aria-label) specified
+        - [ ] prefers-reduced-motion considered
+    validations:
+      required: true
+
+  - type: textarea
+    id: brand
+    attributes:
+      label: Brand consistency
+      description: Verify brand guidelines are followed.
+      value: |
+        - [ ] Dashboard colors and typography consistent with the existing dashboard
+        - [ ] Telegram messages keep the HTML formatting, emoji and structured layout used today
+        - [ ] Icon / emoji usage consistent
+    validations:
+      required: true
+
+  - type: textarea
+    id: scenarios
+    attributes:
+      label: Test scenarios (Given / When / Then)
+      description: |
+        One positive and one negative scenario per design condition being addressed.
+      placeholder: |
+        **Condition: [name the condition]**
+
+        Positive
+        - Given: [valid starting state]
+        - When: [action is performed]
+        - Then: [expected correct result]
+
+        Negative
+        - Given: [invalid or edge-case state]
+        - When: [action is performed]
+        - Then: [expected error / rejection message]
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: agent_reviews
+    attributes:
+      label: Required reviews (mandatory)
+      description: |
+        The gate runs its mechanical checks plus one critic, with the security lens joining by label.
+        The gate must return PASS before implementation begins.
+      options:
+        - label: "**ticket-gate** - mandatory before implementation. Mechanical checks + one critic (plus the security lens by label). Must return PASS."
+          required: true
+
+  - type: textarea
+    id: docs_impact
+    attributes:
+      label: Documentation impact
+      description: Which documentation does this change affect, in the docs tree and the root README? "None" needs a reason.
+      placeholder: |
+        - **Docs affected:**
+        - **README impact:**
+        - **Why not, if none:**
+    validations:
+      required: true
+
+  - type: textarea
+    id: codebase_context
+    attributes:
+      label: Codebase Context
+      description: "Auto-populated by ticket-gate. Do not edit manually."
+      placeholder: "Populated automatically when you run /gate-ticket"
+    validations:
+      required: false

@@ -1,0 +1,215 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        <!-- template-version: 6 -->
+        ## Bug Report
+        Please provide enough detail to reproduce and assess the impact.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug description
+      description: What is happening? What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to trigger the bug.
+      placeholder: |
+        1. Start a client with VPN_SENTINEL_CLIENT_ID=office-vpn-primary and POST /api/v1/keepalive with ...
+        2. Wait for ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual behavior
+      description: What should happen vs what actually happens.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Affected areas
+      description: Which areas does this bug affect?
+      multiple: true
+      options:
+        - Server API (keepalive, status)
+        - Dashboard
+        - Health endpoint
+        - Client keepalive
+        - DNS leak / network detection
+        - Telegram notifications
+        - Docker / deployments
+        - CI / release
+        - Tests
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - critical (VPN bypass or leak goes undetected, alerts silently stop, security breach)
+        - high (feature broken, no workaround)
+        - medium (feature degraded, workaround exists)
+        - low (cosmetic, minor inconvenience)
+    validations:
+      required: true
+
+  - type: textarea
+    id: personal_data
+    attributes:
+      label: Personal data handling
+      description: Does this bug expose, leak or mishandle personal data? If so, state all seven facts; otherwise mark N/A with the reason.
+      value: |
+        - **Personal-data fields affected:**
+        - **Storage location and encryption at rest:**
+        - **Erasure, including cascading deletion:**
+        - **Portability (export on request):**
+        - **Minimisation and retention:**
+        - **Legal basis:**
+        - **Cross-border transfer:**
+    validations:
+      required: true
+
+  - type: textarea
+    id: security
+    attributes:
+      label: Security impact
+      description: Does this bug create a vulnerability?
+      value: |
+        - **Does this bug create a vulnerability?** yes / no
+        - **Details:**
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What must be true for this bug to be considered fixed?
+      placeholder: |
+        - [ ] Bug no longer reproducible
+        - [ ] Regression test added
+        - [ ] `./tests/run_tests.sh` passes with coverage on `vpn_sentinel.common` at or above 80%
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Other issues that must be completed before or are blocked by this fix.
+      placeholder: "Blocked by: #54 | Blocks: #55"
+    validations:
+      required: false
+
+  - type: textarea
+    id: scenarios
+    attributes:
+      label: Test scenarios (Given / When / Then)
+      description: |
+        One positive and one negative scenario per condition being fixed. For bugs fixing
+        multiple independent conditions, repeat the block for each.
+      placeholder: |
+        **Condition: [name the condition]**
+
+        Positive
+        - Given: [valid starting state]
+        - When: [action is performed]
+        - Then: [expected correct result]
+
+        Negative
+        - Given: [invalid or edge-case state]
+        - When: [action is performed]
+        - Then: [expected error / rejection message]
+    validations:
+      required: true
+
+  - type: textarea
+    id: unit_tests
+    attributes:
+      label: Unit tests
+      description: |
+        Specific test cases. State file path, input, and expected output for each case.
+      placeholder: |
+        - [ ] Positive: `tests/unit/test_[module].py` - call with [valid input] -> [expected return value / response field]
+        - [ ] Negative: `tests/unit/test_[module].py` - call with [bad input] -> HTTP [4xx] / raises [Error] / message contains "[text]"
+        - [ ] Unit test suite passes
+    validations:
+      required: true
+
+  - type: textarea
+    id: e2e_tests
+    attributes:
+      label: E2E tests
+      description: |
+        Specific end-to-end cases against the live Docker stack (`bin/local-env verify`, tests under
+        `tests/integration/`). One positive and one negative per condition.
+        Bugs with no observable effect through the running stack can mark this N/A with justification.
+      placeholder: |
+        - [ ] Positive: `tests/integration/test_[suite].py` - [setup] -> [action] -> assert [response / dashboard state]
+        - [ ] Negative: `tests/integration/test_[suite].py` - [bad state] -> assert [HTTP status / error message]
+        N/A - not observable through the running stack
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: agent_reviews
+    attributes:
+      label: Required reviews (mandatory)
+      description: |
+        The gate runs its mechanical checks plus one critic, with the security lens joining by label.
+        The gate must return PASS before implementation begins.
+      options:
+        - label: "**ticket-gate** - mandatory before implementation. Mechanical checks + one critic (plus the security lens by label). Must return PASS."
+          required: true
+
+  - type: textarea
+    id: qa_security
+    attributes:
+      label: QA & Regression tests
+      description: What tests should be added to prevent this bug from recurring?
+      value: |
+        - [ ] **Regression test:** Reproduces this exact bug scenario and asserts the fix
+        - [ ] **Security test:** If security-related - injection/API-key/rate-limit/IP-allowlist test covering the vector
+        - [ ] **Edge cases:** Related boundary conditions that should also be tested
+
+        ### E2E test (if visible through the running stack)
+        - [ ] **Happy path:** `bin/local-env verify` test confirming the fix end-to-end
+        - [ ] **Unhappy path:** Error state still handled correctly after fix
+    validations:
+      required: true
+
+  - type: textarea
+    id: docs_impact
+    attributes:
+      label: Documentation impact
+      description: Which documentation does this change affect, in the docs tree and the root README? "None" needs a reason.
+      placeholder: |
+        - **Docs affected:**
+        - **README impact:**
+        - **Why not, if none:**
+    validations:
+      required: true
+
+  - type: textarea
+    id: codebase_context
+    attributes:
+      label: Codebase Context
+      description: "Auto-populated by ticket-gate. Do not edit manually."
+      placeholder: "Populated automatically when you run /gate-ticket"
+    validations:
+      required: false
