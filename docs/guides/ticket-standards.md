@@ -1,5 +1,5 @@
 <!-- template-version: 6 -->
-<!-- doc-rules-version: 20 -->
+<!-- doc-rules-version: 21 -->
 
 # Ticket standards (canonical)
 
@@ -125,7 +125,13 @@ domain, per the N/A rule below.
 ## Precedence
 
 The `ticket-gate` agent, where installed, restates parts of this doc so they hold in installs
-without it. Where this doc IS installed, its text governs, and three cases are distinguished:
+without it. The gate cites a section here by its TITLE, as `section "Title"` with the title
+spelled exactly as the `### N. Title` heading gives it, minus any trailing parenthetical (so
+`section "GWT scenarios"`), never by number: this adapted copy may renumber or insert sections, and
+a citation like "rule 3" would then point at the wrong one. Keep the heading titles stable; a
+renamed heading must be renamed in the gate in the same change.
+
+Where this doc IS installed, its text governs, and three cases are distinguished:
 
 - **Conflict.** The gate's copy and this doc state different things: **this doc wins.** The gate's
   copy is a convenience restatement, never a fork.
@@ -134,7 +140,8 @@ without it. Where this doc IS installed, its text governs, and three cases are d
 - **A stricter restatement.** The gate says the same thing at finer granularity than this doc.
   This is neither conflict nor absence, and the extra strictness is **ADVISORY, never blocking**.
   The gate reports it as a gap in this doc, naming the rule, so the fix is to tighten the doc and
-  make the bar legitimately blocking.
+  make the bar legitimately blocking. A stricter gate copy must never out-rule this doc silently,
+  or the single-source claim is fiction.
 
 Editing a rule here means checking the gate's restatement in the same change.
 

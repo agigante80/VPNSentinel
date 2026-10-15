@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# check-template-lockstep-version: 1
 # Assert every work issue-template - and the canonical ticket-standards doc - share one
 # template-version marker (lockstep).
 #
@@ -21,12 +22,21 @@
 # template lockstep without having adopted the canonical-doc pattern, so an absent doc is a
 # vacuous pass for the doc portion, not a failure.
 #
+# Exit: 0 locked (or nothing to lock), 1 drift, 2 the repository root could not be entered (fails
+# closed: running from the wrong directory would report "nothing to check" as a pass).
+#
+# Where this lives (#506): forge-adapt's templates mode copies it into a project's scripts/, so it is
+# shipped as an asset of forge-kit-adapt, which gives it the version marker above and lets drift see
+# an installed copy that is behind. Its contract test, scripts/test-template-lockstep.sh, is kit-only
+# and is not copied downstream.
+#
 # Requires bash 4+ (associative arrays) and GNU grep (grep -P), same as the repo's other
 # marker guards.
 set -uo pipefail
 
 if [ "$#" -eq 0 ]; then
-  CDPATH='' cd -- "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" || exit 1
+  CDPATH= cd -- "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" \
+    || { echo "check-template-lockstep: cannot enter the repository root" >&2; exit 2; }
 fi
 
 resolve_dir() {
@@ -41,18 +51,16 @@ resolve_dir() {
   # reachable under two names.
   local d lower
   for d in .forgejo/ISSUE_TEMPLATE .forgejo/issue_template \
-    .gitea/ISSUE_TEMPLATE .gitea/issue_template .github/ISSUE_TEMPLATE; do
+           .gitea/ISSUE_TEMPLATE .gitea/issue_template .github/ISSUE_TEMPLATE; do
     [ -d "$d" ] || continue
     case "$d" in
       */ISSUE_TEMPLATE)
         lower="${d%/*}/issue_template"
         if [ -d "$lower" ] && ! [ "$lower" -ef "$d" ]; then
           echo "check-template-lockstep: WARNING: both $d and $lower exist; checking $d (merge the two)" >&2
-        fi
-        ;;
+        fi ;;
     esac
-    printf '%s\n' "$d"
-    return 0
+    printf '%s\n' "$d"; return 0
   done
   return 1
 }
@@ -79,7 +87,7 @@ seen=0
 while IFS= read -r f; do
   [ -f "$f" ] || continue
   v=$(tver "$f")
-  [ -n "$v" ] || continue # no marker -> exempt (e.g. contribution.yml)
+  [ -n "$v" ] || continue          # no marker -> exempt (e.g. contribution.yml)
   versions["$f"]=$v
   seen=$((seen + 1))
 done < <(find "$DIR" -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) | sort)
