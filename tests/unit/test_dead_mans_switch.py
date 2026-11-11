@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 import pytest
 
-from vpn_sentinel.common import api_routes
+from vpn_sentinel.common import api_routes, notifications
 from vpn_sentinel.common.api_routes import api_app, client_status, _client_first_seen, _run_cleanup_sweep
 
 
@@ -298,3 +298,23 @@ def test_unparseable_last_seen_alongside_healthy_client_does_not_block_its_remov
     mock_telegram.notify_clients_silent.assert_called_once()
     (clients_arg,), _ = mock_telegram.notify_clients_silent.call_args
     assert [c[0] for c in clients_arg] == ["corrupted-client"]
+
+
+def test_alerts_are_delivered_outside_client_status_lock(clean_state):
+    """No network call, and no Apprise enqueue, may happen while client_status_lock is held (CLAUDE.md)."""
+    client_status["office-vpn-primary"] = {"last_seen": _iso_minutes_ago(45)}
+    lock_free_during_notify = []
+
+    def fake_notify(title, body):
+        free = api_routes.client_status_lock.acquire(blocking=False)
+        if free:
+            api_routes.client_status_lock.release()
+        lock_free_during_notify.append(free)
+        return True
+
+    with patch.object(notifications, "notify", side_effect=fake_notify) as mock_notify:
+        _run_cleanup_sweep()
+
+    # The silent-client alert and the fleet-empty alert both go through notify.
+    assert mock_notify.call_count >= 1
+    assert lock_free_during_notify and all(lock_free_during_notify)

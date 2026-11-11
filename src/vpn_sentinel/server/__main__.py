@@ -9,10 +9,11 @@ import threading
 
 from vpn_sentinel.common.server import api_app, health_app, dashboard_app
 from vpn_sentinel.common import api_routes, health_routes, dashboard_routes  # noqa: F401
+from vpn_sentinel.common import metrics
 from vpn_sentinel.common.log_utils import log_error, log_info
 from vpn_sentinel.common.server_utils import run_flask_app, get_port_config, validate_tls_config
 from vpn_sentinel.common.version import get_version, get_commit_hash
-from vpn_sentinel.common import telegram, telegram_commands
+from vpn_sentinel.common import notifications, telegram, telegram_commands
 from vpn_sentinel.common.api_routes import cleanup_stale_clients
 
 
@@ -34,15 +35,26 @@ def main():
         log_error("server", str(e))
         sys.exit(2)
 
-    # Initialize Telegram bot
+    # Apprise targets are optional; a bad *_FILE secret is fatal like every other secret (one config line).
+    try:
+        apprise_configured = bool(notifications._apprise_targets())
+    except ValueError as e:
+        log_error("config", str(e))
+        sys.exit(1)
+
+    # Initialize Telegram bot (commands and polling need Telegram; Apprise is send-only)
     if telegram.TELEGRAM_ENABLED:
         log_info("telegram", "🤖 Telegram bot is enabled")
         telegram_commands.register_all_commands()
         telegram.start_polling()
-        # Send startup notification
-        telegram.notify_server_started(alert_threshold_min=15, check_interval_min=5)
     else:
         log_info("telegram", "⚠️ Telegram bot is disabled (no credentials configured)")
+    if apprise_configured:
+        log_info("notify", "Apprise alert targets configured")
+
+    # Startup notification goes to whichever channel is configured
+    if telegram.TELEGRAM_ENABLED or apprise_configured:
+        telegram.notify_server_started(alert_threshold_min=15, check_interval_min=5)
 
     # Get port configuration from environment
     ports = get_port_config()
@@ -52,6 +64,14 @@ def main():
 
     # Check if web dashboard is enabled
     web_dashboard_enabled = os.getenv("VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED", "true").lower() == "true"
+
+    # Startup snapshot only: VPN_SENTINEL_METRICS_ENABLED is read per request and can change later
+    if not metrics.metrics_enabled():
+        log_info("server", "metrics: disabled at startup")
+    elif metrics.METRICS_TOKEN:
+        log_info("server", "metrics: bearer token required")
+    else:
+        log_info("server", "metrics: public")
 
     # Start cleanup thread for stale clients
     cleanup_thread = threading.Thread(target=cleanup_stale_clients)

@@ -497,3 +497,30 @@ class TestStaticRouteDisabled:
 
         assert not [r for r in dashboard_app.url_map.iter_rules() if r.rule.startswith("/static")]
         assert dashboard_app.test_client().get("/static/favicon.svg").status_code == 404
+
+
+class TestLogsRedaction:
+    """/logs hides Telegram bot tokens (issue #141)."""
+
+    TAIL = "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw"
+
+    def _get(self, client, tmp_path, lines):
+        log = tmp_path / "server.log"
+        log.write_text("".join(line + "\n" for line in lines))
+        with patch.dict("os.environ", {"VPN_SENTINEL_LOG_FILE": str(log)}):
+            return client.get("/logs")
+
+    def test_ordinary_lines_unchanged(self, client, tmp_path):
+        response = self._get(client, tmp_path, ["INFO [api] ordinary line one", "INFO [api] ordinary line two"])
+        assert response.status_code == 200
+        assert b"ordinary line one" in response.data
+        assert b"ordinary line two" in response.data
+        assert b"[REDACTED]" not in response.data
+
+    def test_token_shaped_line_redacted(self, client, tmp_path):
+        leaked = f"url: /bot123456789:{self.TAIL}/sendMessage"
+        response = self._get(client, tmp_path, ["INFO [api] ordinary line", leaked])
+        assert response.status_code == 200
+        assert b"[REDACTED]" in response.data
+        assert self.TAIL.encode() not in response.data
+        assert b"ordinary line" in response.data

@@ -2,6 +2,8 @@
 
 VPN Sentinel includes comprehensive Telegram integration with automatic notifications and interactive bot commands.
 
+To send the same alerts to other services (ntfy, Gotify, Discord, email, ...) as well, see [NOTIFICATIONS.md](NOTIFICATIONS.md).
+
 ## 📱 Features
 
 ### Automatic Notifications
@@ -333,6 +335,11 @@ export VPN_SENTINEL_DEBUG="true"
 3. **Monitor logs** - All interactions are logged for audit trail
 4. **Rotate tokens** - Periodically regenerate bot token via @BotFather
 5. **Limit chat access** - Only authorized users should have the CHAT_ID
+6. **Token redaction** - Telegram error log lines and the dashboard `/logs` page show the bot token as
+   `[REDACTED]`. Older versions wrote the token into the log when a Telegram call failed at the network
+   level. If your server ever logged such an error AND the logs, the log file, or dashboard port 8080
+   were reachable by anyone else, rotate the token via @BotFather. See
+   [Secret Management](SECURITY_AND_PRIVACY.md#secret-management).
 
 ## 📊 Monitoring
 

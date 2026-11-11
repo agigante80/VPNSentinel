@@ -5,6 +5,7 @@ import threading
 import time
 
 from .server import api_app
+from .config import read_secret
 from .log_utils import log_info, log_warn, log_error
 from . import telegram
 from .server_info import get_server_public_ip
@@ -12,13 +13,19 @@ from .validation import get_client_ip, validate_client_id, validate_public_ip, v
 from .security import check_rate_limit, check_ip_whitelist, ALLOWED_IPS
 from flask import jsonify, request
 import os
+import sys
 
 # In-memory storage for client status (in production this would be a database)
 client_status = {}
 client_status_lock = threading.Lock()
 
 # Get API key from environment (required for authentication)
-API_KEY = os.getenv("VPN_SENTINEL_API_KEY", "")
+# (from VPN_SENTINEL_API_KEY or VPN_SENTINEL_API_KEY_FILE; a bad file is fatal, never "auth disabled")
+try:
+    API_KEY = read_secret("VPN_SENTINEL_API_KEY")
+except ValueError as _secret_err:
+    log_error("config", str(_secret_err))
+    sys.exit(1)
 
 # Load IP whitelist from environment (comma-separated list)
 _allowed_ips_env = os.getenv("VPN_SENTINEL_SERVER_ALLOWED_IPS", "")

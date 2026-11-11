@@ -4,6 +4,7 @@ from .server import dashboard_app
 from .log_utils import log_info, get_current_time
 from .server_info import get_server_info
 from .api_routes import client_status, client_status_lock
+from .telegram import redact_token
 from .version import get_version
 from .client_health import classify_client
 from flask import render_template_string, send_from_directory
@@ -664,6 +665,8 @@ def server_logs():
                 lines = f.readlines()
                 # Show last 2000 lines, or all if less than 2000
                 display_lines = lines[-2000:]
+                # Hide bot tokens, including ones written by older versions
+                display_lines = [redact_token(line) for line in display_lines]
 
                 # Get file stats
                 total_lines = len(lines)

@@ -68,6 +68,7 @@ VPN Sentinel provides **continuous, automated verification** with:
 ### Real-time Alerting
 
 - **Telegram Bot Integration**: Instant notifications for all connection events
+- **Multi-channel alerts (optional)**: The same alerts also go to ntfy, Gotify, Discord, email and 100+ other services through [Apprise](docs/NOTIFICATIONS.md)
 - **Priority-Based Alerts**: Critical (red), warning (yellow), and info (green) message types
 - **Rich Notifications**: Detailed status with IP, location, provider, and DNS information
 - **Connection History**: Tracks IP changes and connection events
@@ -341,7 +342,18 @@ server {
 
 ## Prometheus
 
-The health app (port 8081) serves Prometheus metrics at `GET /metrics`, in text exposition format 0.0.4. The endpoint is public like `/health`. It exposes client IDs as labels and never any IP address or geolocation. Set `VPN_SENTINEL_METRICS_ENABLED=false` to turn it off (it then returns 404).
+The health app (port 8081) serves Prometheus metrics at `GET /metrics`, in text exposition format 0.0.4. The endpoint is public like `/health` unless you set `VPN_SENTINEL_METRICS_TOKEN`, in which case it requires `Authorization: Bearer <token>` (see below). It exposes client IDs as labels and never any IP address or geolocation. Set `VPN_SENTINEL_METRICS_ENABLED=false` to turn it off (it then returns 404).
+
+To protect the endpoint, set `VPN_SENTINEL_METRICS_TOKEN` (a bad `VPN_SENTINEL_METRICS_TOKEN_FILE` stops the server at startup). Prometheus sends the token natively:
+
+```yaml
+scrape_configs:
+  - job_name: vpn-sentinel
+    authorization:
+      credentials_file: /etc/prometheus/vpn_sentinel_metrics_token
+    static_configs:
+      - targets: ["vpn-sentinel-server:8081"]
+```
 
 `VPN_SENTINEL_METRICS_ENABLED` is read on every request, unlike the dashboard toggle (read once at startup), so it takes effect without a restart in tests or when the process environment changes.
 
@@ -446,18 +458,20 @@ This is a critical security issue.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VPN_SENTINEL_API_KEY` | *(required)* | API key for client authentication |
+| `VPN_SENTINEL_API_KEY` | *(required)* | API key for client authentication. Or set `VPN_SENTINEL_API_KEY_FILE` to a file path (Docker secret); setting both, or an unreadable or empty file, stops the server |
 | `VPN_SENTINEL_API_PATH` | `/api/v1` | API path prefix (must match client configuration) |
 | `VPN_SENTINEL_SERVER_API_PORT` | `5000` | API server port |
 | `VPN_SENTINEL_SERVER_HEALTH_PORT` | `8081` | Health check port |
 | `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | `8080` | Web dashboard port |
 | `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable/disable web dashboard |
 | `VPN_SENTINEL_METRICS_ENABLED` | `true` | Enable/disable the Prometheus `/metrics` endpoint on the health port (`false` returns 404) |
+| `VPN_SENTINEL_METRICS_TOKEN` (or `_FILE`) | empty | Optional bearer token for `/metrics`; when set, requests without `Authorization: Bearer <token>` get 401. Generate one with `openssl rand -hex 32`: the health port has no rate limit, so use at least 32 random characters |
 | `VPN_SENTINEL_SERVER_ALLOWED_IPS` | *(empty)* | Comma-separated IP allowlist for API access (empty = allow all) |
 | `VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES` | `30` | Minutes of client inactivity before removing from dashboard |
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | *(auto)* | Telegram notifications: `true` (require credentials), `false` (disable), unset (auto-enable if credentials present) |
-| `TELEGRAM_BOT_TOKEN` | - | Telegram bot token (required if TELEGRAM_ENABLED=true) |
-| `TELEGRAM_CHAT_ID` | - | Telegram chat ID (required if TELEGRAM_ENABLED=true) |
+| `TELEGRAM_BOT_TOKEN` | - | Telegram bot token (required if TELEGRAM_ENABLED=true). `TELEGRAM_BOT_TOKEN_FILE` reads it from a file instead |
+| `TELEGRAM_CHAT_ID` | - | Telegram chat ID (required if TELEGRAM_ENABLED=true). `TELEGRAM_CHAT_ID_FILE` reads it from a file instead |
+| `VPN_SENTINEL_APPRISE_URLS` (or `_FILE`) | empty (disabled) | Optional extra alert targets (ntfy, Gotify, Discord, email, ...) as [Apprise](docs/NOTIFICATIONS.md) URLs, comma or space separated. The URLs contain tokens, so treat them as a secret. The server image includes Apprise |
 | `VPN_SENTINEL_TLS_CERT_PATH` | *(empty)* | Path to TLS certificate file (enables HTTPS). Must be set together with the key: the server exits with code 2 if only one is set or a file is missing, unreadable or mismatched. A shared `.env` that sets only this for the client CA bundle will stop the server |
 | `VPN_SENTINEL_TLS_KEY_PATH` | *(empty)* | Path to TLS private key file (enables HTTPS). Required together with the certificate path (exit code 2 otherwise) |
 | `VPN_SENTINEL_LOG_FILE` | `/tmp/vpn-sentinel-server.log` | Log file path. Set to `""` to disable file logging (stdout only) |
@@ -474,7 +488,7 @@ This is a critical security issue.
 |----------|---------|-------------|
 | `VPN_SENTINEL_URL` | `http://your-server-url:5000` | Base URL of the VPN Sentinel server |
 | `VPN_SENTINEL_API_PATH` | `/api/v1` | API path prefix (must match server configuration) |
-| `VPN_SENTINEL_API_KEY` | *(required)* | API key (must match server) |
+| `VPN_SENTINEL_API_KEY` | *(required)* | API key (must match server). Or set `VPN_SENTINEL_API_KEY_FILE` to a file path (Docker secret); the client exits with code 2 if the file is unusable |
 | `VPN_SENTINEL_CLIENT_ID` | *(auto-generated)* | Unique client identifier (format: `vpn-monitor-{12-random-digits}`) |
 | `VPN_SENTINEL_INTERVAL` | `300` | Keepalive send interval in seconds (default: 5 minutes) |
 | `VPN_SENTINEL_TIMEOUT` | `30` | HTTP request timeout in seconds |

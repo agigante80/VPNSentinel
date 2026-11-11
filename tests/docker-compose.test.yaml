@@ -5,6 +5,13 @@ services:
       dockerfile: src/vpn_sentinel/server/Dockerfile
     container_name: vpn-sentinel-server-test
     env_file: .env.test
+    # Key comes from a mounted secret file (issue #139); the empty env var overrides .env.test
+    # exactly like the root compose.yaml does when the host variable is unset.
+    environment:
+      - VPN_SENTINEL_API_KEY=
+      - VPN_SENTINEL_API_KEY_FILE=/run/secrets/test_api_key
+    secrets:
+      - test_api_key
     ports:
       - "15554:5000"
       - "15553:5001"
@@ -25,7 +32,11 @@ services:
       dockerfile: src/vpn_sentinel/client/Dockerfile
     container_name: vpn-sentinel-client-test
     env_file: .env.test
+    secrets:
+      - test_api_key
     environment:
+      - VPN_SENTINEL_API_KEY=
+      - VPN_SENTINEL_API_KEY_FILE=/run/secrets/test_api_key
       - VPN_SENTINEL_URL=http://vpn-sentinel-server-test:5000
       - VPN_SENTINEL_CLIENT_ID=test-client-docker
     depends_on:
@@ -34,6 +45,10 @@ services:
     networks:
       - vpn-sentinel-test
     restart: unless-stopped
+
+secrets:
+  test_api_key:
+    file: ./secrets/test_api_key
 
 networks:
   vpn-sentinel-test:
