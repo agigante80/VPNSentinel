@@ -303,7 +303,7 @@ vpn-sentinel-client:
 | `VPN_SENTINEL_SERVER_RATE_LIMIT` | `30` | Requests per minute |
 | `VPN_SENTINEL_SERVER_CHECK_INTERVAL` | `60` | Client check interval (seconds) |
 | `VPN_SENTINEL_SERVER_OFFLINE_THRESHOLD` | `300` | Offline after N seconds |
-| `VPN_SENTINEL_WEB_DASHBOARD_ENABLED` | `true` | Enable web dashboard |
+| `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable web dashboard |
 
 #### Telegram Configuration
 

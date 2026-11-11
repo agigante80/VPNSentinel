@@ -627,3 +627,28 @@ def test_network_guard_accepts_list_and_mapping_forms():
     joined_map = Compose({}, "x.yaml", "services:\n  a:\n    networks:\n      n: {}\nnetworks:\n  n: {}\n", "")
     assert not network_errors(joined_list)
     assert not network_errors(joined_map)
+
+
+# ---------------------------------------------------------------------------------
+# Dashboard toggle name (not a registered guard)
+# ---------------------------------------------------------------------------------
+
+DASHBOARD_TOGGLE = "VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED"
+
+
+def test_server_code_reads_the_dashboard_toggle_name():
+    """The name pinned above must be the one the server reads, so this test cannot drift."""
+    source = (REPO_ROOT / "src/vpn_sentinel/server/__main__.py").read_text()
+    assert f'os.getenv("{DASHBOARD_TOGGLE}"' in source
+
+
+@pytest.mark.parametrize("rel", ALL_FILES)
+def test_server_sets_the_dashboard_toggle_the_code_reads(rel):
+    servers = {n: s for n, s in real(rel).get("services", {}).items() if sentinel_role(s) == "server"}
+    if not servers:
+        pytest.skip(f"{rel} does not define the server")
+    for name, svc in servers.items():
+        env = _env(svc)
+        wrong = sorted(k for k in env if "DASHBOARD_ENABLED" in k and k != DASHBOARD_TOGGLE)
+        assert not wrong, f"{rel}:{name} sets {wrong}, but the server reads {DASHBOARD_TOGGLE}"
+        assert DASHBOARD_TOGGLE in env, f"{rel}:{name} does not set {DASHBOARD_TOGGLE}"
