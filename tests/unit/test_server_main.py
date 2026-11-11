@@ -95,3 +95,39 @@ class TestListenerDeath:
             with pytest.raises(SystemExit):
                 server_main.main()
         assert seen == {"API server": ctx, "Health server": ctx, "Dashboard server": ctx}
+
+
+class TestDashboardToggle:
+    """VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED decides whether a dashboard listener exists."""
+
+    def _listener_names(self, clean_env, value):
+        clean_env.setenv("VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED", value)
+        names = []
+
+        def fake_run(app, port, name, host="0.0.0.0", ssl_context=None):
+            names.append(name)
+            if name == "Health server":
+                raise SystemExit(1)
+            threading.Event().wait(5)
+
+        with (
+            patch.object(server_main.telegram, "TELEGRAM_ENABLED", False),
+            patch.object(server_main, "run_flask_app", side_effect=fake_run),
+            patch.object(server_main, "cleanup_stale_clients", lambda: None),
+            patch.object(server_main, "log_error"),
+            patch.object(server_main, "log_info") as log_info,
+        ):
+            with pytest.raises(SystemExit):
+                server_main.main()
+        return names, log_info
+
+    def test_disabled_starts_no_dashboard_listener(self, clean_env):
+        names, log_info = self._listener_names(clean_env, "false")
+        assert names, "the other listeners must still start, or this test proves nothing"
+        assert "Dashboard server" not in names
+        assert any("Web dashboard is disabled" in str(c.args[1]) for c in log_info.call_args_list)
+
+    def test_enabled_starts_dashboard_listener(self, clean_env):
+        names, log_info = self._listener_names(clean_env, "true")
+        assert "Dashboard server" in names
+        assert not any("Web dashboard is disabled" in str(c.args[1]) for c in log_info.call_args_list)

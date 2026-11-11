@@ -10,6 +10,7 @@
   <Support>https://github.com/agigante80/VPNSentinel/issues</Support>
   <Project>https://github.com/agigante80/VPNSentinel</Project>
   <Overview>VPNSentinel client: runs inside your VPN container's network (for example gluetun) and reports every 60 seconds whether traffic really goes through the VPN and whether DNS leaks, to a VPNSentinel server. Setup: (1) In Extra Parameters, change gluetun in --network=container:gluetun to the exact name of your VPN container. (2) Set the server URL to http://HOST:PORT, where HOST is the Unraid host and PORT is the server's mapped API port. (3) In the VPN container, set FIREWALL_OUTBOUND_SUBNETS to include the LAN subnet of that host, otherwise the keepalive is blocked and the client never turns green; the client then logs "Failed to send keepalive" and does not appear on the dashboard. (4) Use the same API key and API path as the server. Notes: recreating the VPN container breaks this container until it is recreated too, and Unraid may display the port mappings wrongly when --network= is set in Extra Parameters.</Overview>
+  <Icon>https://raw.githubusercontent.com/agigante80/VPNSentinel/main/docs/images/icon-256.png</Icon>
   <Category>Network:Management Tools:</Category>
   <TemplateURL>https://raw.githubusercontent.com/agigante80/VPNSentinel/main/unraid/vpn-sentinel-client.xml</TemplateURL>
   <ExtraParams>--network=container:gluetun</ExtraParams>

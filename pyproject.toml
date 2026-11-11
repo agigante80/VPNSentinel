@@ -20,6 +20,9 @@ vpn-sentinel-client = "vpn_sentinel.client.__main__:main"
 where = ["src"]
 include = ["vpn_sentinel*"]
 
+[tool.setuptools.package-data]
+"vpn_sentinel.common" = ["static/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]

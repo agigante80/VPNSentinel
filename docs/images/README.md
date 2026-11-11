@@ -70,3 +70,23 @@ git add docs/images/dashboard-screenshot.png
 git commit -m "docs: Update dashboard screenshot"
 git push origin develop
 ```
+
+## Project Icon
+
+| File | Purpose |
+|---|---|
+| `icon.svg` | Master (shield with a red, yellow and green traffic light, square, readable on light and dark) |
+| `icon-512.png`, `icon-256.png` | PNG renders of the master |
+| `src/vpn_sentinel/common/static/favicon.svg`, `favicon.png` | Served copies of `icon.svg` and `icon-256.png`, shipped as package data and served by the dashboard at `/favicon.svg` and `/favicon.ico` |
+
+The `net.unraid.docker.icon` image label and the Unraid template `<Icon>` point at the raw
+GitHub URL of `icon-256.png` on `main`. After editing the master, regenerate and recopy:
+
+```bash
+rsvg-convert -w 512 -h 512 docs/images/icon.svg -o docs/images/icon-512.png
+rsvg-convert -w 256 -h 256 docs/images/icon.svg -o docs/images/icon-256.png
+cp docs/images/icon-256.png src/vpn_sentinel/common/static/favicon.png
+cp docs/images/icon.svg src/vpn_sentinel/common/static/favicon.svg
+```
+
+A unit test fails if the served copies drift from the masters.

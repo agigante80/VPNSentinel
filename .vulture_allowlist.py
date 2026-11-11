@@ -35,3 +35,7 @@ sample_health_ok   # health.py: sample-payload generator for health tests
 heartbeat_json     # monitor.py: public Monitor method, exercised only by tests
 get_version_info   # version.py: version-info dict helper, exercised only by tests
 parse_geolocation  # network.py: public parser used via client shims/tests
+
+# Favicon route handlers, registered by decorator (dashboard_routes.py)
+favicon_ico
+favicon_svg

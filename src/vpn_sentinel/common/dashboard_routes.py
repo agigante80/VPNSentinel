@@ -6,9 +6,12 @@ from .server_info import get_server_info
 from .api_routes import client_status, client_status_lock
 from .version import get_version
 from .country_codes import compare_country_codes
-from flask import render_template_string
+from flask import render_template_string, send_from_directory
 from datetime import datetime, timezone
 import os
+from pathlib import Path
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 
 def get_client_health_status(client, server_ip):
@@ -41,6 +44,18 @@ def get_client_health_status(client, server_ip):
 
     # GREEN: Different IP and no DNS leak
     return ("status-ok", "🟢", "Secure", "🟢")
+
+
+@dashboard_app.route("/favicon.ico")
+def favicon_ico():
+    """Project icon (PNG). Browsers request this path unprompted. Public, GET only, fixed filename."""
+    return send_from_directory(STATIC_DIR, "favicon.png", mimetype="image/png")
+
+
+@dashboard_app.route("/favicon.svg")
+def favicon_svg():
+    """Project icon (SVG). Public, GET only, fixed filename."""
+    return send_from_directory(STATIC_DIR, "favicon.svg", mimetype="image/svg+xml")
 
 
 @dashboard_app.route("/dashboard")
@@ -147,6 +162,8 @@ def dashboard():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>VPN Sentinel Dashboard</title>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+        <link rel="icon" type="image/png" href="/favicon.ico">
         <style>
             * {{
                 margin: 0;
@@ -711,6 +728,8 @@ def server_logs():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>VPN Sentinel - Server Logs</title>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+        <link rel="icon" type="image/png" href="/favicon.ico">
         <style>
             * {{
                 margin: 0;

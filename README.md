@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/images/icon-256.png" alt="VPN Sentinel icon" width="128"></p>
+
 # VPN Sentinel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

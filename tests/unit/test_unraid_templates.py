@@ -29,7 +29,8 @@ FIREWALL_OUTBOUND_SUBNETS does not cover the LAN subnet of VPN_SENTINEL_URL, the
 `Failed to send keepalive to <server_url>` (component `api`, client/__main__.py) on every cycle and no
 card for its client ID appears on /dashboard.
 
-net.unraid.docker.icon and the <Icon> element belong to issue #134 and are deliberately absent.
+icon        (issue #134) both Dockerfiles carry net.unraid.docker.icon, and both templates an <Icon>,
+            each equal to the raw `main` URL of docs/images/icon-256.png, and that file exists
 
 Guard rules (CLAUDE.md): every guard has a mutation test proving it red, each mutation asserts
 every OTHER guard still passes (assert_only_guard_fails), and each selector is asserted to match
@@ -47,6 +48,8 @@ from test_release_workflow_guards import assert_only_guard_fails
 REPO_ROOT = Path(__file__).resolve().parents[2]
 UNRAID = REPO_ROOT / "unraid"
 RAW_BASE = "https://raw.githubusercontent.com/agigante80/VPNSentinel/main/unraid/"
+ICON_URL = "https://raw.githubusercontent.com/agigante80/VPNSentinel/main/docs/images/icon-256.png"
+ICON_FILE = "docs/images/icon-256.png"
 
 SERVER_XML = "vpn-sentinel-server.xml"
 CLIENT_XML = "vpn-sentinel-client.xml"
@@ -246,6 +249,21 @@ def labels_errors(subject):
     return errors
 
 
+def icon_errors(subject):
+    errors = []
+    for key in (SERVER_DOCKERFILE, CLIENT_DOCKERFILE):
+        got = dockerfile_labels(subject[key]).get("net.unraid.docker.icon")
+        if got != ICON_URL:
+            errors.append(f"{key} net.unraid.docker.icon {got!r} != {ICON_URL!r}")
+    for key in (SERVER_XML, CLIENT_XML):
+        root = _root(subject, key, errors)
+        if root is not None and root.findtext("Icon") != ICON_URL:
+            errors.append(f"{key} Icon {root.findtext('Icon')!r} != {ICON_URL!r}")
+    if not (REPO_ROOT / ICON_FILE).is_file():
+        errors.append(f"{ICON_FILE} does not exist, the icon URL would 404")
+    return errors
+
+
 def hygiene_errors(subject):
     errors = []
     for key in (SERVER_XML, CLIENT_XML, PROFILE_XML):
@@ -268,6 +286,7 @@ GUARDS = {
     "client": lambda s: not client_errors(s),
     "profile": lambda s: not profile_errors(s),
     "labels": lambda s: not labels_errors(s),
+    "icon": lambda s: not icon_errors(s),
     "hygiene": lambda s: not hygiene_errors(s),
 }
 
@@ -284,7 +303,16 @@ def assert_guard(errors_fn, subject, match=None):
 
 @pytest.mark.parametrize(
     "errors_fn",
-    [meta_errors, variables_errors, secrets_errors, client_errors, profile_errors, labels_errors, hygiene_errors],
+    [
+        meta_errors,
+        variables_errors,
+        secrets_errors,
+        client_errors,
+        profile_errors,
+        labels_errors,
+        icon_errors,
+        hygiene_errors,
+    ],
 )
 def test_real_files_pass_every_guard(errors_fn):
     assert_guard(errors_fn, real_subject())
@@ -302,12 +330,13 @@ def test_selectors_match_something():
     assert dockerfile_labels(subject[CLIENT_DOCKERFILE]).get("usage")
 
 
-def test_icon_is_left_to_issue_134():
+def test_icon_urls_point_at_the_committed_icon():
     subject = real_subject()
+    assert ICON_URL.endswith("/" + ICON_FILE)
     for key in (SERVER_DOCKERFILE, CLIENT_DOCKERFILE):
-        assert "net.unraid.docker.icon" not in subject[key]
+        assert dockerfile_labels(subject[key])["net.unraid.docker.icon"] == ICON_URL
     for key in (SERVER_XML, CLIENT_XML):
-        assert "<Icon" not in subject[key]
+        assert ET.fromstring(subject[key]).findtext("Icon") == ICON_URL
 
 
 def test_server_webui_targets_the_dashboard_port_and_path():
@@ -386,7 +415,7 @@ def test_client_guard_negative_not_in_a_container_namespace():
 
 
 def test_labels_guard_negative_misspelled_webui_key():
-    subject = mutated("LABEL net.unraid.docker.webui", "LABEL net.unraid.docker.web-ui", SERVER_DOCKERFILE)
+    subject = mutated("net.unraid.docker.webui=", "net.unraid.docker.web-ui=", SERVER_DOCKERFILE)
     with pytest.raises(AssertionError, match="net.unraid.docker.webui None"):
         assert_guard(labels_errors, subject)
     assert_only_guard_fails(subject, "labels", guards=GUARDS)
@@ -435,3 +464,17 @@ def test_hygiene_guard_negative_home_path():
         assert_guard(hygiene_errors, subject)
     # A home path trips only the hygiene guard (no IPv4 literal), like every other mutation.
     assert_only_guard_fails(subject, "hygiene", guards=GUARDS)
+
+
+def test_icon_guard_negative_dockerfile_label_missing():
+    subject = mutated("net.unraid.docker.icon", "net.unraid.docker.icons", SERVER_DOCKERFILE)
+    with pytest.raises(AssertionError, match="net.unraid.docker.icon None"):
+        assert_guard(icon_errors, subject)
+    assert_only_guard_fails(subject, "icon", guards=GUARDS)
+
+
+def test_icon_guard_negative_template_icon_points_at_another_branch():
+    subject = mutated("/main/docs/images/icon-256.png", "/develop/docs/images/icon-256.png", CLIENT_XML)
+    with pytest.raises(AssertionError, match="client.xml Icon"):
+        assert_guard(icon_errors, subject)
+    assert_only_guard_fails(subject, "icon", guards=GUARDS)
