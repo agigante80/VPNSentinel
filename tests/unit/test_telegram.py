@@ -6,7 +6,7 @@ Tests Telegram bot integration, message sending, and command handling.
 import pytest
 from datetime import datetime
 from unittest.mock import patch, Mock, MagicMock, call
-from vpn_sentinel.common import telegram
+from vpn_sentinel.common import notifications, telegram
 
 
 class TestSendTelegramMessage:
@@ -217,6 +217,7 @@ class TestStartPolling:
         assert call_kwargs.get("daemon") is True
 
 
+@patch("vpn_sentinel.common.telegram.TELEGRAM_ENABLED", True)
 class TestNotifications:
     """Test notification functions."""
 
@@ -321,6 +322,7 @@ class TestNotifications:
         assert "5.6.7.8" in message
 
 
+@patch("vpn_sentinel.common.telegram.TELEGRAM_ENABLED", True)
 class TestNotificationEdgeCases:
     """Test notification function edge cases and error paths."""
 
@@ -842,6 +844,7 @@ class TestSendTelegramMessageRetry:
         mock_sleep.assert_not_called()
 
 
+@patch("vpn_sentinel.common.telegram.TELEGRAM_ENABLED", True)
 class TestNotifyClientsSilentChunking:
     """Tests for bounded chunking in notify_clients_silent (issue #95)."""
 
@@ -923,3 +926,61 @@ class TestNotifyClientsSilentChunking:
             for message in messages:
                 assert len(message) < telegram.TELEGRAM_MESSAGE_CHAR_LIMIT
                 assert f"{count} Clients Went Silent" in message
+
+
+class TestAlertsDeliverThroughNotify:
+    """The five alerts hand (heading, full HTML message) to notifications.notify and return its result (#142)."""
+
+    def _capture(self, call):
+        with patch.object(notifications, "notify", return_value=True) as mock_notify:
+            result = call()
+        assert result is True
+        mock_notify.assert_called_once()
+        return mock_notify.call_args[0]
+
+    def test_server_started(self):
+        title, body = self._capture(lambda: telegram.notify_server_started(15, 5))
+        assert title == "VPN Keepalive Server Started"
+        assert "<b>VPN Keepalive Server Started</b>" in body
+
+    def test_no_clients(self):
+        title, body = self._capture(telegram.notify_no_clients)
+        assert title == "No VPN Clients Connected"
+        assert "<b>No VPN Clients Connected</b>" in body
+
+    def test_single_client_silent(self):
+        title, body = self._capture(lambda: telegram.notify_clients_silent([("a-vpn", 30)]))
+        assert title == "Client Went Silent"
+        assert "<code>a-vpn</code>" in body
+
+    def test_multi_client_silent_title_names_the_count(self):
+        title, body = self._capture(lambda: telegram.notify_clients_silent([("a-vpn", 30), ("b-vpn", 31)]))
+        assert title == "2 Clients Went Silent"
+        assert "a-vpn" in body and "b-vpn" in body
+
+    def test_client_connected(self):
+        title, body = self._capture(
+            lambda: telegram.notify_client_connected("a-vpn", "1.2.3.4", "L", "C", "R", "GB", "P", "UTC")
+        )
+        assert title == "VPN Connected!"
+        assert "a-vpn" in body
+
+    def test_ip_changed(self):
+        title, body = self._capture(
+            lambda: telegram.notify_ip_changed("a-vpn", "1.2.3.4", "5.6.7.8", "L", "C", "R", "GB", "P", "UTC")
+        )
+        assert title == "VPN IP Changed!"
+        assert "5.6.7.8" in body
+
+    def test_alert_returns_false_when_notify_reports_false(self):
+        with patch.object(notifications, "notify", return_value=False):
+            assert telegram.notify_no_clients() is False
+
+    def test_bot_command_replies_still_use_send_telegram_message_directly(self):
+        with (
+            patch.object(notifications, "notify") as mock_notify,
+            patch.object(telegram, "send_telegram_message") as send,
+        ):
+            telegram.process_command("1", "/definitely-unknown", 1)
+        mock_notify.assert_not_called()
+        send.assert_called_once()

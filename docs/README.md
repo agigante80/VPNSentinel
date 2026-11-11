@@ -134,6 +134,9 @@ VPNSentinel/
 ### Environment Variables
 See **[Architecture](./ARCHITECTURE.md)** for complete list
 
+### Notifications
+See **[NOTIFICATIONS.md](./NOTIFICATIONS.md)** for extra alert targets (ntfy, Gotify, Discord, email, ...) via Apprise.
+
 ### Telegram Setup
 See **[Architecture](./ARCHITECTURE.md#telegram-integration)** for setup instructions
 

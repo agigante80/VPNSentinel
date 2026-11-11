@@ -300,3 +300,25 @@ class TestPostPayload:
                     result = post_payload(test_payload)
 
         assert result == 1
+
+
+class TestPostPayloadKeyFromFile:
+    """The client key supplied only via VPN_SENTINEL_API_KEY_FILE is sent on every keepalive."""
+
+    @patch("urllib.request.urlopen")
+    def test_key_file_sent_on_two_consecutive_posts(self, mock_urlopen, tmp_path):
+        key_file = tmp_path / "api_key"
+        key_file.write_bytes(b"s3cret\r\n")
+        mock_response = MagicMock()
+        mock_response.getcode.return_value = 200
+        mock_response.__enter__.return_value = mock_response
+        mock_response.__exit__.return_value = None
+        mock_urlopen.return_value = mock_response
+        env = {"SERVER_URL": "http://localhost:5000/api/v1", "VPN_SENTINEL_API_KEY_FILE": str(key_file)}
+        with patch.dict(os.environ, env):
+            os.environ.pop("VPN_SENTINEL_API_KEY", None)
+            results = [post_payload(json.dumps({"client_id": "t"})) for _ in range(2)]
+        assert results == [0, 0]
+        assert mock_urlopen.call_count == 2
+        for call in mock_urlopen.call_args_list:
+            assert call[0][0].get_header("X-api-key") == "s3cret"

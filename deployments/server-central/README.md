@@ -232,7 +232,7 @@ Use reverse proxy (nginx/Apache) or load balancer for SSL termination.
 
 ### Monitoring Integration
 The server exposes metrics suitable for:
-- **Prometheus**: Custom metrics endpoint can be added
+- **Prometheus**: `GET /metrics` on the health port (8081). Public by default; set `VPN_SENTINEL_METRICS_TOKEN` (or `_FILE`) to require `Authorization: Bearer <token>`, which Prometheus sends via `authorization.credentials_file`. Port 8081 is published here, so set the token
 - **Grafana**: Dashboard for client statistics
 - **Uptime monitoring**: Health endpoint for external monitoring
 

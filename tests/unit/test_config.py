@@ -317,3 +317,97 @@ class TestConfigIntegration:
                 assert config["timeout"] == 45
                 # Should detect HTTPS
                 assert config["is_https"] is True
+
+
+class TestReadSecret:
+    """Tests for read_secret(): env, Docker _FILE convention, fail-closed errors."""
+
+    SENTINEL = "S3NT1NEL"
+
+    @staticmethod
+    def _call(env, name="X", **kw):
+        import os
+        from vpn_sentinel.common.config import read_secret
+
+        with patch.dict(os.environ, env, clear=True):
+            return read_secret(name, **kw)
+
+    def test_env_only(self):
+        assert self._call({"X": "v"}) == "v"
+
+    @pytest.mark.parametrize("content", [b"v\n", b"v\r\n", b"v\n\n", b"v"])
+    def test_file_strips_trailing_newlines(self, tmp_path, content):
+        f = tmp_path / "s"
+        f.write_bytes(content)
+        assert self._call({"X_FILE": str(f)}) == "v"
+
+    def test_empty_env_with_file_uses_file(self, tmp_path):
+        f = tmp_path / "s"
+        f.write_text("v")
+        assert self._call({"X": "", "X_FILE": str(f)}) == "v"
+
+    def test_empty_file_var_is_unset(self):
+        assert self._call({"X_FILE": "", "X": "v"}) == "v"
+
+    def test_neither_set_returns_default(self):
+        assert self._call({}, default="d") == "d"
+        assert self._call({}) == ""
+
+    def test_both_set_raises(self, tmp_path):
+        f = tmp_path / "s"
+        f.write_text("v")
+        with pytest.raises(ValueError, match="Both X and X_FILE are set; use one"):
+            self._call({"X": "v", "X_FILE": str(f)})
+
+    def test_missing_file_raises(self, tmp_path):
+        p = str(tmp_path / "missing")
+        with pytest.raises(ValueError, match="cannot be read") as ei:
+            self._call({"X_FILE": p})
+        assert str(ei.value) == f"X_FILE={p} cannot be read: No such file or directory"
+
+    def test_directory_raises(self, tmp_path):
+        with pytest.raises(ValueError, match="cannot be read"):
+            self._call({"X_FILE": str(tmp_path)})
+
+    @pytest.mark.parametrize("content", [b"", b"\n", b"\r\n\n"])
+    def test_empty_file_raises(self, tmp_path, content):
+        f = tmp_path / "s"
+        f.write_bytes(content)
+        with pytest.raises(ValueError, match="is empty"):
+            self._call({"X_FILE": str(f)})
+
+    def test_utf8_bom_is_stripped(self, tmp_path):
+        """A Windows editor's BOM must not end up inside the secret (e.g. in a Telegram URL)."""
+        f = tmp_path / "s"
+        f.write_bytes(b"\xef\xbb\xbfabc123\r\n")
+        assert self._call({"X_FILE": str(f)}) == "abc123"
+
+    def test_bom_only_file_is_empty(self, tmp_path):
+        f = tmp_path / "s"
+        f.write_bytes(b"\xef\xbb\xbf\n")
+        with pytest.raises(ValueError, match="is empty"):
+            self._call({"X_FILE": str(f)})
+
+    def test_non_utf8_raises_without_bytes(self, tmp_path):
+        f = tmp_path / "s"
+        f.write_bytes(b"\xff\xfe")
+        with pytest.raises(ValueError, match="is not valid UTF-8") as ei:
+            self._call({"X_FILE": str(f)})
+        assert "xff" not in str(ei.value).lower() and "0xff" not in str(ei.value)
+
+    def test_no_error_message_contains_secret(self, tmp_path):
+        """Every error path with the sentinel secret in play must not echo it."""
+        good = tmp_path / "good"
+        good.write_text(self.SENTINEL)
+        bad = tmp_path / "bad"
+        bad.write_bytes(self.SENTINEL.encode() + b"\xff")
+        cases = [
+            {"X": self.SENTINEL, "X_FILE": str(good)},
+            {"X_FILE": str(bad)},
+            {"X_FILE": str(tmp_path)},
+            {"X_FILE": str(tmp_path / "nope")},
+        ]
+        for env in cases:
+            with pytest.raises(ValueError) as ei:
+                self._call(env)
+            assert self.SENTINEL not in str(ei.value)

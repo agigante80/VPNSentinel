@@ -12,8 +12,10 @@ Six guards over one subject (a dict of file texts), with deliberately different 
   variables   the Variable names of each template equal an explicit, hard-coded set (never derived
               from .env.example, which carries gluetun-only and dead names)
   secrets     VPN_SENTINEL_API_KEY (both templates) is Required, Mask and empty by default;
-              TELEGRAM_BOT_TOKEN is Mask. An empty key runs the server with auth disabled
-              (api_routes.py), so the template can only assert the attributes
+              TELEGRAM_BOT_TOKEN, VPN_SENTINEL_METRICS_TOKEN and VPN_SENTINEL_APPRISE_URLS are Mask
+              (the Apprise URLs embed service tokens; the last two also keep an empty Default). An
+              empty key runs the server with auth disabled (api_routes.py), so the template can only
+              assert the attributes
   client      VPN_SENTINEL_URL is Required with an empty Default (otherwise the client keeps the
               `http://your-server-url:5000` fallback and never turns green), Network is none, ExtraParams
               joins a container namespace, and the Overview names FIREWALL_OUTBOUND_SUBNETS
@@ -61,6 +63,8 @@ SERVER_VARS = {
     "VPN_SENTINEL_API_KEY",
     "TELEGRAM_BOT_TOKEN",
     "TELEGRAM_CHAT_ID",
+    "VPN_SENTINEL_METRICS_TOKEN",
+    "VPN_SENTINEL_APPRISE_URLS",
     "VPN_SENTINEL_API_PATH",
     "VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED",
     "TZ",
@@ -193,6 +197,16 @@ def secrets_errors(subject):
         token = config(server, "TELEGRAM_BOT_TOKEN")
         if token is None or token.get("Mask") != "true":
             errors.append(f'{SERVER_XML} TELEGRAM_BOT_TOKEN must have Mask="true"')
+        metrics_token = config(server, "VPN_SENTINEL_METRICS_TOKEN")
+        if metrics_token is None or metrics_token.get("Mask") != "true":
+            errors.append(f'{SERVER_XML} VPN_SENTINEL_METRICS_TOKEN must have Mask="true"')
+        if metrics_token is not None and metrics_token.get("Default") != "":
+            errors.append(f"{SERVER_XML} VPN_SENTINEL_METRICS_TOKEN must have an empty Default")
+        apprise_urls = config(server, "VPN_SENTINEL_APPRISE_URLS")
+        if apprise_urls is None or apprise_urls.get("Mask") != "true":
+            errors.append(f'{SERVER_XML} VPN_SENTINEL_APPRISE_URLS must have Mask="true"')
+        if apprise_urls is not None and apprise_urls.get("Default") != "":
+            errors.append(f"{SERVER_XML} VPN_SENTINEL_APPRISE_URLS must have an empty Default")
     return errors
 
 
@@ -376,9 +390,62 @@ def test_secrets_guard_negative_api_key_default_not_empty():
 
 
 def test_secrets_guard_negative_telegram_token_unmasked():
-    # The token is the only optional (Required="false") masked variable.
+    # mutated() replaces the FIRST match: Telegram is the first optional masked entry in the file (the
+    # metrics token follows it), so this anchor must keep targeting Telegram. Do not move the metrics Config above it.
     subject = mutated('Required="false" Mask="true"', 'Required="false" Mask="false"', SERVER_XML)
     with pytest.raises(AssertionError, match='TELEGRAM_BOT_TOKEN must have Mask="true"'):
+        assert_guard(secrets_errors, subject)
+    assert_only_guard_fails(subject, "secrets", guards=GUARDS)
+
+
+def test_secrets_guard_negative_metrics_token_unmasked():
+    # Own anchor (Target + the attribute run up to Mask), so it cannot fall through to the Telegram entry.
+    start = real_subject()[SERVER_XML].index('Target="VPN_SENTINEL_METRICS_TOKEN"')
+    end = real_subject()[SERVER_XML].index("/>", start)
+    entry = real_subject()[SERVER_XML][start:end]
+    assert entry.count('Mask="true"') == 1
+    subject = mutated(entry, entry.replace('Mask="true"', 'Mask="false"'), SERVER_XML)
+    with pytest.raises(AssertionError, match='VPN_SENTINEL_METRICS_TOKEN must have Mask="true"'):
+        assert_guard(secrets_errors, subject)
+    assert_only_guard_fails(subject, "secrets", guards=GUARDS)
+
+
+def test_secrets_guard_negative_metrics_token_default_not_empty():
+    # A non-empty Default would hand every Unraid user who leaves the field alone a publicly known token.
+    subject = mutated(
+        'Target="VPN_SENTINEL_METRICS_TOKEN" Default=""',
+        'Target="VPN_SENTINEL_METRICS_TOKEN" Default="changeme"',
+        SERVER_XML,
+    )
+    with pytest.raises(AssertionError, match="VPN_SENTINEL_METRICS_TOKEN must have an empty Default"):
+        assert_guard(secrets_errors, subject)
+    assert_only_guard_fails(subject, "secrets", guards=GUARDS)
+
+
+def test_secrets_guard_negative_apprise_urls_unmasked():
+    # Anchor on the whole Config entry (Target through its closing), never on Target= alone: an
+    # unmasked URL list would show tokens in the Unraid form. The Apprise Config sits after the metrics
+    # token entry, because mutated() replaces the first match and the Telegram anchor must stay first.
+    text = real_subject()[SERVER_XML]
+    start = text.index('Target="VPN_SENTINEL_APPRISE_URLS"')
+    end = text.index("/>", start)
+    entry = text[start:end]
+    assert entry.count('Mask="true"') == 1
+    assert text.index('Target="VPN_SENTINEL_METRICS_TOKEN"') < start
+    subject = mutated(entry, entry.replace('Mask="true"', 'Mask="false"'), SERVER_XML)
+    with pytest.raises(AssertionError, match='VPN_SENTINEL_APPRISE_URLS must have Mask="true"'):
+        assert_guard(secrets_errors, subject)
+    assert_only_guard_fails(subject, "secrets", guards=GUARDS)
+
+
+def test_secrets_guard_negative_apprise_urls_default_not_empty():
+    # A non-empty Default would ship a pre-filled notification target to every user who leaves the field alone.
+    subject = mutated(
+        'Target="VPN_SENTINEL_APPRISE_URLS" Default=""',
+        'Target="VPN_SENTINEL_APPRISE_URLS" Default="json://example.org/x"',
+        SERVER_XML,
+    )
+    with pytest.raises(AssertionError, match="VPN_SENTINEL_APPRISE_URLS must have an empty Default"):
         assert_guard(secrets_errors, subject)
     assert_only_guard_fails(subject, "secrets", guards=GUARDS)
 

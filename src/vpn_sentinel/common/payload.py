@@ -12,6 +12,8 @@ import os
 from datetime import datetime
 from typing import Any, Dict
 
+from .config import read_secret
+
 
 def build_payload_from_env() -> Dict[str, Any]:
     ts = datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S%z")
@@ -86,7 +88,7 @@ def post_payload(payload_text: str) -> int:
     else:
         server_url = server_url.rstrip("/") + "/keepalive"
 
-    api_key = os.environ.get("VPN_SENTINEL_API_KEY")
+    api_key = read_secret("VPN_SENTINEL_API_KEY")
     timeout = float(os.environ.get("TIMEOUT", os.environ.get("VPN_SENTINEL_TIMEOUT", "30")))
 
     data = payload_text.encode("utf-8")

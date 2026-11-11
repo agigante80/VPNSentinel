@@ -25,7 +25,7 @@ COPY src/ ./src/
 # Upgrade the build-time pip first. This does not reach the shipped image: the runtime
 # stage below upgrades its own pip for CVE-2025-8869.
 RUN pip install --no-cache-dir --upgrade 'pip>=26.2.1' && \
-    pip install --no-cache-dir --user --retries 10 --timeout 60 . 'flask>=3.1.3' 'werkzeug>=3.1.9'
+    pip install --no-cache-dir --user --retries 10 --timeout 60 '.[notify]' 'flask>=3.1.3' 'werkzeug>=3.1.9'
 
 # Runtime stage
 FROM python:3.12-alpine

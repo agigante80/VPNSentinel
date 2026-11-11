@@ -131,3 +131,54 @@ class TestDashboardToggle:
         names, log_info = self._listener_names(clean_env, "true")
         assert "Dashboard server" in names
         assert not any("Web dashboard is disabled" in str(c.args[1]) for c in log_info.call_args_list)
+
+
+class TestStartupAlert:
+    """The startup alert goes out when Telegram OR Apprise is configured (#142)."""
+
+    def _run(self, clean_env, telegram_enabled):
+        def fake_run(app, port, name, host="0.0.0.0", ssl_context=None):
+            if name == "Health server":
+                raise SystemExit(1)
+            threading.Event().wait(5)
+
+        with (
+            patch.object(server_main.telegram, "TELEGRAM_ENABLED", telegram_enabled),
+            patch.object(server_main.telegram, "start_polling") as polling,
+            patch.object(server_main.telegram_commands, "register_all_commands") as register,
+            patch.object(server_main.telegram, "notify_server_started") as started,
+            patch.object(server_main, "run_flask_app", side_effect=fake_run),
+            patch.object(server_main, "cleanup_stale_clients", lambda: None),
+            patch.object(server_main, "log_error"),
+        ):
+            with pytest.raises(SystemExit):
+                server_main.main()
+        return started, polling, register
+
+    def test_apprise_only_sends_startup_alert_without_starting_the_bot(self, clean_env):
+        clean_env.setenv("VPN_SENTINEL_APPRISE_URLS", "json://h/x")
+        started, polling, register = self._run(clean_env, telegram_enabled=False)
+        started.assert_called_once_with(alert_threshold_min=15, check_interval_min=5)
+        polling.assert_not_called()
+        register.assert_not_called()
+
+    def test_neither_configured_sends_no_startup_alert(self, clean_env):
+        started, polling, register = self._run(clean_env, telegram_enabled=False)
+        started.assert_not_called()
+
+    def test_telegram_only_still_sends_startup_alert_and_starts_the_bot(self, clean_env):
+        started, polling, register = self._run(clean_env, telegram_enabled=True)
+        started.assert_called_once()
+        polling.assert_called_once()
+        register.assert_called_once()
+
+    def test_bad_apprise_secret_file_exits_1_with_a_config_log_line(self, clean_env, tmp_path):
+        clean_env.setenv("VPN_SENTINEL_APPRISE_URLS_FILE", str(tmp_path / "missing"))
+        with (
+            patch.object(server_main.telegram, "TELEGRAM_ENABLED", False),
+            patch.object(server_main, "log_error") as log_error,
+        ):
+            with pytest.raises(SystemExit) as exc:
+                server_main.main()
+        assert exc.value.code == 1
+        assert log_error.call_args[0][0] == "config"

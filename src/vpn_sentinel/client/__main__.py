@@ -13,7 +13,7 @@ import subprocess
 import json
 from pathlib import Path
 
-from vpn_sentinel.common.config import load_config
+from vpn_sentinel.common.config import load_config, read_secret
 from vpn_sentinel.common.geolocation import get_geolocation
 from vpn_sentinel.common.network import parse_dns_trace
 from vpn_sentinel.common.payload import build_payload_from_env, post_payload
@@ -114,7 +114,6 @@ def send_keepalive(config: dict) -> bool:
         # Set environment for posting
         os.environ["SERVER_URL"] = config["server_url"]
         os.environ["TIMEOUT"] = str(config["timeout"])
-        os.environ["VPN_SENTINEL_API_KEY"] = os.environ.get("VPN_SENTINEL_API_KEY", "")
         os.environ["VPN_SENTINEL_ALLOW_INSECURE"] = str(config.get("allow_insecure", False)).lower()
 
         # Send payload
@@ -197,6 +196,13 @@ def start_health_monitor(config: dict) -> subprocess.Popen:
 
 def main():
     """Main entry point for the VPN Sentinel client."""
+    # Fail closed before the loop if the key file is unusable (post_payload re-reads it every keepalive)
+    try:
+        read_secret("VPN_SENTINEL_API_KEY")
+    except ValueError as e:
+        log_error("config", str(e))
+        sys.exit(2)
+
     # Load configuration
     config = load_config(os.environ)
 

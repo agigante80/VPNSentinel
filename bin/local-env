@@ -35,6 +35,9 @@ EOF
 
 cmd_start() {
   log "Starting stack (build + up)..."
+  # The server runs as uid 1001 and reads this bind-mounted secret; a checkout made
+  # under umask 077 would leave it unreadable and the server would exit at startup.
+  chmod a+r "$REPO_ROOT/tests/secrets/test_api_key"
   "${DC[@]}" up -d --build
   log "Waiting for server to become healthy..."
   local cid
@@ -119,8 +122,10 @@ cmd_verify() {
         VPN_SENTINEL_E2E_DASHBOARD_PORT="$DASH_PORT" \
         VPN_SENTINEL_API_PATH=/test/v1 \
         VPN_SENTINEL_API_KEY=test-api-key-abcdef123456789 \
+        VPN_SENTINEL_E2E_METRICS_TOKEN=test-metrics-token-0123456789 \
         python3 -m pytest tests/integration/test_local_e2e.py tests/integration/test_dashboard.py \
-        tests/integration/test_metrics_e2e.py \
+        tests/integration/test_metrics_e2e.py tests/integration/test_secret_files_e2e.py \
+        tests/integration/test_token_redaction_e2e.py \
         --no-cov --tb=short --color=yes
   ) || rc=$?
 
