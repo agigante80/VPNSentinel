@@ -160,6 +160,16 @@ def sanitize_client_id(client_id):
 - ❌ Never hardcode secrets
 - ❌ Never log secrets
 
+**Token redaction**: failed Telegram calls raise `requests` errors whose text contains the request URL,
+and the bot token is part of that URL (`/bot<TOKEN>/sendMessage`). VPNSentinel replaces the configured
+token, and anything shaped like a Telegram bot token, with `[REDACTED]` in the three Telegram error log
+lines and again on every line the dashboard `/logs` page shows. Lines already written by older versions
+stay in the log file and in `docker logs` history; `/logs` hides them, the files are not rewritten.
+
+**Rotation advice**: rotate the bot token with @BotFather if the server ever logged a Telegram network
+error (older versions) AND the logs, the log file, or dashboard port 8080 were reachable by anyone else.
+Exposure, not sharing, is the trigger.
+
 ### Docker Secrets
 
 Every secret can be supplied from a file with the Docker `_FILE` convention:
