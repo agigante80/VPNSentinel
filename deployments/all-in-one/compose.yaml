@@ -31,7 +31,7 @@ services:
     volumes:
       - ./certs:/certs:ro
     environment:
-      - VPN_SENTINEL_URL=http://${VPN_SENTINEL_SERVER_IP:-198.18.0.10}:5000
+      - VPN_SENTINEL_URL=http://${VPN_SENTINEL_SERVER_IP:-198.18.0.10}:${VPN_SENTINEL_SERVER_API_PORT:-5000}
       - VPN_SENTINEL_API_PATH=/api/v1
       - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-main}
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
@@ -56,10 +56,10 @@ services:
     volumes:
       - ./certs:/certs:ro
     ports:
-      - "5000:5000"
+      - "5000:${VPN_SENTINEL_SERVER_API_PORT:-5000}"
       - "8080:8080"
     environment:
-      - VPN_SENTINEL_SERVER_API_PORT=5000
+      - VPN_SENTINEL_SERVER_API_PORT=${VPN_SENTINEL_SERVER_API_PORT:-5000}
       - VPN_SENTINEL_SERVER_DASHBOARD_PORT=8080
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
       - TZ=${TZ:-UTC}

@@ -7,7 +7,8 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     ports:
-      - "18082:8082"  # Sentinel client health monitor (the client shares this container's namespace)
+      - "18082:8082"  # Sentinel client health monitor (the client shares this namespace); only
+      # answers when VPN_SENTINEL_HEALTH_MONITOR=true (.env.example ships it false)
     volumes:
       - ./vpn-client:/gluetun
     environment:
@@ -33,7 +34,7 @@ services:
     # does not resolve compose service names.
     network_mode: service:vpn-client
     environment:
-      - VPN_SENTINEL_URL=http://${VPN_SENTINEL_SERVER_IP:-198.18.0.10}:5000
+      - VPN_SENTINEL_URL=http://${VPN_SENTINEL_SERVER_IP:-198.18.0.10}:${VPN_SENTINEL_SERVER_API_PORT:-5000}
       - VPN_SENTINEL_API_PATH=${VPN_SENTINEL_API_PATH:-/api/v1}
       - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-main}
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
@@ -56,7 +57,7 @@ services:
     volumes:
       - ./certs:/certs:ro
     ports:
-      - "15000:5000"  # API port (using 15000 to avoid conflicts)
+      - "15000:${VPN_SENTINEL_SERVER_API_PORT:-5000}"  # API port (using 15000 to avoid conflicts)
       - "18080:8080"  # Dashboard port (using 18080 to avoid conflicts)
     environment:
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}

@@ -17,8 +17,11 @@ Three guards, with deliberately different scopes:
                 the client publishes no ports
   reachability  files that also run the server (ROOT, ALL_IN_ONE): gluetun and the server
                 share a network, that network's subnet is inside gluetun's
-                FIREWALL_OUTBOUND_SUBNETS, and the client URL host is the server's
-                ipv4_address on it (gluetun's DNS cannot resolve compose service names)
+                FIREWALL_OUTBOUND_SUBNETS, and the client URL host:port is the server's
+                ipv4_address on it and its VPN_SENTINEL_SERVER_API_PORT (gluetun's DNS cannot
+                resolve compose service names). The firewall check is belt and braces: gluetun
+                already accepts its own attached subnet, so it catches a narrowed allowlist
+                rather than proving reachability on its own.
 Both scope sets are pinned by a test, so a file silently dropping out is caught.
 
 Guard rules (CLAUDE.md): every guard has a mutation test proving it red, each mutation
@@ -209,7 +212,12 @@ def reachability_errors(cfg):
     if not shared:
         return [f"{vpn_name} and {srv_name} share no network"]
     allowed = _outbound_subnets(vpn)
-    url_host = urlparse(_env(cli).get("VPN_SENTINEL_URL", "")).hostname
+    url = urlparse(_env(cli).get("VPN_SENTINEL_URL", ""))
+    url_host = url.hostname
+    url_port = url.port or (443 if url.scheme == "https" else 80)
+    srv_port = int(_env(srv).get("VPN_SENTINEL_SERVER_API_PORT") or 5000)
+    if url_port != srv_port:
+        return [f"client URL port {url_port} is not the {srv_name} VPN_SENTINEL_SERVER_API_PORT {srv_port}"]
     problems = []
     for net in shared:
         subnets = [
@@ -295,7 +303,7 @@ def test_root_matches_issue_values():
 SERVER_NETWORKS_BLOCK = (
     "    networks:\n      vpn-sentinel:\n        ipv4_address: ${VPN_SENTINEL_SERVER_IP:-198.18.0.10}\n"
 )
-CLIENT_URL = "VPN_SENTINEL_URL=http://${VPN_SENTINEL_SERVER_IP:-198.18.0.10}:5000"
+CLIENT_URL = "VPN_SENTINEL_URL=http://${VPN_SENTINEL_SERVER_IP:-198.18.0.10}:${VPN_SENTINEL_SERVER_API_PORT:-5000}"
 
 
 @pytest.mark.parametrize("rel", sorted(REACHABILITY_SCOPE))
@@ -353,6 +361,36 @@ def test_reachability_guard_negative_client_url_host_only(rel, tmp_path):
     ):
         assert_guard(reachability_errors, cfg)
     assert_only_guard_fails(cfg, "reachability", guards=GUARDS)
+
+
+@pytest.mark.parametrize("rel", sorted(REACHABILITY_SCOPE))
+def test_reachability_guard_negative_client_url_port_only(rel, tmp_path):
+    cfg = mutate(rel, CLIENT_URL, "VPN_SENTINEL_URL=http://${VPN_SENTINEL_SERVER_IP:-198.18.0.10}:5001", tmp_path)
+    with pytest.raises(
+        AssertionError, match="client URL port 5001 is not the vpn-sentinel-server VPN_SENTINEL_SERVER_API_PORT 5000"
+    ):
+        assert_guard(reachability_errors, cfg)
+    assert_only_guard_fails(cfg, "reachability", guards=GUARDS)
+
+
+@pytest.mark.parametrize("rel", sorted(REACHABILITY_SCOPE))
+def test_overrides_move_together(rel, tmp_path):
+    """Overriding the subnet, server IP and API port in .env keeps every guard green, and the
+    resolved server IP sits inside the resolved subnet (the documented override path)."""
+    env = tmp_path / ".env"
+    env.write_text(
+        env_file_for(rel).read_text()
+        + "\nVPN_SENTINEL_DOCKER_SUBNET=198.19.0.0/24\nVPN_SENTINEL_SERVER_IP=198.19.0.10\n"
+        + "VPN_SENTINEL_SERVER_API_PORT=5001\n"
+    )
+    cfg = resolved_compose(REPO_ROOT / rel, env)
+    for name, ok in GUARDS.items():
+        assert ok(cfg), f"guard {name} fails on the override path"
+    srv = cfg["services"]["vpn-sentinel-server"]
+    net = next(iter(srv["networks"]))
+    subnet = ipaddress.ip_network(cfg["networks"][net]["ipam"]["config"][0]["subnet"])
+    assert ipaddress.ip_address(srv["networks"][net]["ipv4_address"]) in subnet
+    assert _env(cfg["services"]["vpn-sentinel-client"])["VPN_SENTINEL_URL"] == "http://198.19.0.10:5001"
 
 
 @pytest.mark.parametrize("rel", sorted(REACHABILITY_SCOPE))
