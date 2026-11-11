@@ -490,3 +490,10 @@ class TestStaticRouteDisabled:
         from vpn_sentinel.common.server import api_app
 
         assert not [r for r in api_app.url_map.iter_rules() if r.rule.startswith("/static")]
+
+    def test_dashboard_app_has_no_static_route(self):
+        """The icon is served only at /favicon.*, never at a second /static path."""
+        from vpn_sentinel.common.server import dashboard_app
+
+        assert not [r for r in dashboard_app.url_map.iter_rules() if r.rule.startswith("/static")]
+        assert dashboard_app.test_client().get("/static/favicon.svg").status_code == 404
