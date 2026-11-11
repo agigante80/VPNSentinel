@@ -446,7 +446,7 @@ This is a critical security issue.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VPN_SENTINEL_API_KEY` | *(required)* | API key for client authentication |
+| `VPN_SENTINEL_API_KEY` | *(required)* | API key for client authentication. Or set `VPN_SENTINEL_API_KEY_FILE` to a file path (Docker secret); setting both, or an unreadable or empty file, stops the server |
 | `VPN_SENTINEL_API_PATH` | `/api/v1` | API path prefix (must match client configuration) |
 | `VPN_SENTINEL_SERVER_API_PORT` | `5000` | API server port |
 | `VPN_SENTINEL_SERVER_HEALTH_PORT` | `8081` | Health check port |
@@ -456,8 +456,8 @@ This is a critical security issue.
 | `VPN_SENTINEL_SERVER_ALLOWED_IPS` | *(empty)* | Comma-separated IP allowlist for API access (empty = allow all) |
 | `VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES` | `30` | Minutes of client inactivity before removing from dashboard |
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | *(auto)* | Telegram notifications: `true` (require credentials), `false` (disable), unset (auto-enable if credentials present) |
-| `TELEGRAM_BOT_TOKEN` | - | Telegram bot token (required if TELEGRAM_ENABLED=true) |
-| `TELEGRAM_CHAT_ID` | - | Telegram chat ID (required if TELEGRAM_ENABLED=true) |
+| `TELEGRAM_BOT_TOKEN` | - | Telegram bot token (required if TELEGRAM_ENABLED=true). `TELEGRAM_BOT_TOKEN_FILE` reads it from a file instead |
+| `TELEGRAM_CHAT_ID` | - | Telegram chat ID (required if TELEGRAM_ENABLED=true). `TELEGRAM_CHAT_ID_FILE` reads it from a file instead |
 | `VPN_SENTINEL_TLS_CERT_PATH` | *(empty)* | Path to TLS certificate file (enables HTTPS). Must be set together with the key: the server exits with code 2 if only one is set or a file is missing, unreadable or mismatched. A shared `.env` that sets only this for the client CA bundle will stop the server |
 | `VPN_SENTINEL_TLS_KEY_PATH` | *(empty)* | Path to TLS private key file (enables HTTPS). Required together with the certificate path (exit code 2 otherwise) |
 | `VPN_SENTINEL_LOG_FILE` | `/tmp/vpn-sentinel-server.log` | Log file path. Set to `""` to disable file logging (stdout only) |
@@ -474,7 +474,7 @@ This is a critical security issue.
 |----------|---------|-------------|
 | `VPN_SENTINEL_URL` | `http://your-server-url:5000` | Base URL of the VPN Sentinel server |
 | `VPN_SENTINEL_API_PATH` | `/api/v1` | API path prefix (must match server configuration) |
-| `VPN_SENTINEL_API_KEY` | *(required)* | API key (must match server) |
+| `VPN_SENTINEL_API_KEY` | *(required)* | API key (must match server). Or set `VPN_SENTINEL_API_KEY_FILE` to a file path (Docker secret); the client exits with code 2 if the file is unusable |
 | `VPN_SENTINEL_CLIENT_ID` | *(auto-generated)* | Unique client identifier (format: `vpn-monitor-{12-random-digits}`) |
 | `VPN_SENTINEL_INTERVAL` | `300` | Keepalive send interval in seconds (default: 5 minutes) |
 | `VPN_SENTINEL_TIMEOUT` | `30` | HTTP request timeout in seconds |

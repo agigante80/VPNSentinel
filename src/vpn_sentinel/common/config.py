@@ -6,9 +6,43 @@ It is intended to be imported by both server and client code.
 
 from __future__ import annotations
 
+import os
 import random
 import time  # noqa: F401  # test-patching: tests patch config.time.time
 from typing import Dict, Any
+
+
+def read_secret(name: str, default: str = "") -> str:
+    """Return a secret from ``NAME`` or, Docker style, from the file named by ``NAME_FILE``.
+
+    Reads ``os.environ`` at call time. An empty ``NAME`` or ``NAME_FILE`` counts as unset
+    (Compose injects ``NAME=`` empty when the host variable is unset). Setting both is an
+    error, and so is a configured file that is unreadable, not UTF-8, or empty after all
+    trailing CR/LF are stripped: an empty API key would otherwise mean "auth disabled".
+
+    Raises:
+        ValueError: with a message naming only the variable and path, never the content.
+    """
+    file_var = f"{name}_FILE"
+    path = os.environ.get(file_var, "")
+    value = os.environ.get(name, "")
+    if path and value:
+        raise ValueError(f"Both {name} and {file_var} are set; use one")
+    if not path:
+        return value or default
+    try:
+        with open(path, "rb") as fh:
+            raw = fh.read()
+    except OSError as e:
+        raise ValueError(f"{file_var}={path} cannot be read: {e.strerror or type(e).__name__}") from None
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        raise ValueError(f"{file_var}={path} is not valid UTF-8") from None
+    text = text.rstrip("\r\n")
+    if not text:
+        raise ValueError(f"{file_var}={path} is empty")
+    return text
 
 
 def _sanitize_client_id(cid: str) -> str:

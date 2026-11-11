@@ -161,13 +161,17 @@ def sanitize_client_id(client_id):
 
 ### Docker Secrets
 
-> **Not supported yet:** VPNSentinel does not read `*_FILE` variables. With the example below,
-> `VPN_SENTINEL_API_KEY` and `TELEGRAM_BOT_TOKEN` stay empty, so the API key check is off and
-> Telegram is silently disabled. Until `_FILE` support lands, pass the values as
-> `VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}` and `TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}`
-> from an `.env` file with restricted permissions. The example shows the intended shape.
+Every secret can be supplied from a file with the Docker `_FILE` convention:
+`VPN_SENTINEL_API_KEY_FILE`, `TELEGRAM_BOT_TOKEN_FILE` and `TELEGRAM_CHAT_ID_FILE`. The file content,
+with all trailing `\r` and `\n` removed, is used as the value. The server and client fail closed:
 
-**Production Setup (target shape)**:
+- Setting both `NAME` and `NAME_FILE` is fatal (the exception is an empty `NAME`, which counts as unset,
+  because Compose injects `NAME=` when the host variable is not set).
+- A file that is missing, unreadable, a directory, not UTF-8, or empty is fatal. The server exits with code 1
+  and the client with code 2, with one `config` log line naming the variable and path (never the content).
+  An empty API key is never treated as "authentication disabled".
+
+**Production Setup (plain Compose, file-based secrets)**:
 ```yaml
 services:
   vpn-sentinel-server:
@@ -175,15 +179,23 @@ services:
       - vpn_sentinel_api_key
       - telegram_token
     environment:
+      - VPN_SENTINEL_API_KEY=
       - VPN_SENTINEL_API_KEY_FILE=/run/secrets/vpn_sentinel_api_key
+      - TELEGRAM_BOT_TOKEN=
       - TELEGRAM_BOT_TOKEN_FILE=/run/secrets/telegram_token
 
 secrets:
   vpn_sentinel_api_key:
-    external: true
+    file: ./secrets/vpn_sentinel_api_key
   telegram_token:
-    external: true
+    file: ./secrets/telegram_token
 ```
+
+The secret files must be readable by the container user (the server runs as uid 1001), for example mode `0644`
+on a directory only you can enter, or `chown` to that uid.
+
+**Swarm variant**: declare the secrets as `external: true` instead of `file:` (created beforehand with
+`docker secret create`); the service block is unchanged.
 
 ### .env Files
 

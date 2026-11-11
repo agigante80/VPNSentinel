@@ -181,6 +181,28 @@ TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
 ```
 
+### Secrets from files (Docker/Compose secrets)
+
+Keep the API key out of the container environment by mounting it as a secret file. Set the plain variable
+empty (the root `compose.yaml` injects `VPN_SENTINEL_API_KEY=` anyway) because setting both forms is a fatal error:
+
+```yaml
+services:
+  vpn-sentinel-server:
+    secrets:
+      - vpn_sentinel_api_key
+    environment:
+      - VPN_SENTINEL_API_KEY=
+      - VPN_SENTINEL_API_KEY_FILE=/run/secrets/vpn_sentinel_api_key
+
+secrets:
+  vpn_sentinel_api_key:
+    file: ./secrets/vpn_sentinel_api_key
+```
+
+`TELEGRAM_BOT_TOKEN_FILE` and `TELEGRAM_CHAT_ID_FILE` work the same way. An unreadable or empty file stops the
+process instead of disabling authentication.
+
 ### Security Best Practices
 ```bash
 # Use strong API keys (64+ characters)

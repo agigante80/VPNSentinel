@@ -8,11 +8,16 @@ import time
 from datetime import datetime, timezone
 from typing import Optional, Dict, Callable, List, Tuple
 from .log_utils import log_info, log_error, log_warn
+from .config import read_secret
 from .country_codes import compare_country_codes
 
 # Read configuration
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+try:
+    TELEGRAM_BOT_TOKEN = read_secret("TELEGRAM_BOT_TOKEN")
+    TELEGRAM_CHAT_ID = read_secret("TELEGRAM_CHAT_ID")
+except ValueError as _secret_err:
+    log_error("config", str(_secret_err))
+    sys.exit(1)
 TELEGRAM_ENABLED_ENV = os.getenv("VPN_SENTINEL_TELEGRAM_ENABLED", "").lower()
 
 # Determine if Telegram should be enabled
