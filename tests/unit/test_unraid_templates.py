@@ -197,6 +197,8 @@ def secrets_errors(subject):
         metrics_token = config(server, "VPN_SENTINEL_METRICS_TOKEN")
         if metrics_token is None or metrics_token.get("Mask") != "true":
             errors.append(f'{SERVER_XML} VPN_SENTINEL_METRICS_TOKEN must have Mask="true"')
+        if metrics_token is not None and metrics_token.get("Default") != "":
+            errors.append(f"{SERVER_XML} VPN_SENTINEL_METRICS_TOKEN must have an empty Default")
     return errors
 
 
@@ -396,6 +398,18 @@ def test_secrets_guard_negative_metrics_token_unmasked():
     assert entry.count('Mask="true"') == 1
     subject = mutated(entry, entry.replace('Mask="true"', 'Mask="false"'), SERVER_XML)
     with pytest.raises(AssertionError, match='VPN_SENTINEL_METRICS_TOKEN must have Mask="true"'):
+        assert_guard(secrets_errors, subject)
+    assert_only_guard_fails(subject, "secrets", guards=GUARDS)
+
+
+def test_secrets_guard_negative_metrics_token_default_not_empty():
+    # A non-empty Default would hand every Unraid user who leaves the field alone a publicly known token.
+    subject = mutated(
+        'Target="VPN_SENTINEL_METRICS_TOKEN" Default=""',
+        'Target="VPN_SENTINEL_METRICS_TOKEN" Default="changeme"',
+        SERVER_XML,
+    )
+    with pytest.raises(AssertionError, match="VPN_SENTINEL_METRICS_TOKEN must have an empty Default"):
         assert_guard(secrets_errors, subject)
     assert_only_guard_fails(subject, "secrets", guards=GUARDS)
 

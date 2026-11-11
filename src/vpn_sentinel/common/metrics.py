@@ -50,7 +50,9 @@ def reset_auth_failure_throttle():
 def log_auth_failure(remote_addr):
     """Log a failed /metrics auth at most once per window; later failures only bump a counter.
 
-    Keyed on the socket address, never on X-Forwarded-For (caller controlled). Neither the
+    The window is global, not per IP: during a burst only the first caller's address is logged
+    and the rest are counted without one. That bounds log volume with no per-IP state to grow.
+    The address is the socket address, never X-Forwarded-For (caller controlled). Neither the
     configured token nor the presented credential is ever logged.
     """
     global _auth_suppressed, _auth_window_start

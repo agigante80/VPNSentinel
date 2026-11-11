@@ -464,7 +464,7 @@ This is a critical security issue.
 | `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | `8080` | Web dashboard port |
 | `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable/disable web dashboard |
 | `VPN_SENTINEL_METRICS_ENABLED` | `true` | Enable/disable the Prometheus `/metrics` endpoint on the health port (`false` returns 404) |
-| `VPN_SENTINEL_METRICS_TOKEN` (or `_FILE`) | empty | Optional bearer token for `/metrics`; when set, requests without `Authorization: Bearer <token>` get 401. Generate one with `openssl rand -hex 32` |
+| `VPN_SENTINEL_METRICS_TOKEN` (or `_FILE`) | empty | Optional bearer token for `/metrics`; when set, requests without `Authorization: Bearer <token>` get 401. Generate one with `openssl rand -hex 32`: the health port has no rate limit, so use at least 32 random characters |
 | `VPN_SENTINEL_SERVER_ALLOWED_IPS` | *(empty)* | Comma-separated IP allowlist for API access (empty = allow all) |
 | `VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES` | `30` | Minutes of client inactivity before removing from dashboard |
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | *(auto)* | Telegram notifications: `true` (require credentials), `false` (disable), unset (auto-enable if credentials present) |
