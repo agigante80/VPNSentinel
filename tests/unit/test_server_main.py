@@ -59,9 +59,8 @@ class TestTlsFailFast:
 
 class TestListenerDeath:
     def test_health_listener_death_exits_1(self, clean_env):
-        def fake_run(app, port, name, host="0.0.0.0", ssl_context=None, failure_event=None):
+        def fake_run(app, port, name, host="0.0.0.0", ssl_context=None):
             if name == "Health server":
-                failure_event.set()
                 raise SystemExit(1)
             threading.Event().wait(5)
 
@@ -74,16 +73,15 @@ class TestListenerDeath:
             with pytest.raises(SystemExit) as exc:
                 server_main.main()
         assert exc.value.code == 1
-        assert any("Health server" in c[0][1] for c in log_error.call_args_list)
+        log_error.assert_called_once_with("server", "Health server failed, shutting down")
 
     def test_context_passed_to_every_listener(self, clean_env):
         seen = {}
         ctx = MagicMock()
 
-        def fake_run(app, port, name, host="0.0.0.0", ssl_context=None, failure_event=None):
+        def fake_run(app, port, name, host="0.0.0.0", ssl_context=None):
             seen[name] = ssl_context
             if len(seen) == 3:
-                failure_event.set()
                 raise SystemExit(1)
             threading.Event().wait(5)
 

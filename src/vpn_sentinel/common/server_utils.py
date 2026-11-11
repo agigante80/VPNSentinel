@@ -7,7 +7,7 @@ import os
 import ssl
 import sys
 from werkzeug.serving import make_server
-from .log_utils import log_info
+from .log_utils import log_error, log_info
 
 
 def validate_tls_config(cert_path, key_path):
@@ -46,8 +46,11 @@ def validate_tls_config(cert_path, key_path):
         ("key", key_path, "VPN_SENTINEL_TLS_KEY_PATH"),
     )
     for label, path, var in checks:
-        if not os.path.isfile(path):
+        if not os.path.exists(path):
             raise ValueError(f"TLS {label} not found: {path} ({var})")
+        if not os.path.isfile(path):
+            # Usually a bind mount Docker created as a directory because the host file was missing
+            raise ValueError(f"TLS {label} is not a file: {path} ({var})")
         if not os.access(path, os.R_OK):
             raise ValueError(f"TLS {label} not readable: {path} ({var})")
 
@@ -62,7 +65,7 @@ def validate_tls_config(cert_path, key_path):
     return context
 
 
-def run_flask_app(app, port: int, name: str, host: str = "0.0.0.0", ssl_context=None, failure_event=None) -> None:
+def run_flask_app(app, port: int, name: str, host: str = "0.0.0.0", ssl_context=None) -> None:
     """Run a Flask app on the specified port with optional TLS.
 
     Args:
@@ -71,7 +74,6 @@ def run_flask_app(app, port: int, name: str, host: str = "0.0.0.0", ssl_context=
         name: Human-readable name for logging
         host: Host address to bind to (default: 0.0.0.0)
         ssl_context: Pre-validated SSL context from validate_tls_config (None = plain HTTP)
-        failure_event: Optional threading.Event set when this listener dies
 
     Raises:
         SystemExit: If server fails to start
@@ -158,9 +160,9 @@ def run_flask_app(app, port: int, name: str, host: str = "0.0.0.0", ssl_context=
         server.serve_forever()
 
     except Exception as e:
-        log_info("server", f"❌ Error starting {name}: {e}")
-        if failure_event is not None:
-            failure_event.set()
+        # Error level so log alerting sees the cause; the caller (server main) turns
+        # the SystemExit into a process exit, after recording which listener died.
+        log_error("server", f"❌ Error starting {name}: {e}")
         sys.exit(1)
 
 

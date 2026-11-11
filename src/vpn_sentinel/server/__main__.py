@@ -64,8 +64,9 @@ def main():
 
     def listener(app, port, name):
         try:
-            run_flask_app(app, port, name, ssl_context=ssl_context, failure_event=failure_event)
+            run_flask_app(app, port, name, ssl_context=ssl_context)
         except SystemExit:
+            # Record the name BEFORE signalling, so main never reads an empty list
             failed_names.append(name)
             failure_event.set()
 

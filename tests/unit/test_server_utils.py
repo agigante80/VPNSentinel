@@ -3,6 +3,7 @@
 Tests server utility functions including Flask app running and port configuration.
 """
 
+import os
 import pytest
 import ssl
 import sys
@@ -120,18 +121,6 @@ class TestRunFlaskApp:
                     run_flask_app(MagicMock(), 5000, "Test API")
                     assert "ssl_context" not in mock_make.call_args[1]
 
-    def test_run_flask_app_failure_sets_event(self):
-        """A dying listener sets the shared failure event before exiting 1."""
-        import threading
-
-        event = threading.Event()
-        with patch("vpn_sentinel.common.server_utils.make_server", side_effect=OSError("Address in use")):
-            with patch("vpn_sentinel.common.server_utils.log_info"):
-                with pytest.raises(SystemExit) as exc_info:
-                    run_flask_app(MagicMock(), 5000, "Test API", failure_event=event)
-        assert exc_info.value.code == 1
-        assert event.is_set()
-
     def test_run_flask_app_custom_host(self):
         """Test running Flask app on custom host."""
         mock_app = MagicMock()
@@ -154,7 +143,7 @@ class TestRunFlaskApp:
 
         with patch.dict("os.environ", {}, clear=True):
             with patch("vpn_sentinel.common.server_utils.make_server", side_effect=Exception("Port in use")):
-                with patch("vpn_sentinel.common.server_utils.log_info") as mock_log:
+                with patch("vpn_sentinel.common.server_utils.log_error") as mock_log:
                     with pytest.raises(SystemExit) as exc_info:
                         run_flask_app(mock_app, 5000, "Test API")
 
@@ -184,7 +173,7 @@ class TestRunFlaskApp:
     def test_run_flask_app_make_server_ssl_error_exits(self):
         """A TLS error while building the server still exits 1."""
         with patch("vpn_sentinel.common.server_utils.make_server", side_effect=ssl.SSLError("bad")):
-            with patch("vpn_sentinel.common.server_utils.log_info") as mock_log:
+            with patch("vpn_sentinel.common.server_utils.log_error") as mock_log:
                 with pytest.raises(SystemExit) as exc_info:
                     run_flask_app(MagicMock(), 5000, "Test API", ssl_context=MagicMock())
         assert exc_info.value.code == 1
@@ -327,16 +316,28 @@ class TestValidateTlsConfig:
             validate_tls_config(str(cert), missing)
         assert str(exc.value) == f"TLS key not found: {missing} (VPN_SENTINEL_TLS_KEY_PATH)"
 
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root ignores file permissions")
     def test_unreadable_cert(self, tmp_path):
         cert = tmp_path / "c.pem"
         key = tmp_path / "k.pem"
         cert.write_text("x")
         key.write_text("x")
-        with patch("vpn_sentinel.common.server_utils.os.access", return_value=False):
+        cert.chmod(0)
+        try:
             with pytest.raises(ValueError) as exc:
                 validate_tls_config(str(cert), str(key))
-        assert "not readable" in str(exc.value)
-        assert "VPN_SENTINEL_TLS_CERT_PATH" in str(exc.value)
+        finally:
+            cert.chmod(0o600)
+        assert str(exc.value) == f"TLS certificate not readable: {cert} (VPN_SENTINEL_TLS_CERT_PATH)"
+
+    def test_cert_path_is_directory(self, tmp_path):
+        certdir = tmp_path / "certs"
+        certdir.mkdir()
+        key = tmp_path / "k.pem"
+        key.write_text("x")
+        with pytest.raises(ValueError) as exc:
+            validate_tls_config(str(certdir), str(key))
+        assert str(exc.value) == f"TLS certificate is not a file: {certdir} (VPN_SENTINEL_TLS_CERT_PATH)"
 
     def test_garbage_files_could_not_load(self, tmp_path):
         cert = tmp_path / "c.pem"
