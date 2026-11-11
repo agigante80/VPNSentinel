@@ -13,8 +13,9 @@ Six guards over one subject (a dict of file texts), with deliberately different 
               from .env.example, which carries gluetun-only and dead names)
   secrets     VPN_SENTINEL_API_KEY (both templates) is Required, Mask and empty by default;
               TELEGRAM_BOT_TOKEN, VPN_SENTINEL_METRICS_TOKEN and VPN_SENTINEL_APPRISE_URLS are Mask
-              (the Apprise URLs embed service tokens; the last two also keep an empty Default). An empty key runs the server with auth disabled
-              (api_routes.py), so the template can only assert the attributes
+              (the Apprise URLs embed service tokens; the last two also keep an empty Default). An
+              empty key runs the server with auth disabled (api_routes.py), so the template can only
+              assert the attributes
   client      VPN_SENTINEL_URL is Required with an empty Default (otherwise the client keeps the
               `http://your-server-url:5000` fallback and never turns green), Network is none, ExtraParams
               joins a container namespace, and the Overview names FIREWALL_OUTBOUND_SUBNETS
