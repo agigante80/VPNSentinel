@@ -97,6 +97,7 @@ VPN_SENTINEL_SERVER_RATE_LIMIT = 30  # requests per minute
 - Returns `429 Too Many Requests` when exceeded
 - Automatic cleanup of expired entries
 - Health endpoints excluded from limits
+- `/metrics` (health app) is public by default and exposes client IDs; set `VPN_SENTINEL_METRICS_TOKEN` (or `_FILE`) to require `Authorization: Bearer <token>` (401 otherwise, constant-time compare, failed attempts logged at most once per 60 s)
 
 **Example Response**:
 ```json

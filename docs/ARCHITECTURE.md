@@ -80,7 +80,7 @@ External Services:
 - **Public Access**: No authentication required
 - **Endpoints**:
   - `GET /health` - Simple health check (returns "OK")
-  - `GET /metrics` - Prometheus metrics (client IDs, status, last keepalive; no IPs or geolocation). Returns 404 when `VPN_SENTINEL_METRICS_ENABLED=false`
+  - `GET /metrics` - Prometheus metrics (client IDs, status, last keepalive; no IPs or geolocation). Returns 404 when `VPN_SENTINEL_METRICS_ENABLED=false`. Public by default; requires `Authorization: Bearer` (401 otherwise) when `VPN_SENTINEL_METRICS_TOKEN` (or `_FILE`) is set
 
 #### c) Dashboard App (Port 8080)
 - **Web Interface**: Real-time client monitoring
