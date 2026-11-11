@@ -9,6 +9,7 @@ import threading
 
 from vpn_sentinel.common.server import api_app, health_app, dashboard_app
 from vpn_sentinel.common import api_routes, health_routes, dashboard_routes  # noqa: F401
+from vpn_sentinel.common import metrics
 from vpn_sentinel.common.log_utils import log_error, log_info
 from vpn_sentinel.common.server_utils import run_flask_app, get_port_config, validate_tls_config
 from vpn_sentinel.common.version import get_version, get_commit_hash
@@ -52,6 +53,14 @@ def main():
 
     # Check if web dashboard is enabled
     web_dashboard_enabled = os.getenv("VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED", "true").lower() == "true"
+
+    # Startup snapshot only: VPN_SENTINEL_METRICS_ENABLED is read per request and can change later
+    if not metrics.metrics_enabled():
+        log_info("server", "metrics: disabled at startup")
+    elif metrics.METRICS_TOKEN:
+        log_info("server", "metrics: bearer token required")
+    else:
+        log_info("server", "metrics: public")
 
     # Start cleanup thread for stale clients
     cleanup_thread = threading.Thread(target=cleanup_stale_clients)

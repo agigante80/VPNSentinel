@@ -39,6 +39,8 @@ def clean(monkeypatch):
     client_status.clear()
     monkeypatch.setattr(api_routes, "_server_public_ip", SERVER_IP)
     monkeypatch.delenv("VPN_SENTINEL_METRICS_ENABLED", raising=False)
+    monkeypatch.setattr(metrics, "METRICS_TOKEN", "")
+    metrics.reset_auth_failure_throttle()
     yield
     client_status.clear()
 
@@ -230,3 +232,92 @@ class TestEviction:
         _, body = _get(http)
         assert 'client_id="stale"' not in body
         assert 'client_id="fresh"' in body
+
+
+REALM = 'Bearer realm="vpn-sentinel-metrics"'
+
+
+class TestMetricsToken:
+    @pytest.fixture(autouse=True)
+    def token(self, monkeypatch):
+        monkeypatch.setattr(metrics, "METRICS_TOKEN", "abc")
+
+    def test_no_token_configured_serves_without_header(self, http, monkeypatch):
+        monkeypatch.setattr(metrics, "METRICS_TOKEN", "")
+        resp, body = _get(http)
+        assert resp.status_code == 200
+        assert "vpn_sentinel_clients" in body
+
+    @pytest.mark.parametrize("header", ["Bearer abc", "bearer abc", "BEARER abc"])
+    def test_right_token_is_served(self, http, header):
+        resp = http.get("/metrics", headers={"Authorization": header})
+        assert resp.status_code == 200
+        assert "vpn_sentinel_clients" in resp.get_data(as_text=True)
+
+    @pytest.mark.parametrize(
+        "headers",
+        [
+            {},
+            {"Authorization": "Bearer abd"},
+            {"Authorization": "Basic abc"},
+            {"Authorization": "Bearer"},
+            {"Authorization": "Bearer "},
+            {"Authorization": "Bearer " + "x" * 20000},
+        ],
+    )
+    def test_everything_else_is_401(self, http, headers):
+        resp = http.get("/metrics", headers=headers)
+        assert resp.status_code == 401
+        assert resp.headers["WWW-Authenticate"] == REALM
+        assert resp.headers["Cache-Control"] == "no-store"
+        body = resp.get_data(as_text=True)
+        assert body == "Unauthorized"
+        assert "vpn_sentinel" not in body
+
+    def test_disabled_wins_over_token(self, http, monkeypatch):
+        monkeypatch.setenv("VPN_SENTINEL_METRICS_ENABLED", "false")
+        resp = http.get("/metrics", headers={"Authorization": "Bearer abc"})
+        assert resp.status_code == 404
+
+    def test_health_stays_public(self, http):
+        assert http.get("/health").status_code == 200
+
+    def test_compare_is_constant_time(self, http):
+        with patch("vpn_sentinel.common.health_routes.hmac.compare_digest", return_value=True) as cmp:
+            resp = http.get("/metrics", headers={"Authorization": "Bearer whatever"})
+        assert cmp.called
+        assert resp.status_code == 200
+
+
+class TestMetricsAuthFailureLog:
+    @pytest.fixture(autouse=True)
+    def token(self, monkeypatch):
+        monkeypatch.setattr(metrics, "METRICS_TOKEN", "S3NT1NEL")
+
+    def test_five_failures_log_one_line_then_summary_after_window(self, http, capsys, monkeypatch):
+        clock = [1000.0]
+        monkeypatch.setattr(metrics.time, "monotonic", lambda: clock[0])
+        capsys.readouterr()
+        for _ in range(5):
+            assert http.get("/metrics", headers={"Authorization": "Bearer wrong"}).status_code == 401
+        out = capsys.readouterr().out
+        assert out.count("metrics auth failed") == 1
+        assert "S3NT1NEL" not in out and "wrong" not in out
+
+        clock[0] += 61
+        http.get("/metrics", headers={"Authorization": "Bearer wrong"})
+        out = capsys.readouterr().out
+        assert out.count("metrics auth failed") == 1
+        assert "(4 more suppressed)" in out
+        assert "S3NT1NEL" not in out
+
+    def test_logged_ip_is_remote_addr_not_forwarded_for(self, http, capsys):
+        capsys.readouterr()
+        http.get(
+            "/metrics",
+            headers={"X-Forwarded-For": "1.2.3.4"},
+            environ_overrides={"REMOTE_ADDR": "198.51.100.77"},
+        )
+        out = capsys.readouterr().out
+        assert "IP: 198.51.100.77" in out
+        assert "1.2.3.4" not in out

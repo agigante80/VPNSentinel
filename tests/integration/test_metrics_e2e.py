@@ -1,6 +1,8 @@
 """Live-stack E2E for the Prometheus /metrics endpoint on the health app.
 
 Runs only when VPN_SENTINEL_E2E=1 (set by `bin/local-env verify`). The stack is expected to be UP.
+/metrics requires a bearer token on the test stack: it is read from VPN_SENTINEL_E2E_METRICS_TOKEN (set it when
+running against a stack with a non-default token) and defaults to the value in tests/.env.test, like API_KEY.
 The unique basename matters: tests/unit/test_metrics.py exists and neither folder has an __init__.py.
 """
 
@@ -22,8 +24,11 @@ HEALTH_PORT = os.getenv("VPN_SENTINEL_E2E_HEALTH_PORT", "15553")
 API_PATH = os.getenv("VPN_SENTINEL_API_PATH", "/test/v1")
 API_KEY = os.getenv("VPN_SENTINEL_API_KEY", "test-api-key-abcdef123456789")
 
+METRICS_TOKEN = os.getenv("VPN_SENTINEL_E2E_METRICS_TOKEN", "test-metrics-token-0123456789")
+
 API = f"http://{HOST}:{API_PORT}{API_PATH}"
 METRICS_URL = f"http://{HOST}:{HEALTH_PORT}/metrics"
+METRICS_AUTH = {"Authorization": f"Bearer {METRICS_TOKEN}"}
 AUTH = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
 CLIENT_IP = "203.0.113.10"
 
@@ -61,7 +66,7 @@ def test_metrics_happy_path():
     client_id = f"e2e-metrics-{int(time.time())}"
     _send_keepalive(client_id)
 
-    resp = requests.get(METRICS_URL, timeout=10)
+    resp = requests.get(METRICS_URL, headers=METRICS_AUTH, timeout=10)
     assert resp.status_code == 200
     assert resp.headers["Content-Type"] == CONTENT_TYPE_PLAIN_0_0_4
 
@@ -84,6 +89,18 @@ def test_metrics_unhappy_path():
 
     assert requests.post(METRICS_URL, timeout=10).status_code == 405
 
-    body = requests.get(METRICS_URL, timeout=10).text
+    body = requests.get(METRICS_URL, headers=METRICS_AUTH, timeout=10).text
     assert CLIENT_IP not in body
     assert not re.search(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", body)
+
+
+def test_metrics_requires_the_token():
+    resp = requests.get(METRICS_URL, timeout=10)
+    assert resp.status_code == 401
+    assert resp.headers["WWW-Authenticate"] == 'Bearer realm="vpn-sentinel-metrics"'
+
+
+def test_metrics_wrong_token_is_401_without_metric_names():
+    resp = requests.get(METRICS_URL, headers={"Authorization": "Bearer wrong-" + METRICS_TOKEN}, timeout=10)
+    assert resp.status_code == 401
+    assert "vpn_sentinel" not in resp.text

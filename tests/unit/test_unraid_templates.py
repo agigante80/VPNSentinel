@@ -61,6 +61,7 @@ SERVER_VARS = {
     "VPN_SENTINEL_API_KEY",
     "TELEGRAM_BOT_TOKEN",
     "TELEGRAM_CHAT_ID",
+    "VPN_SENTINEL_METRICS_TOKEN",
     "VPN_SENTINEL_API_PATH",
     "VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED",
     "TZ",
@@ -193,6 +194,9 @@ def secrets_errors(subject):
         token = config(server, "TELEGRAM_BOT_TOKEN")
         if token is None or token.get("Mask") != "true":
             errors.append(f'{SERVER_XML} TELEGRAM_BOT_TOKEN must have Mask="true"')
+        metrics_token = config(server, "VPN_SENTINEL_METRICS_TOKEN")
+        if metrics_token is None or metrics_token.get("Mask") != "true":
+            errors.append(f'{SERVER_XML} VPN_SENTINEL_METRICS_TOKEN must have Mask="true"')
     return errors
 
 
@@ -376,9 +380,22 @@ def test_secrets_guard_negative_api_key_default_not_empty():
 
 
 def test_secrets_guard_negative_telegram_token_unmasked():
-    # The token is the only optional (Required="false") masked variable.
+    # mutated() replaces the FIRST match: Telegram is the first optional masked entry in the file (the
+    # metrics token follows it), so this anchor must keep targeting Telegram. Do not move the metrics Config above it.
     subject = mutated('Required="false" Mask="true"', 'Required="false" Mask="false"', SERVER_XML)
     with pytest.raises(AssertionError, match='TELEGRAM_BOT_TOKEN must have Mask="true"'):
+        assert_guard(secrets_errors, subject)
+    assert_only_guard_fails(subject, "secrets", guards=GUARDS)
+
+
+def test_secrets_guard_negative_metrics_token_unmasked():
+    # Own anchor (Target + the attribute run up to Mask), so it cannot fall through to the Telegram entry.
+    start = real_subject()[SERVER_XML].index('Target="VPN_SENTINEL_METRICS_TOKEN"')
+    end = real_subject()[SERVER_XML].index("/>", start)
+    entry = real_subject()[SERVER_XML][start:end]
+    assert entry.count('Mask="true"') == 1
+    subject = mutated(entry, entry.replace('Mask="true"', 'Mask="false"'), SERVER_XML)
+    with pytest.raises(AssertionError, match='VPN_SENTINEL_METRICS_TOKEN must have Mask="true"'):
         assert_guard(secrets_errors, subject)
     assert_only_guard_fails(subject, "secrets", guards=GUARDS)
 

@@ -341,7 +341,18 @@ server {
 
 ## Prometheus
 
-The health app (port 8081) serves Prometheus metrics at `GET /metrics`, in text exposition format 0.0.4. The endpoint is public like `/health`. It exposes client IDs as labels and never any IP address or geolocation. Set `VPN_SENTINEL_METRICS_ENABLED=false` to turn it off (it then returns 404).
+The health app (port 8081) serves Prometheus metrics at `GET /metrics`, in text exposition format 0.0.4. The endpoint is public like `/health` unless you set `VPN_SENTINEL_METRICS_TOKEN`, in which case it requires `Authorization: Bearer <token>` (see below). It exposes client IDs as labels and never any IP address or geolocation. Set `VPN_SENTINEL_METRICS_ENABLED=false` to turn it off (it then returns 404).
+
+To protect the endpoint, set `VPN_SENTINEL_METRICS_TOKEN` (a bad `VPN_SENTINEL_METRICS_TOKEN_FILE` stops the server at startup). Prometheus sends the token natively:
+
+```yaml
+scrape_configs:
+  - job_name: vpn-sentinel
+    authorization:
+      credentials_file: /etc/prometheus/vpn_sentinel_metrics_token
+    static_configs:
+      - targets: ["vpn-sentinel-server:8081"]
+```
 
 `VPN_SENTINEL_METRICS_ENABLED` is read on every request, unlike the dashboard toggle (read once at startup), so it takes effect without a restart in tests or when the process environment changes.
 
@@ -453,6 +464,7 @@ This is a critical security issue.
 | `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | `8080` | Web dashboard port |
 | `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable/disable web dashboard |
 | `VPN_SENTINEL_METRICS_ENABLED` | `true` | Enable/disable the Prometheus `/metrics` endpoint on the health port (`false` returns 404) |
+| `VPN_SENTINEL_METRICS_TOKEN` (or `_FILE`) | empty | Optional bearer token for `/metrics`; when set, requests without `Authorization: Bearer <token>` get 401. Generate one with `openssl rand -hex 32` |
 | `VPN_SENTINEL_SERVER_ALLOWED_IPS` | *(empty)* | Comma-separated IP allowlist for API access (empty = allow all) |
 | `VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES` | `30` | Minutes of client inactivity before removing from dashboard |
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | *(auto)* | Telegram notifications: `true` (require credentials), `false` (disable), unset (auto-enable if credentials present) |

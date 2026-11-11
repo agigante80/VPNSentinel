@@ -7,6 +7,9 @@ to client_id and status: no IP address or geolocation is ever exported.
 
 import ipaddress
 import os
+import sys
+import threading
+import time
 from datetime import datetime, timezone
 
 from prometheus_client import CollectorRegistry
@@ -15,9 +18,52 @@ from prometheus_client.exposition import CONTENT_TYPE_PLAIN_0_0_4, generate_late
 
 from . import api_routes
 from .client_health import classify_client
+from .config import read_secret
+from .log_utils import log_error, log_warn
 
 STATUS_VALUES = {"green": 0, "yellow": 1, "red": 2}
 CONTENT_TYPE = CONTENT_TYPE_PLAIN_0_0_4
+
+# Optional bearer token for /metrics, read ONCE at import (from VPN_SENTINEL_METRICS_TOKEN or
+# VPN_SENTINEL_METRICS_TOKEN_FILE). Empty means /metrics is public. A bad file is fatal, so a broken
+# token file can never silently result in an open endpoint.
+try:
+    METRICS_TOKEN = read_secret("VPN_SENTINEL_METRICS_TOKEN")
+except ValueError as _secret_err:
+    log_error("config", str(_secret_err))
+    sys.exit(1)
+
+AUTH_LOG_WINDOW_SECONDS = 60
+_auth_log_lock = threading.Lock()
+_auth_suppressed = 0
+_auth_window_start = None
+
+
+def reset_auth_failure_throttle():
+    """Forget the failed-attempt log window (test isolation)."""
+    global _auth_suppressed, _auth_window_start
+    with _auth_log_lock:
+        _auth_suppressed = 0
+        _auth_window_start = None
+
+
+def log_auth_failure(remote_addr):
+    """Log a failed /metrics auth at most once per window; later failures only bump a counter.
+
+    Keyed on the socket address, never on X-Forwarded-For (caller controlled). Neither the
+    configured token nor the presented credential is ever logged.
+    """
+    global _auth_suppressed, _auth_window_start
+    now = time.monotonic()
+    with _auth_log_lock:
+        if _auth_window_start is not None and now - _auth_window_start < AUTH_LOG_WINDOW_SECONDS:
+            _auth_suppressed += 1
+            return
+        suppressed = _auth_suppressed
+        _auth_suppressed = 0
+        _auth_window_start = now
+    suffix = f" ({suppressed} more suppressed)" if suppressed else ""
+    log_warn("security", f"metrics auth failed | IP: {remote_addr}{suffix}")
 
 
 def metrics_enabled():
