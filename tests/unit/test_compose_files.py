@@ -24,6 +24,18 @@ Three guards, with deliberately different scopes:
                 rather than proving reachability on its own.
 Both scope sets are pinned by a test, so a file silently dropping out is caught.
 
+Two more guards were added by #132. They read the RAW YAML text, not the resolved config,
+because Compose resolves away exactly what they check (it substitutes variables, and it
+drops top-level networks no service joins, so a guard on the resolved config could never fire):
+  env           every file: each bare ${VAR} (also ${VAR:?msg}) in an uncommented line has an
+                uncommented VAR= line in the .env.example of the same directory. ${VAR:-x},
+                ${VAR-x}, ${VAR:+x} and ${VAR+x} are exempt (they carry their own value).
+  network       every file with a top-level `networks:` key: each declared network is joined by
+                at least one service (list or mapping form)
+Subjects: every guard takes a `Compose`, a dict (the resolved config, as before) that also
+carries .rel, .text (the raw compose YAML) and .env_text (the matching .env.example). That
+keeps ONE registry, so assert_only_guard_fails cross-checks all five guards on each mutation.
+
 Guard rules (CLAUDE.md): every guard has a mutation test proving it red, each mutation
 asserts every OTHER guard still passes (assert_only_guard_fails), and each selector is
 asserted to match something.
@@ -42,6 +54,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import pytest
+import yaml
 from test_release_workflow_guards import assert_only_guard_fails
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -55,6 +68,7 @@ SERVER_CENTRAL = "deployments/server-central/compose.yaml"
 ALL_FILES = [ROOT, ALL_IN_ONE, CLIENT_WITH_VPN, CLIENT_STANDALONE, SERVER_CENTRAL]
 NAMESPACE_SCOPE = {ROOT, ALL_IN_ONE, CLIENT_WITH_VPN}
 REACHABILITY_SCOPE = {ROOT, ALL_IN_ONE}
+NETWORK_SCOPE = {ROOT, ALL_IN_ONE}  # files with a top-level `networks:` key
 
 IMAGE_RE = re.compile(r"^agigante80/vpn-sentinel-(server|client):[^:\s]+$")
 
@@ -106,21 +120,49 @@ def resolved_compose(path, env_file):
     return json.loads(proc.stdout)
 
 
+class Compose(dict):
+    """The resolved config (a dict, so the #129 guards are unchanged) plus the raw inputs
+    the #132 guards read: .rel (display name), .text (compose YAML), .env_text (.env.example)."""
+
+    def __init__(self, cfg, rel, text, env_text):
+        super().__init__(cfg)
+        self.rel = rel
+        self.text = text
+        self.env_text = env_text
+
+
 @functools.lru_cache(maxsize=None)
 def real(rel):
-    return resolved_compose(REPO_ROOT / rel, env_file_for(rel))
+    return Compose(
+        resolved_compose(REPO_ROOT / rel, env_file_for(rel)),
+        rel,
+        (REPO_ROOT / rel).read_text(),
+        env_file_for(rel).read_text(),
+    )
 
 
-def mutate(rel, old, new, tmp_path):
-    """Apply one text replacement to a real compose file, write it to tmp_path and return
-    its resolved config. Asserts the anchor exists, so a mutation can never test nothing."""
+def build(rel, text, tmp_path, env_text=None):
+    """Write `text` (and `env_text`, else the real .env.example is used) under tmp_path,
+    resolve it, and return the Compose subject."""
+    target = tmp_path / "compose.yaml"
+    target.write_text(text)
+    env_file = env_file_for(rel)
+    if env_text is None:
+        env_text = env_file.read_text()
+    else:
+        env_file = tmp_path / ".env.example"
+        env_file.write_text(env_text)
+    return Compose(resolved_compose(target, env_file), rel, text, env_text)
+
+
+def mutate(rel, old, new, tmp_path, env_text=None):
+    """Apply one text replacement to a real compose file and return the resolved subject.
+    Asserts the anchor exists, so a mutation can never test nothing."""
     text = (REPO_ROOT / rel).read_text()
     assert old in text, f"mutation anchor not found in {rel}: {old!r}"
     mutated = text.replace(old, new, 1)
     assert mutated != text, "mutation must change the compose text"
-    target = tmp_path / "compose.yaml"
-    target.write_text(mutated)
-    return resolved_compose(target, env_file_for(rel))
+    return build(rel, mutated, tmp_path, env_text)
 
 
 # ---------------------------------------------------------------------------------
@@ -242,10 +284,56 @@ def reachability_errors(cfg):
     return problems
 
 
+VAR_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(:?[-+?=][^}]*)?\}")
+
+
+def _live_lines(text):
+    """Lines with comments removed: whole-line comments and ` # ...` trailers."""
+    for line in text.splitlines():
+        if not line.lstrip().startswith("#"):
+            yield re.sub(r"\s#.*$", "", line)
+
+
+def required_vars(text):
+    """Variables a compose file needs defined: a bare ${VAR} or ${VAR:?msg} / ${VAR?msg}.
+    ${VAR:-x}, ${VAR-x}, ${VAR:+x}, ${VAR+x} carry their own value and are exempt."""
+    found = set()
+    for line in _live_lines(text):
+        for name, op in VAR_RE.findall(line):
+            if not op or op.lstrip(":").startswith("?"):
+                found.add(name)
+    return found
+
+
+def defined_vars(env_text):
+    """Variables with an uncommented KEY= line (optionally `export KEY=`)."""
+    return {m.group(1) for line in env_text.splitlines() if (m := re.match(r"\s*(?:export\s+)?([A-Za-z_]\w*)=", line))}
+
+
+def env_errors(subject):
+    needed = required_vars(subject.text)
+    if not needed:
+        return [f"{subject.rel} references no required ${{VAR}}: env selector matched nothing"]
+    defined = defined_vars(subject.env_text)
+    return [f"{subject.rel} references ${{{v}}} not defined in .env.example" for v in sorted(needed - defined)]
+
+
+def network_errors(subject):
+    doc = yaml.safe_load(subject.text) or {}
+    declared = doc.get("networks") or {}
+    joined = set()
+    for svc in (doc.get("services") or {}).values():
+        nets = (svc or {}).get("networks") or []
+        joined.update(nets)  # list form: names; mapping form: keys
+    return [f"{subject.rel} declares network '{n}' that no service joins" for n in sorted(declared) if n not in joined]
+
+
 GUARDS = {
     "image": lambda cfg: not image_errors(cfg),
     "namespace": lambda cfg: not namespace_errors(cfg),
     "reachability": lambda cfg: not reachability_errors(cfg),
+    "env": lambda cfg: not env_errors(cfg),
+    "network": lambda cfg: not network_errors(cfg),
 }
 
 
@@ -383,7 +471,7 @@ def test_overrides_move_together(rel, tmp_path):
         + "\nVPN_SENTINEL_DOCKER_SUBNET=198.19.0.0/24\nVPN_SENTINEL_SERVER_IP=198.19.0.10\n"
         + "VPN_SENTINEL_SERVER_API_PORT=5001\n"
     )
-    cfg = resolved_compose(REPO_ROOT / rel, env)
+    cfg = Compose(resolved_compose(REPO_ROOT / rel, env), rel, (REPO_ROOT / rel).read_text(), env.read_text())
     for name, ok in GUARDS.items():
         assert ok(cfg), f"guard {name} fails on the override path"
     srv = cfg["services"]["vpn-sentinel-server"]
@@ -411,3 +499,131 @@ def test_guards_fail_on_vacuous_selectors():
     assert image_errors(empty)
     assert namespace_errors(empty)
     assert reachability_errors(empty)
+    assert env_errors(Compose(empty, "x.yaml", "services:\n  web:\n    image: nginx\n", ""))
+
+
+# ---------------------------------------------------------------------------------
+# #132: env and network guards (raw YAML)
+#
+# Why the mutation tests here still prove "only its own guard fires": the #129 guards read
+# the resolved config, the #132 guards read raw text, and assert_only_guard_fails takes ONE
+# subject. Each mutation therefore builds a Compose from the MUTATED raw text AND resolves
+# that same text with docker, so all five guards judge the same mutated file and the
+# registry cross-check is unchanged. Mutations are chosen to be invisible to the other
+# guards (an x- extension field, an extra network no service joins), and the cross-check
+# asserts that.
+# ---------------------------------------------------------------------------------
+
+EXTENSION_ANCHOR = "services:\n"
+
+
+def with_probe(rel, tmp_path, reference, env_text=None):
+    """Mutate rel by adding a top-level x- extension field holding `reference`, which Compose
+    accepts and no other guard looks at."""
+    return mutate(rel, EXTENSION_ANCHOR, f"x-probe: {reference}\nservices:\n", tmp_path, env_text)
+
+
+def test_compose_file_set_is_pinned():
+    shipped = {
+        str(p.relative_to(REPO_ROOT))
+        for p in [REPO_ROOT / "compose.yaml", *REPO_ROOT.glob("deployments/*/compose.yaml")]
+    }
+    assert shipped == set(ALL_FILES)
+    assert len(ALL_FILES) == 5
+
+
+def test_env_selector_is_not_vacuous():
+    for rel in ALL_FILES:
+        assert required_vars(real(rel).text), f"{rel} references no required variable: env guard would pass vacuously"
+
+
+def test_network_scope_is_pinned():
+    declared = {rel for rel in ALL_FILES if (yaml.safe_load(real(rel).text) or {}).get("networks")}
+    assert declared == NETWORK_SCOPE and declared, "network guard needs at least one in-scope file"
+
+
+@pytest.mark.parametrize("rel", ALL_FILES)
+def test_every_required_variable_is_in_its_own_env_example(rel):
+    assert_guard(env_errors, real(rel))
+
+
+@pytest.mark.parametrize("rel", ALL_FILES)
+def test_every_declared_network_is_joined(rel):
+    assert_guard(network_errors, real(rel))
+
+
+def test_required_var_forms():
+    text = "a: ${A}\nb: ${B:-x}\nc: ${C-x}\nd: ${D:?need}\ne: ${E:+x}\nf: ${F+x}\n"
+    assert required_vars(text) == {"A", "D"}
+
+
+def test_env_guard_negative_undefined_variable(tmp_path):
+    subject = with_probe(ROOT, tmp_path, "${VPN_SENTINEL_DOES_NOT_EXIST}")
+    with pytest.raises(
+        AssertionError, match=r"compose.yaml references \$\{VPN_SENTINEL_DOES_NOT_EXIST\} not defined in .env.example"
+    ):
+        assert_guard(env_errors, subject)
+    assert_only_guard_fails(subject, "env", guards=GUARDS)
+
+
+@pytest.mark.parametrize("rel", ALL_FILES)
+def test_env_guard_negative_every_file(rel, tmp_path):
+    subject = with_probe(rel, tmp_path, "${VPN_SENTINEL_DOES_NOT_EXIST}")
+    assert env_errors(subject) == [f"{rel} references ${{VPN_SENTINEL_DOES_NOT_EXIST}} not defined in .env.example"]
+    if rel in REACHABILITY_SCOPE:
+        assert_only_guard_fails(subject, "env", guards=GUARDS)
+    else:
+        # The namespace and reachability guards are scoped (their selectors correctly find no
+        # gluetun/server here and report so), so the all-guards cross-check applies only to the
+        # files in their scope. Outside it, check the guards that apply to every file.
+        assert image_errors(subject) == [] and network_errors(subject) == []
+
+
+def test_env_guard_positive_default_is_exempt(tmp_path):
+    subject = with_probe(ROOT, tmp_path, "${VPN_SENTINEL_NOT_IN_ENV:-fallback}")
+    assert "VPN_SENTINEL_NOT_IN_ENV" not in subject.env_text
+    assert_guard(env_errors, subject)
+    assert all(ok(subject) for ok in GUARDS.values())
+
+
+def test_env_guard_negative_commented_definition_does_not_count(tmp_path):
+    """A `# VAR=x` line in .env.example is not a definition (this is how #130 left the TLS paths)."""
+    env_text = real(ROOT).env_text + "\n# VPN_SENTINEL_ONLY_COMMENTED=x\n"
+    subject = with_probe(ROOT, tmp_path, "${VPN_SENTINEL_ONLY_COMMENTED}", env_text)
+    with pytest.raises(
+        AssertionError, match=r"compose.yaml references \$\{VPN_SENTINEL_ONLY_COMMENTED\} not defined in .env.example"
+    ):
+        assert_guard(env_errors, subject)
+    assert_only_guard_fails(subject, "env", guards=GUARDS)
+
+
+def test_env_guard_positive_uncommented_definition_counts(tmp_path):
+    env_text = real(ROOT).env_text + "\nVPN_SENTINEL_NOW_DEFINED=x\n"
+    subject = with_probe(ROOT, tmp_path, "${VPN_SENTINEL_NOW_DEFINED}", env_text)
+    assert_guard(env_errors, subject)
+
+
+def test_env_guard_positive_commented_compose_line_is_ignored(tmp_path):
+    subject = mutate(
+        ROOT, EXTENSION_ANCHOR, "# ${VPN_SENTINEL_IN_A_COMMENT}\nservices:\n", tmp_path
+    )  # whole-line comment
+    assert_guard(env_errors, subject)
+
+
+@pytest.mark.parametrize("rel", sorted(NETWORK_SCOPE))
+def test_network_guard_negative_orphan_network(rel, tmp_path):
+    subject = mutate(rel, "\nnetworks:\n", "\nnetworks:\n  vpn-sentinel-orphan:\n    driver: bridge\n", tmp_path)
+    assert network_errors(subject) == [f"{rel} declares network 'vpn-sentinel-orphan' that no service joins"]
+    with pytest.raises(AssertionError, match="declares network 'vpn-sentinel-orphan' that no service joins"):
+        assert_guard(network_errors, subject)
+    assert "vpn-sentinel-orphan" not in subject.get(
+        "networks", {}
+    ), "compose drops orphans: resolved config cannot see it"
+    assert_only_guard_fails(subject, "network", guards=GUARDS)
+
+
+def test_network_guard_accepts_list_and_mapping_forms():
+    joined_list = Compose({}, "x.yaml", "services:\n  a:\n    networks: [n]\nnetworks:\n  n: {}\n", "")
+    joined_map = Compose({}, "x.yaml", "services:\n  a:\n    networks:\n      n: {}\nnetworks:\n  n: {}\n", "")
+    assert not network_errors(joined_list)
+    assert not network_errors(joined_map)
