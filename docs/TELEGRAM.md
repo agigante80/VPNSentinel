@@ -2,6 +2,8 @@
 
 VPN Sentinel includes comprehensive Telegram integration with automatic notifications and interactive bot commands.
 
+To send the same alerts to other services (ntfy, Gotify, Discord, email, ...) as well, see [NOTIFICATIONS.md](NOTIFICATIONS.md).
+
 ## 📱 Features
 
 ### Automatic Notifications

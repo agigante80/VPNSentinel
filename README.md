@@ -68,6 +68,7 @@ VPN Sentinel provides **continuous, automated verification** with:
 ### Real-time Alerting
 
 - **Telegram Bot Integration**: Instant notifications for all connection events
+- **Multi-channel alerts (optional)**: The same alerts also go to ntfy, Gotify, Discord, email and 100+ other services through [Apprise](docs/NOTIFICATIONS.md)
 - **Priority-Based Alerts**: Critical (red), warning (yellow), and info (green) message types
 - **Rich Notifications**: Detailed status with IP, location, provider, and DNS information
 - **Connection History**: Tracks IP changes and connection events
@@ -470,6 +471,7 @@ This is a critical security issue.
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | *(auto)* | Telegram notifications: `true` (require credentials), `false` (disable), unset (auto-enable if credentials present) |
 | `TELEGRAM_BOT_TOKEN` | - | Telegram bot token (required if TELEGRAM_ENABLED=true). `TELEGRAM_BOT_TOKEN_FILE` reads it from a file instead |
 | `TELEGRAM_CHAT_ID` | - | Telegram chat ID (required if TELEGRAM_ENABLED=true). `TELEGRAM_CHAT_ID_FILE` reads it from a file instead |
+| `VPN_SENTINEL_APPRISE_URLS` (or `_FILE`) | empty (disabled) | Optional extra alert targets (ntfy, Gotify, Discord, email, ...) as [Apprise](docs/NOTIFICATIONS.md) URLs, comma or space separated. The URLs contain tokens, so treat them as a secret. The server image includes Apprise |
 | `VPN_SENTINEL_TLS_CERT_PATH` | *(empty)* | Path to TLS certificate file (enables HTTPS). Must be set together with the key: the server exits with code 2 if only one is set or a file is missing, unreadable or mismatched. A shared `.env` that sets only this for the client CA bundle will stop the server |
 | `VPN_SENTINEL_TLS_KEY_PATH` | *(empty)* | Path to TLS private key file (enables HTTPS). Required together with the certificate path (exit code 2 otherwise) |
 | `VPN_SENTINEL_LOG_FILE` | `/tmp/vpn-sentinel-server.log` | Log file path. Set to `""` to disable file logging (stdout only) |

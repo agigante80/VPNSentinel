@@ -309,16 +309,28 @@ labels:
 **Who Has Access**:
 - VPN Sentinel server (in-memory)
 - Telegram recipients (if enabled)
+- Apprise targets (if `VPN_SENTINEL_APPRISE_URLS` is set): any ntfy, Gotify, Discord, email or other service you list
 - Dashboard viewers (if enabled)
 
 **Third-Party Services**:
 - ipinfo.io / ip-api.com (geolocation)
 - Cloudflare (DNS leak detection)
 - Telegram Bot API (notifications)
+- Your chosen Apprise targets (optional notifications, see [NOTIFICATIONS.md](NOTIFICATIONS.md))
 
 **Mitigation**:
 - Use self-hosted geolocation if privacy-critical
 - Disable Telegram if not needed
+- Leave `VPN_SENTINEL_APPRISE_URLS` unset if you do not want alerts to leave your network
+
+**Apprise targets (optional)**:
+- The alerts carry the client ID, the client's VPN public IP, its geolocation and your server's public IP. With Apprise
+  configured they are also delivered to every target you list, and that service stores what it receives under your
+  own account. VPN Sentinel stores nothing itself. Where the data travels (country, provider) depends on the target you choose.
+- A public ntfy topic is readable by anyone who knows or guesses the topic name. Use a long random topic name, or a
+  protected topic with credentials, for anything that names your clients and IPs.
+- Apprise URLs embed tokens. Treat `VPN_SENTINEL_APPRISE_URLS` as a secret: keep it in a `_FILE` secret or a
+  masked field, never in a committed file. VPN Sentinel logs only `scheme://***`.
 - Restrict dashboard access
 
 ---
