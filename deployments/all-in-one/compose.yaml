@@ -3,7 +3,7 @@ services:
   # VPN CLIENT SERVICE - Your VPN Connection Provider
   # =============================================================================
   vpn-client:
-    image: qmcgaw/gluetun
+    image: qmcgaw/gluetun:v3.41.3
     container_name: vpn-client
     cap_add:
       - NET_ADMIN
@@ -17,7 +17,9 @@ services:
       - SERVER_COUNTRIES=${SERVER_COUNTRIES}
       - OPENVPN_USER=${VPN_USER}
       - OPENVPN_PASSWORD=${VPN_PASSWORD}
-      - FIREWALL_OUTBOUND_SUBNETS=172.28.0.0/16
+      - FIREWALL_OUTBOUND_SUBNETS=${VPN_SENTINEL_DOCKER_SUBNET:-198.18.0.0/24}
+    networks:
+      - vpn-sentinel
     restart: always
 
   # =============================================================================
@@ -29,7 +31,7 @@ services:
     volumes:
       - ./certs:/certs:ro
     environment:
-      - VPN_SENTINEL_URL=http://vpn-sentinel-server:5000
+      - VPN_SENTINEL_URL=http://${VPN_SENTINEL_SERVER_IP:-198.18.0.10}:5000
       - VPN_SENTINEL_API_PATH=/api/v1
       - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-main}
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
@@ -72,18 +74,15 @@ services:
       - VPN_SENTINEL_SERVER_CHECK_INTERVAL_MINUTES=${VPN_SENTINEL_SERVER_CHECK_INTERVAL_MINUTES:-5}
       - VPN_SENTINEL_SERVER_DASHBOARD_ENABLED=${VPN_SENTINEL_SERVER_DASHBOARD_ENABLED:-true}
     networks:
-      - vpn-sentinel-internal
-      - vpn-sentinel-server
+      vpn-sentinel:
+        ipv4_address: ${VPN_SENTINEL_SERVER_IP:-198.18.0.10}
     restart: unless-stopped
 
 networks:
-  vpn-sentinel-internal:
+  # Shared by gluetun and the server so the client (inside gluetun's namespace) can reach the
+  # server. 198.18.0.0/15 is the RFC 2544 benchmarking block: never routed, not private space.
+  vpn-sentinel:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.28.0.0/16
-  vpn-sentinel-server:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.29.0.0/16
+        - subnet: ${VPN_SENTINEL_DOCKER_SUBNET:-198.18.0.0/24}

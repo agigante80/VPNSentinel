@@ -161,6 +161,9 @@ jobs:
           pip install -r tests/requirements.txt
 
       - name: Run unit tests
+        env:
+          # Makes the compose guards fail, not skip, if docker is ever missing (issue #129)
+          VPN_SENTINEL_REQUIRE_DOCKER: "1"
         run: |
           python -m pytest tests/unit/ \
             --verbose \
