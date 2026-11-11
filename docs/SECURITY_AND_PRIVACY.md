@@ -221,6 +221,8 @@ vpn-sentinel-client:
 
 ### TLS/HTTPS
 
+**Built-in TLS (server)**: set both `VPN_SENTINEL_TLS_CERT_PATH` and `VPN_SENTINEL_TLS_KEY_PATH` to serve HTTPS on all three listeners. The configuration is validated once at startup and fails closed: if only one variable is set, a file is missing or unreadable, or the pair does not match, the server logs one error naming the variable and exits with code 2. It never falls back to plain HTTP. Exit code 2 means a configuration error; exit code 1 means a listener died at runtime. Note that a shared `.env` which sets only `VPN_SENTINEL_TLS_CERT_PATH` for the client's CA bundle will make the server exit 2. The image HEALTHCHECK uses plain HTTP, so it reports unhealthy when built-in TLS is on.
+
 **Production Recommendation**: Use reverse proxy
 
 **Example (nginx)**:

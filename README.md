@@ -417,8 +417,8 @@ This is a critical security issue.
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | *(auto)* | Telegram notifications: `true` (require credentials), `false` (disable), unset (auto-enable if credentials present) |
 | `TELEGRAM_BOT_TOKEN` | - | Telegram bot token (required if TELEGRAM_ENABLED=true) |
 | `TELEGRAM_CHAT_ID` | - | Telegram chat ID (required if TELEGRAM_ENABLED=true) |
-| `VPN_SENTINEL_TLS_CERT_PATH` | *(empty)* | Path to TLS certificate file (enables HTTPS) |
-| `VPN_SENTINEL_TLS_KEY_PATH` | *(empty)* | Path to TLS private key file (enables HTTPS) |
+| `VPN_SENTINEL_TLS_CERT_PATH` | *(empty)* | Path to TLS certificate file (enables HTTPS). Must be set together with the key: the server exits with code 2 if only one is set or a file is missing, unreadable or mismatched. A shared `.env` that sets only this for the client CA bundle will stop the server |
+| `VPN_SENTINEL_TLS_KEY_PATH` | *(empty)* | Path to TLS private key file (enables HTTPS). Required together with the certificate path (exit code 2 otherwise) |
 | `VPN_SENTINEL_LOG_FILE` | `/tmp/vpn-sentinel-server.log` | Log file path. Set to `""` to disable file logging (stdout only) |
 | `VPN_SENTINEL_LOG_MAX_SIZE` | `10485760` | Maximum log file size in bytes (10 MB) before rotation |
 | `VPN_SENTINEL_LOG_MAX_BACKUPS` | `5` | Number of rotated backup files to keep (total ~60 MB max) |
