@@ -50,6 +50,11 @@ def get_cached_server_ip():
     return _server_public_ip
 
 
+def peek_cached_server_ip():
+    """Return the cached server IP (None if not fetched yet) WITHOUT triggering a lookup."""
+    return _server_public_ip
+
+
 # Get API path from environment
 API_PATH = os.getenv("VPN_SENTINEL_API_PATH", "/api/v1").strip("/")
 if not API_PATH.startswith("/"):

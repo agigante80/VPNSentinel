@@ -20,6 +20,7 @@
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
 - [Dashboard](#dashboard)
+- [Prometheus](#prometheus)
 - [Telegram Integration](#telegram-integration)
 - [Configuration](#configuration)
 - [Deployment Scenarios](#deployment-scenarios)
@@ -338,6 +339,33 @@ server {
 
 ---
 
+## Prometheus
+
+The health app (port 8081) serves Prometheus metrics at `GET /metrics`, in text exposition format 0.0.4. The endpoint is public like `/health`. It exposes client IDs as labels and never any IP address or geolocation. Set `VPN_SENTINEL_METRICS_ENABLED=false` to turn it off (it then returns 404).
+
+`VPN_SENTINEL_METRICS_ENABLED` is read on every request, unlike the dashboard toggle (read once at startup), so it takes effect without a restart in tests or when the process environment changes.
+
+| Metric | Meaning |
+|---|---|
+| `vpn_sentinel_up` | `1` while the server runs |
+| `vpn_sentinel_clients{status}` | Clients per status (`green`, `yellow`, `red`), all three always present |
+| `vpn_sentinel_client_status{client_id}` | `0` green, `1` yellow, `2` red |
+| `vpn_sentinel_client_last_keepalive_timestamp_seconds{client_id}` | Unix time of the last keepalive |
+| `vpn_sentinel_server_ip_known` | `1` when the cached server public IP is a real address (one `ipaddress.ip_address()` accepts) |
+
+Status is computed from the server IP cached by the first keepalive; a scrape never starts a lookup. While the server IP is unknown (not fetched yet, or the lookup failed) no `vpn_sentinel_client_status` sample is emitted and all `vpn_sentinel_clients` gauges are 0. Alert on `vpn_sentinel_server_ip_known == 0` to catch that blind spot. Series disappear when a client is evicted.
+
+```yaml
+scrape_configs:
+  - job_name: vpn-sentinel
+    static_configs:
+      - targets: ["vpn-sentinel-server:8081"]
+    # When the health listener uses TLS (shared TLS context, #130):
+    # scheme: https
+    # tls_config:
+    #   ca_file: /etc/prometheus/vpn-sentinel-ca.pem
+```
+
 ## Telegram Integration
 
 Receive instant notifications for all VPN events.
@@ -424,6 +452,7 @@ This is a critical security issue.
 | `VPN_SENTINEL_SERVER_HEALTH_PORT` | `8081` | Health check port |
 | `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | `8080` | Web dashboard port |
 | `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable/disable web dashboard |
+| `VPN_SENTINEL_METRICS_ENABLED` | `true` | Enable/disable the Prometheus `/metrics` endpoint on the health port (`false` returns 404) |
 | `VPN_SENTINEL_SERVER_ALLOWED_IPS` | *(empty)* | Comma-separated IP allowlist for API access (empty = allow all) |
 | `VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES` | `30` | Minutes of client inactivity before removing from dashboard |
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | *(auto)* | Telegram notifications: `true` (require credentials), `false` (disable), unset (auto-enable if credentials present) |
