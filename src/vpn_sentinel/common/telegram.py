@@ -2,6 +2,7 @@
 
 import requests
 import os
+import re
 import sys
 import threading
 import time
@@ -37,6 +38,29 @@ elif TELEGRAM_ENABLED_ENV == "false":
 else:
     # Auto-detect based on credentials presence
     TELEGRAM_ENABLED = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
+
+
+_TOKEN_SHAPE = re.compile(r"\d{5,}:[A-Za-z0-9_-]{30,}")
+REDACTED = "[REDACTED]"
+
+
+def redact_token(text: str) -> str:
+    """Replace Telegram bot tokens in ``text`` with ``[REDACTED]``.
+
+    ``requests`` exception text includes the request URL, and the bot token is part of that URL path
+    (``/bot<TOKEN>/sendMessage``), so any ``{e}`` log of a failed call would leak it. The configured token
+    is replaced first (exact and whitespace-stripped forms; skipped when empty, because replacing an
+    empty string would insert the marker between every character). The token-shape pattern then also
+    catches a percent-encoded variant and tokens from before a rotation. The marker has no angle
+    brackets so it stays visible wherever the text is rendered.
+    """
+    text = str(text)
+    token = TELEGRAM_BOT_TOKEN or ""
+    for candidate in (token, token.strip()):
+        if candidate:
+            text = text.replace(candidate, REDACTED)
+    return _TOKEN_SHAPE.sub(REDACTED, text)
+
 
 # Track message offset for polling
 _last_update_id = 0
@@ -150,7 +174,7 @@ def send_telegram_message(message: str, silent: bool = False) -> bool:
             log_error("telegram", f"❌ Giving up on Telegram notification: {preview}...")
             return False
         except Exception as e:
-            log_error("telegram", f"❌ Error sending message: {e}")
+            log_error("telegram", f"❌ Error sending message: {redact_token(str(e))}")
             log_error("telegram", f"❌ Giving up on Telegram notification: {preview}...")
             return False
 
@@ -551,7 +575,7 @@ def get_updates(offset: int = 0) -> list:
             log_error("telegram", f"❌ Failed to get updates: HTTP {response.status_code}")
             return []
     except Exception as e:
-        log_error("telegram", f"❌ Error getting updates: {e}")
+        log_error("telegram", f"❌ Error getting updates: {redact_token(str(e))}")
         return []
 
 
@@ -627,7 +651,7 @@ def polling_loop() -> None:
             time.sleep(1)  # Brief pause between polling cycles
 
         except Exception as e:
-            log_error("telegram", f"❌ Error in polling loop: {e}")
+            log_error("telegram", f"❌ Error in polling loop: {redact_token(str(e))}")
             time.sleep(5)  # Longer pause on error
 
 
