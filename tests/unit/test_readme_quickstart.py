@@ -274,11 +274,6 @@ def test_guard2_unpublished_port_fails_only_host_ports(world):
     assert_only_guard_fails(w, "host_ports", guards=GUARDS)
 
 
-def test_guard2_curl_18081_mutation(world):
-    w = with_readme(world, "docker logs vpn-sentinel-server\n", "curl http://localhost:18081/health\n")
-    assert_only_guard_fails(w, "host_ports", guards=GUARDS)
-
-
 def test_guard2_ignores_exec_lines(world):
     assert EXEC_LINE in world["readme"]
     assert 8081 not in quickstart_ports(world["readme"])

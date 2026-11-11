@@ -161,7 +161,13 @@ def sanitize_client_id(client_id):
 
 ### Docker Secrets
 
-**Production Setup**:
+> **Not supported yet:** VPNSentinel does not read `*_FILE` variables. With the example below,
+> `VPN_SENTINEL_API_KEY` and `TELEGRAM_BOT_TOKEN` stay empty, so the API key check is off and
+> Telegram is silently disabled. Until `_FILE` support lands, pass the values as
+> `VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}` and `TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}`
+> from an `.env` file with restricted permissions. The example shows the intended shape.
+
+**Production Setup (target shape)**:
 ```yaml
 services:
   vpn-sentinel-server:
