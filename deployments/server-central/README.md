@@ -32,7 +32,7 @@ This server-only deployment is perfect for:
    
    # Set up Telegram notifications
    TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
-   VPN_SENTINEL_TELEGRAM_CHAT_ID=your_chat_id
+   TELEGRAM_CHAT_ID=your_chat_id
    ```
 
 3. **Start the server:**
@@ -57,7 +57,7 @@ VPN_SENTINEL_API_KEY=your_secure_64_character_api_key_here
 
 # Telegram Notifications (HIGHLY RECOMMENDED)  
 TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrSTUvwxyz
-VPN_SENTINEL_TELEGRAM_CHAT_ID=123456789
+TELEGRAM_CHAT_ID=123456789
 
 # Server Port
 VPN_SENTINEL_SERVER_PORT=5000
@@ -189,7 +189,7 @@ VPN_SENTINEL_SERVER_PORT=5001
 
 #### Telegram notifications not working
 - Verify `TELEGRAM_BOT_TOKEN` is correct (from @BotFather)
-- Check `VPN_SENTINEL_TELEGRAM_CHAT_ID` (from @userinfobot)
+- Check `TELEGRAM_CHAT_ID` (from @userinfobot)
 - Send `/start` to your bot in Telegram
 
 ## 📈 Scaling & Performance

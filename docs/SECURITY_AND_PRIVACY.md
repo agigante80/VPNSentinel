@@ -147,8 +147,8 @@ def sanitize_client_id(client_id):
 
 **Critical Secrets**:
 - `VPN_SENTINEL_API_KEY` - API authentication
-- `VPN_SENTINEL_TELEGRAM_TOKEN` - Bot token
-- `VPN_SENTINEL_TELEGRAM_CHAT_ID` - Chat identifier
+- `TELEGRAM_BOT_TOKEN` - Bot token
+- `TELEGRAM_CHAT_ID` - Chat identifier
 - `IPINFO_API_TOKEN` - Geolocation API token
 
 **Best Practices**:
@@ -170,7 +170,7 @@ services:
       - telegram_token
     environment:
       - VPN_SENTINEL_API_KEY_FILE=/run/secrets/vpn_sentinel_api_key
-      - VPN_SENTINEL_TELEGRAM_TOKEN_FILE=/run/secrets/telegram_token
+      - TELEGRAM_BOT_TOKEN_FILE=/run/secrets/telegram_token
 
 secrets:
   vpn_sentinel_api_key:
@@ -185,7 +185,7 @@ secrets:
 ```bash
 # .env (NEVER commit this file)
 VPN_SENTINEL_API_KEY=dev-key-only
-VPN_SENTINEL_TELEGRAM_TOKEN=123456:ABC-DEF
+TELEGRAM_BOT_TOKEN=123456:ABC-DEF
 ```
 
 **Add to .gitignore**:

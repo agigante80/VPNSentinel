@@ -309,8 +309,8 @@ vpn-sentinel-client:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `VPN_SENTINEL_TELEGRAM_TOKEN` | `""` | Bot token from @BotFather |
-| `VPN_SENTINEL_TELEGRAM_CHAT_ID` | `""` | Target chat/user ID |
+| `TELEGRAM_BOT_TOKEN` | `""` | Bot token from @BotFather |
+| `TELEGRAM_CHAT_ID` | `""` | Target chat/user ID |
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | `false` | Enable Telegram notifications |
 
 #### Client Configuration

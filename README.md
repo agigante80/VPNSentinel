@@ -228,18 +228,23 @@ cp .env.example .env
 **Minimum Required Configuration:**
 
 ```env
-# API Key for client-server authentication
+# VPN provider and account (used by the gluetun container)
+VPN_SERVICE_PROVIDER=privatevpn
+VPN_USER=your_vpn_username_here
+VPN_PASSWORD=your_vpn_password_here
+
+# API Key for client-server authentication (generate with: openssl rand -hex 32)
 VPN_SENTINEL_API_KEY=your-secure-api-key-here
 
-# Telegram (optional but recommended)
-VPN_SENTINEL_TELEGRAM_BOT_TOKEN=your-telegram-bot-token
-VPN_SENTINEL_TELEGRAM_CHAT_ID=your-chat-id
+# Telegram (optional but recommended; alerts are enabled when both are set)
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+TELEGRAM_CHAT_ID=your-chat-id
 ```
 
 ### 3. Start with Docker Compose
 
 ```bash
-# All-in-one deployment (server + client + VPN)
+# All-in-one deployment: server + gluetun VPN + client (the client runs inside the VPN's network)
 docker compose up -d
 
 # Or server only (if clients are remote)
@@ -249,11 +254,16 @@ docker compose up -d vpn-sentinel-server
 ### 4. Verify Deployment
 
 ```bash
-# Check server health
-curl http://localhost:18081/health
+# Container status. With a working VPN configuration, vpn-client (gluetun) and
+# vpn-sentinel-server report "healthy". If vpn-client stays unhealthy, check your
+# VPN_* settings and its logs: the client runs inside its network and cannot report without it.
+docker compose ps
 
-# View dashboard
-open http://localhost:18080/dashboard
+# Server health (port 8081 is internal, so run the check inside the container)
+docker compose exec vpn-sentinel-server wget -qO- http://127.0.0.1:8081/health
+
+# Dashboard: open http://localhost:18080/dashboard in your browser
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:18080/dashboard
 
 # Check logs
 docker logs vpn-sentinel-server
@@ -348,8 +358,8 @@ Receive instant notifications for all VPN events.
 
 3. **Configure VPN Sentinel**
    ```env
-   VPN_SENTINEL_TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
-   VPN_SENTINEL_TELEGRAM_CHAT_ID=123456789
+   TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+   TELEGRAM_CHAT_ID=123456789
    VPN_SENTINEL_TELEGRAM_ENABLED=true
    ```
 

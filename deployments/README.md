@@ -178,7 +178,7 @@ VPN_SENTINEL_API_KEY=your_secure_api_key
 
 # Telegram Notifications
 TELEGRAM_BOT_TOKEN=your_bot_token
-VPN_SENTINEL_TELEGRAM_CHAT_ID=your_chat_id
+TELEGRAM_CHAT_ID=your_chat_id
 ```
 
 ### Security Best Practices
