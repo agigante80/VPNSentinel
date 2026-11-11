@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Callable, List, Tuple
 from .log_utils import log_info, log_error, log_warn
 from .config import read_secret
+from . import notifications
 from .country_codes import compare_country_codes
 
 # Read configuration
@@ -195,7 +196,7 @@ Started at: {format_datetime()}
 📊 Send /status for detailed VPN status
 ❓ Send /help for all commands"""
 
-    return send_telegram_message(message)
+    return notifications.notify("VPN Keepalive Server Started", message)
 
 
 def notify_no_clients() -> bool:
@@ -211,7 +212,7 @@ Time: {format_datetime()}
 
 💡 This alert will not repeat until a client connects and disconnects again."""
 
-    return send_telegram_message(message)
+    return notifications.notify("No VPN Clients Connected", message)
 
 
 def _silent_client_line(client_id: str, minutes_silent: int) -> str:
@@ -340,11 +341,12 @@ Last seen: {minutes_silent} minutes ago
 Time: {format_datetime()}
 
 ⚠️ Check that the client container and its VPN connection are still up."""
-        return send_telegram_message(message)
+        return notifications.notify("Client Went Silent", message)
 
     all_sent = True
+    title = f"{len(clients)} Clients Went Silent"
     for message in _chunk_silent_clients_messages(clients):
-        if not send_telegram_message(message):
+        if not notifications.notify(title, message):
             all_sent = False
     return all_sent
 
@@ -428,7 +430,7 @@ DNS Location: {dns_loc}
 DNS Server: {dns_colo}
 {dns_status}"""
 
-    return send_telegram_message(message)
+    return notifications.notify("VPN Connected!", message)
 
 
 def notify_ip_changed(
@@ -511,7 +513,7 @@ DNS Location: {dns_loc}
 DNS Server: {dns_colo}
 {dns_status}"""
 
-    return send_telegram_message(message)
+    return notifications.notify("VPN IP Changed!", message)
 
 
 def register_command(command: str, handler: Callable) -> None:

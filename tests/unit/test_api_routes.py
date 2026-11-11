@@ -292,3 +292,81 @@ class TestApiPath:
         # Should be /api/v1 or custom from VPN_SENTINEL_API_PATH env var
         assert API_PATH.startswith("/")
         assert len(API_PATH) > 1
+
+
+class TestKeepaliveWithApprise:
+    """Apprise targets never delay or reach the keepalive path wrongly (#142)."""
+
+    PAYLOAD = {
+        "client_id": "test-client",
+        "public_ip": "91.203.5.146",
+        "city": "London",
+        "region": "England",
+        "country": "GB",
+        "provider": "M247 Ltd",
+        "timezone": "Europe/London",
+        "dns_loc": "GB",
+        "dns_colo": "LHR",
+    }
+
+    @patch("vpn_sentinel.common.api_routes.get_cached_server_ip", return_value="79.116.8.43")
+    def test_blackholed_target_does_not_delay_a_new_client_keepalive(
+        self, _server_ip, client, clear_client_data, monkeypatch
+    ):
+        import threading
+        import time
+        from vpn_sentinel.common import notifications, telegram
+
+        release = threading.Event()
+        started = threading.Event()
+
+        def blackhole(targets, title, body):
+            started.set()
+            release.wait(30)
+            return None
+
+        monkeypatch.setenv("VPN_SENTINEL_APPRISE_URLS", "json://blackhole.invalid/x")
+        try:
+            with (
+                patch.object(telegram, "TELEGRAM_ENABLED", False),
+                patch.object(notifications, "_apprise_send", side_effect=blackhole),
+            ):
+                begin = time.monotonic()
+                response = client.post("/api/v1/keepalive", json=self.PAYLOAD)
+                elapsed = time.monotonic() - begin
+                assert response.status_code == 200
+                assert elapsed < 2.0
+                assert started.wait(5)
+        finally:
+            release.set()
+
+    @patch("vpn_sentinel.common.api_routes.get_cached_server_ip", return_value="79.116.8.43")
+    def test_hostile_client_id_is_rejected_before_any_apprise_call(
+        self, _server_ip, client, clear_client_data, monkeypatch
+    ):
+        from vpn_sentinel.common import notifications
+
+        monkeypatch.setenv("VPN_SENTINEL_APPRISE_URLS", "json://h/x")
+        with patch.object(notifications, "_apprise_send") as send:
+            response = client.post("/api/v1/keepalive", json=dict(self.PAYLOAD, client_id="<script>"))
+            assert notifications.flush() is True
+        assert response.status_code == 400
+        assert "Invalid client_id format" in response.get_data(as_text=True)
+        send.assert_not_called()
+
+    @patch("vpn_sentinel.common.api_routes.get_cached_server_ip", return_value="79.116.8.43")
+    def test_new_client_alert_is_sent_outside_client_status_lock(self, _server_ip, client, clear_client_data):
+        from vpn_sentinel.common import api_routes, notifications
+
+        seen = []
+
+        def fake_notify(title, body):
+            free = api_routes.client_status_lock.acquire(blocking=False)
+            if free:
+                api_routes.client_status_lock.release()
+            seen.append(free)
+            return True
+
+        with patch.object(notifications, "notify", side_effect=fake_notify):
+            assert client.post("/api/v1/keepalive", json=self.PAYLOAD).status_code == 200
+        assert seen == [True]

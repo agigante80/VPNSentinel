@@ -12,6 +12,10 @@ authors = [ { name = "agigante80" } ]
 license = { text = "MIT" }
 dependencies = ["requests>=2.34.2", "prometheus_client>=0.26,<1"]
 
+[project.optional-dependencies]
+# Extra alert targets (ntfy, Gotify, Discord, email, ...). Installed by the server image only.
+notify = ["apprise>=2.2,<3"]
+
 [project.scripts]
 vpn-sentinel-server = "vpn_sentinel.server.__main__:main"
 vpn-sentinel-client = "vpn_sentinel.client.__main__:main"

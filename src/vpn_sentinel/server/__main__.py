@@ -13,7 +13,7 @@ from vpn_sentinel.common import metrics
 from vpn_sentinel.common.log_utils import log_error, log_info
 from vpn_sentinel.common.server_utils import run_flask_app, get_port_config, validate_tls_config
 from vpn_sentinel.common.version import get_version, get_commit_hash
-from vpn_sentinel.common import telegram, telegram_commands
+from vpn_sentinel.common import notifications, telegram, telegram_commands
 from vpn_sentinel.common.api_routes import cleanup_stale_clients
 
 
@@ -35,15 +35,26 @@ def main():
         log_error("server", str(e))
         sys.exit(2)
 
-    # Initialize Telegram bot
+    # Apprise targets are optional; a bad *_FILE secret is fatal like every other secret (one config line).
+    try:
+        apprise_configured = bool(notifications._apprise_targets())
+    except ValueError as e:
+        log_error("config", str(e))
+        sys.exit(1)
+
+    # Initialize Telegram bot (commands and polling need Telegram; Apprise is send-only)
     if telegram.TELEGRAM_ENABLED:
         log_info("telegram", "🤖 Telegram bot is enabled")
         telegram_commands.register_all_commands()
         telegram.start_polling()
-        # Send startup notification
-        telegram.notify_server_started(alert_threshold_min=15, check_interval_min=5)
     else:
         log_info("telegram", "⚠️ Telegram bot is disabled (no credentials configured)")
+    if apprise_configured:
+        log_info("notify", "Apprise alert targets configured")
+
+    # Startup notification goes to whichever channel is configured
+    if telegram.TELEGRAM_ENABLED or apprise_configured:
+        telegram.notify_server_started(alert_threshold_min=15, check_interval_min=5)
 
     # Get port configuration from environment
     ports = get_port_config()

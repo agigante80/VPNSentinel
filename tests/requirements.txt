@@ -12,6 +12,9 @@ requests-mock>=1.12.1
 pytest-httpserver>=1.2.0
 requests>=2.34.2
 
+# Optional alert targets (the `notify` extra of the package; the unit tests exercise it)
+apprise>=2.2,<3
+
 # Flask testing
 pytest-flask>=1.3.0
 
