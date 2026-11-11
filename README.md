@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/images/icon-256.png" alt="VPN Sentinel icon" width="128"></p>
+
 # VPN Sentinel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -18,6 +20,7 @@
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
 - [Dashboard](#dashboard)
+- [Prometheus](#prometheus)
 - [Telegram Integration](#telegram-integration)
 - [Configuration](#configuration)
 - [Deployment Scenarios](#deployment-scenarios)
@@ -228,18 +231,23 @@ cp .env.example .env
 **Minimum Required Configuration:**
 
 ```env
-# API Key for client-server authentication
+# VPN provider and account (used by the gluetun container)
+VPN_SERVICE_PROVIDER=privatevpn
+VPN_USER=your_vpn_username_here
+VPN_PASSWORD=your_vpn_password_here
+
+# API Key for client-server authentication (generate with: openssl rand -hex 32)
 VPN_SENTINEL_API_KEY=your-secure-api-key-here
 
-# Telegram (optional but recommended)
-VPN_SENTINEL_TELEGRAM_BOT_TOKEN=your-telegram-bot-token
-VPN_SENTINEL_TELEGRAM_CHAT_ID=your-chat-id
+# Telegram (optional but recommended; alerts are enabled when both are set)
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+TELEGRAM_CHAT_ID=your-chat-id
 ```
 
 ### 3. Start with Docker Compose
 
 ```bash
-# All-in-one deployment (server + client + VPN)
+# All-in-one deployment: server + gluetun VPN + client (the client runs inside the VPN's network)
 docker compose up -d
 
 # Or server only (if clients are remote)
@@ -249,11 +257,16 @@ docker compose up -d vpn-sentinel-server
 ### 4. Verify Deployment
 
 ```bash
-# Check server health
-curl http://localhost:18081/health
+# Container status. With a working VPN configuration, vpn-client (gluetun) and
+# vpn-sentinel-server report "healthy". If vpn-client stays unhealthy, check your
+# VPN_* settings and its logs: the client runs inside its network and cannot report without it.
+docker compose ps
 
-# View dashboard
-open http://localhost:18080/dashboard
+# Server health (port 8081 is internal, so run the check inside the container)
+docker compose exec vpn-sentinel-server wget -qO- http://127.0.0.1:8081/health
+
+# Dashboard: open http://localhost:18080/dashboard in your browser
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:18080/dashboard
 
 # Check logs
 docker logs vpn-sentinel-server
@@ -326,6 +339,33 @@ server {
 
 ---
 
+## Prometheus
+
+The health app (port 8081) serves Prometheus metrics at `GET /metrics`, in text exposition format 0.0.4. The endpoint is public like `/health`. It exposes client IDs as labels and never any IP address or geolocation. Set `VPN_SENTINEL_METRICS_ENABLED=false` to turn it off (it then returns 404).
+
+`VPN_SENTINEL_METRICS_ENABLED` is read on every request, unlike the dashboard toggle (read once at startup), so it takes effect without a restart in tests or when the process environment changes.
+
+| Metric | Meaning |
+|---|---|
+| `vpn_sentinel_up` | `1` while the server runs |
+| `vpn_sentinel_clients{status}` | Clients per status (`green`, `yellow`, `red`), all three always present |
+| `vpn_sentinel_client_status{client_id}` | `0` green, `1` yellow, `2` red |
+| `vpn_sentinel_client_last_keepalive_timestamp_seconds{client_id}` | Unix time of the last keepalive |
+| `vpn_sentinel_server_ip_known` | `1` when the cached server public IP is a real address (one `ipaddress.ip_address()` accepts) |
+
+Status is computed from the server IP cached by the first keepalive; a scrape never starts a lookup. While the server IP is unknown (not fetched yet, or the lookup failed) no `vpn_sentinel_client_status` sample is emitted and all `vpn_sentinel_clients` gauges are 0. Alert on `vpn_sentinel_server_ip_known == 0` to catch that blind spot. Series disappear when a client is evicted.
+
+```yaml
+scrape_configs:
+  - job_name: vpn-sentinel
+    static_configs:
+      - targets: ["vpn-sentinel-server:8081"]
+    # When the health listener uses TLS (shared TLS context, #130):
+    # scheme: https
+    # tls_config:
+    #   ca_file: /etc/prometheus/vpn-sentinel-ca.pem
+```
+
 ## Telegram Integration
 
 Receive instant notifications for all VPN events.
@@ -348,8 +388,8 @@ Receive instant notifications for all VPN events.
 
 3. **Configure VPN Sentinel**
    ```env
-   VPN_SENTINEL_TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
-   VPN_SENTINEL_TELEGRAM_CHAT_ID=123456789
+   TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+   TELEGRAM_CHAT_ID=123456789
    VPN_SENTINEL_TELEGRAM_ENABLED=true
    ```
 
@@ -412,13 +452,14 @@ This is a critical security issue.
 | `VPN_SENTINEL_SERVER_HEALTH_PORT` | `8081` | Health check port |
 | `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | `8080` | Web dashboard port |
 | `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable/disable web dashboard |
+| `VPN_SENTINEL_METRICS_ENABLED` | `true` | Enable/disable the Prometheus `/metrics` endpoint on the health port (`false` returns 404) |
 | `VPN_SENTINEL_SERVER_ALLOWED_IPS` | *(empty)* | Comma-separated IP allowlist for API access (empty = allow all) |
 | `VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES` | `30` | Minutes of client inactivity before removing from dashboard |
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | *(auto)* | Telegram notifications: `true` (require credentials), `false` (disable), unset (auto-enable if credentials present) |
 | `TELEGRAM_BOT_TOKEN` | - | Telegram bot token (required if TELEGRAM_ENABLED=true) |
 | `TELEGRAM_CHAT_ID` | - | Telegram chat ID (required if TELEGRAM_ENABLED=true) |
-| `VPN_SENTINEL_TLS_CERT_PATH` | *(empty)* | Path to TLS certificate file (enables HTTPS) |
-| `VPN_SENTINEL_TLS_KEY_PATH` | *(empty)* | Path to TLS private key file (enables HTTPS) |
+| `VPN_SENTINEL_TLS_CERT_PATH` | *(empty)* | Path to TLS certificate file (enables HTTPS). Must be set together with the key: the server exits with code 2 if only one is set or a file is missing, unreadable or mismatched. A shared `.env` that sets only this for the client CA bundle will stop the server |
+| `VPN_SENTINEL_TLS_KEY_PATH` | *(empty)* | Path to TLS private key file (enables HTTPS). Required together with the certificate path (exit code 2 otherwise) |
 | `VPN_SENTINEL_LOG_FILE` | `/tmp/vpn-sentinel-server.log` | Log file path. Set to `""` to disable file logging (stdout only) |
 | `VPN_SENTINEL_LOG_MAX_SIZE` | `10485760` | Maximum log file size in bytes (10 MB) before rotation |
 | `VPN_SENTINEL_LOG_MAX_BACKUPS` | `5` | Number of rotated backup files to keep (total ~60 MB max) |
@@ -613,6 +654,8 @@ When `VPN_SENTINEL_CLIENT_ID` is not set, the system auto-generates a unique ide
 ---
 
 ## Deployment Scenarios
+
+**Install on Unraid:** see [Unraid](deployments/README.md#-unraid) for the Community Applications templates in `unraid/`.
 
 ### Scenario 1: All-in-One (Server + Client + VPN)
 

@@ -443,3 +443,57 @@ class TestLogsEndpoint:
                 assert b"lines" in response.data.lower() or b"bytes" in response.data.lower()
         finally:
             os.unlink(temp_path)
+
+
+class TestFavicon:
+    """Project icon routes (issue #134): public, GET-only static assets on dashboard_app."""
+
+    def test_favicon_ico_serves_png(self, client):
+        response = client.get("/favicon.ico")
+        assert response.status_code == 200
+        assert response.content_type == "image/png"
+        assert response.data.startswith(b"\x89PNG\r\n\x1a\n")
+
+    def test_favicon_svg_serves_svg(self, client):
+        response = client.get("/favicon.svg")
+        assert response.status_code == 200
+        assert response.content_type.startswith("image/svg+xml")
+        assert b"<svg" in response.data
+
+    def test_favicon_rejects_post(self, client):
+        assert client.post("/favicon.ico").status_code == 405
+        assert client.post("/favicon.svg").status_code == 405
+
+    def test_dashboard_page_links_icon(self, client):
+        html = client.get("/dashboard").get_data(as_text=True)
+        assert 'rel="icon"' in html
+        assert 'href="/favicon.svg"' in html
+        assert 'href="/favicon.ico"' in html
+
+    def test_logs_page_links_icon(self, client):
+        html = client.get("/logs").get_data(as_text=True)
+        assert 'rel="icon"' in html
+        assert 'href="/favicon.svg"' in html
+        assert 'href="/favicon.ico"' in html
+
+
+class TestStaticRouteDisabled:
+    """Creating common/static/ must not expose Flask's default /static route on the other apps."""
+
+    def test_health_app_has_no_static_route(self):
+        from vpn_sentinel.common.server import health_app
+
+        response = health_app.test_client().get("/static/favicon.svg")
+        assert response.status_code == 404
+
+    def test_api_app_has_no_static_route(self):
+        from vpn_sentinel.common.server import api_app
+
+        assert not [r for r in api_app.url_map.iter_rules() if r.rule.startswith("/static")]
+
+    def test_dashboard_app_has_no_static_route(self):
+        """The icon is served only at /favicon.*, never at a second /static path."""
+        from vpn_sentinel.common.server import dashboard_app
+
+        assert not [r for r in dashboard_app.url_map.iter_rules() if r.rule.startswith("/static")]
+        assert dashboard_app.test_client().get("/static/favicon.svg").status_code == 404

@@ -185,7 +185,8 @@ LABEL maintainer="VPN Sentinel Project" \
       version="1.0" \
       license="MIT" \
       purpose="vpn-monitoring" \
-      usage="docker run --network=container:your-vpn-container vpn-sentinel/client" \
+      net.unraid.docker.icon="https://raw.githubusercontent.com/agigante80/VPNSentinel/main/docs/images/icon-256.png" \
+      usage="docker run --network=container:your-vpn-container agigante80/vpn-sentinel-client" \
       org.opencontainers.image.title="VPN Sentinel Client" \
       org.opencontainers.image.description="VPN monitoring client that runs inside VPN containers to detect DNS leaks and monitor connection health. Sends status updates to VPN Sentinel Server." \
       org.opencontainers.image.vendor="VPN Sentinel Project" \

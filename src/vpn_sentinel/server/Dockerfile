@@ -73,6 +73,15 @@ ENV PATH="/home/vpnuser/.local/bin:$PATH"
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD sh -c 'health_port=${VPN_SENTINEL_SERVER_HEALTH_PORT:-8081}; wget -q -O - http://127.0.0.1:$health_port/health || exit 1'
 
+# Image metadata. net.unraid.docker.webui is the dashboard link Unraid shows; it must equal the
+# WebUI of unraid/vpn-sentinel-server.xml (tests/unit/test_unraid_templates.py). The icon label points at docs/images/icon-256.png on main (#134).
+LABEL net.unraid.docker.icon="https://raw.githubusercontent.com/agigante80/VPNSentinel/main/docs/images/icon-256.png" \
+      net.unraid.docker.webui="http://[IP]:[PORT:8080]/dashboard" \
+      org.opencontainers.image.title="VPN Sentinel Server" \
+      org.opencontainers.image.description="VPN Sentinel server: collects client keepalives, shows the traffic-light dashboard and sends Telegram alerts." \
+      org.opencontainers.image.source="https://github.com/agigante80/VPNSentinel" \
+      org.opencontainers.image.licenses="MIT"
+
 # Default command - run the server
 CMD ["python", "-m", "vpn_sentinel.server"]
 

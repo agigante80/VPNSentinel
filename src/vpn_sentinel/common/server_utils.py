@@ -7,10 +7,65 @@ import os
 import ssl
 import sys
 from werkzeug.serving import make_server
-from .log_utils import log_info
+from .log_utils import log_error, log_info
 
 
-def run_flask_app(app, port: int, name: str, host: str = "0.0.0.0") -> None:
+def validate_tls_config(cert_path, key_path):
+    """Validate the server TLS configuration and build an SSL context.
+
+    Fails closed: when either path is set, both must be set, exist, be readable
+    and load as a matching pair. There is no fallback to plain HTTP.
+
+    Args:
+        cert_path: Value of VPN_SENTINEL_TLS_CERT_PATH (empty or None when unset)
+        key_path: Value of VPN_SENTINEL_TLS_KEY_PATH (empty or None when unset)
+
+    Returns:
+        A ready ssl.SSLContext, or None when neither path is set (plain HTTP).
+
+    Raises:
+        ValueError: With a specific message naming the env var at fault.
+    """
+    cert_path = cert_path or ""
+    key_path = key_path or ""
+    if not cert_path and not key_path:
+        return None
+
+    if cert_path and not key_path:
+        raise ValueError(
+            "VPN_SENTINEL_TLS_CERT_PATH is set but VPN_SENTINEL_TLS_KEY_PATH is not: the server needs both. "
+            "If this is a shared .env where the cert is only a client CA bundle, move it to the client's environment"
+        )
+    if key_path and not cert_path:
+        raise ValueError(
+            "VPN_SENTINEL_TLS_KEY_PATH is set but VPN_SENTINEL_TLS_CERT_PATH is not: the server needs both"
+        )
+
+    checks = (
+        ("certificate", cert_path, "VPN_SENTINEL_TLS_CERT_PATH"),
+        ("key", key_path, "VPN_SENTINEL_TLS_KEY_PATH"),
+    )
+    for label, path, var in checks:
+        if not os.path.exists(path):
+            raise ValueError(f"TLS {label} not found: {path} ({var})")
+        if not os.path.isfile(path):
+            # Usually a bind mount Docker created as a directory because the host file was missing
+            raise ValueError(f"TLS {label} is not a file: {path} ({var})")
+        if not os.access(path, os.R_OK):
+            raise ValueError(f"TLS {label} not readable: {path} ({var})")
+
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    try:
+        context.load_cert_chain(cert_path, key_path)
+    except (ssl.SSLError, OSError) as e:
+        raise ValueError(
+            f"TLS could not load certificate/key pair ({cert_path}, {key_path}): {e}. "
+            "Check VPN_SENTINEL_TLS_CERT_PATH and VPN_SENTINEL_TLS_KEY_PATH match"
+        ) from e
+    return context
+
+
+def run_flask_app(app, port: int, name: str, host: str = "0.0.0.0", ssl_context=None) -> None:
     """Run a Flask app on the specified port with optional TLS.
 
     Args:
@@ -18,10 +73,7 @@ def run_flask_app(app, port: int, name: str, host: str = "0.0.0.0") -> None:
         port: Port number to bind to
         name: Human-readable name for logging
         host: Host address to bind to (default: 0.0.0.0)
-
-    Environment Variables:
-        VPN_SENTINEL_TLS_CERT_PATH: Path to TLS certificate file
-        VPN_SENTINEL_TLS_KEY_PATH: Path to TLS private key file
+        ssl_context: Pre-validated SSL context from validate_tls_config (None = plain HTTP)
 
     Raises:
         SystemExit: If server fails to start
@@ -96,14 +148,7 @@ def run_flask_app(app, port: int, name: str, host: str = "0.0.0.0") -> None:
         # Disable the default Werkzeug logger to prevent duplicate logs
         logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
-        # Check for TLS configuration
-        tls_cert_path = os.getenv("VPN_SENTINEL_TLS_CERT_PATH", "")
-        tls_key_path = os.getenv("VPN_SENTINEL_TLS_KEY_PATH", "")
-
-        if tls_cert_path and tls_key_path:
-            # Create SSL context for HTTPS
-            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-            ssl_context.load_cert_chain(tls_cert_path, tls_key_path)
+        if ssl_context is not None:
             server = make_server(
                 host, port, app, threaded=True, ssl_context=ssl_context, request_handler=CustomRequestHandler
             )
@@ -115,7 +160,9 @@ def run_flask_app(app, port: int, name: str, host: str = "0.0.0.0") -> None:
         server.serve_forever()
 
     except Exception as e:
-        log_info("server", f"❌ Error starting {name}: {e}")
+        # Error level so log alerting sees the cause; the caller (server main) turns
+        # the SystemExit into a process exit, after recording which listener died.
+        log_error("server", f"❌ Error starting {name}: {e}")
         sys.exit(1)
 
 

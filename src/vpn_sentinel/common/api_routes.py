@@ -1,6 +1,8 @@
 """API server routes for VPN Sentinel."""
 
+import ipaddress
 import threading
+import time
 
 from .server import api_app
 from .log_utils import log_info, log_warn, log_error
@@ -42,11 +44,35 @@ _server_public_ip = None
 CLIENT_TIMEOUT_MINUTES = int(os.getenv("VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES", "30"))
 
 
+# A failed lookup caches "Unknown"; retry it at most this often instead of never (a startup without
+# internet used to blind the bypass check and /metrics for the whole process lifetime), but not on
+# every keepalive either, because a lookup can block the request for up to two 10 s timeouts.
+SERVER_IP_RETRY_SECONDS = 300
+_server_ip_fetched_at = 0.0
+
+
+def _is_real_ip(value):
+    try:
+        ipaddress.ip_address(str(value))
+        return True
+    except ValueError:
+        return False
+
+
 def get_cached_server_ip():
-    """Get server's public IP (cached)."""
-    global _server_public_ip
-    if _server_public_ip is None:
+    """Get server's public IP (cached; a failed lookup is retried after SERVER_IP_RETRY_SECONDS)."""
+    global _server_public_ip, _server_ip_fetched_at
+    now = time.monotonic()
+    if _server_public_ip is None or (
+        not _is_real_ip(_server_public_ip) and now - _server_ip_fetched_at >= SERVER_IP_RETRY_SECONDS
+    ):
         _server_public_ip = get_server_public_ip()
+        _server_ip_fetched_at = now
+    return _server_public_ip
+
+
+def peek_cached_server_ip():
+    """Return the cached server IP (None if not fetched yet) WITHOUT triggering a lookup."""
     return _server_public_ip
 
 

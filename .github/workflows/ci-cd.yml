@@ -135,6 +135,18 @@ jobs:
       - name: Lint shell scripts (shfmt + ShellCheck)
         run: scripts/lint-shell.sh
 
+      # Syntax and interpolation only: unset variables merely warn, so the env guard in
+      # tests/unit/test_compose_files.py (#132) is what proves every variable is defined.
+      # Compose reads .env from the first -f file's directory, so each file gets its own
+      # --env-file. The echo names the file because Compose's parse errors do not.
+      # Supersedes the v1 docker-compose loop in tests/run_tests.sh (left as is).
+      - name: Validate compose files
+        run: |
+          for f in compose.yaml deployments/*/compose.yaml; do
+            docker compose --env-file "$(dirname "$f")/.env.example" -f "$f" config --quiet \
+              || { echo "compose config failed: $f"; exit 1; }
+          done
+
   # ============================================================================
   # Stage 2: Unit Tests
   # ============================================================================
@@ -161,6 +173,9 @@ jobs:
           pip install -r tests/requirements.txt
 
       - name: Run unit tests
+        env:
+          # Makes the compose guards fail, not skip, if docker is ever missing (issue #129)
+          VPN_SENTINEL_REQUIRE_DOCKER: "1"
         run: |
           python -m pytest tests/unit/ \
             --verbose \
