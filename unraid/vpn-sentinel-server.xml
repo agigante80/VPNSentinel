@@ -9,7 +9,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/agigante80/VPNSentinel/issues</Support>
   <Project>https://github.com/agigante80/VPNSentinel</Project>
-  <Overview>VPNSentinel server: collects keepalives from VPNSentinel clients running inside your VPN containers, shows a traffic-light dashboard (green: routing through the VPN, yellow: DNS leaking, red: VPN bypass) and sends Telegram alerts. Set an API key and give the same key to every client. With an empty key the server runs with authentication disabled. Client status is kept in memory only: restarting this container forgets all clients until their next keepalive (every 60 seconds). To monitor a client, install vpn-sentinel-client next to your VPN container and point its server URL at this container's mapped API port.</Overview>
+  <Overview>VPNSentinel server: collects keepalives from VPNSentinel clients running inside your VPN containers, shows a traffic-light dashboard (green: routing through the VPN, yellow: DNS leaking, red: VPN bypass) and sends Telegram alerts. Set an API key and give the same key to every client. With an empty key the server runs with authentication disabled. Client status is kept in memory only: restarting this container forgets all clients until their next keepalive (every 5 minutes by default). To monitor a client, install vpn-sentinel-client next to your VPN container and point its server URL at this container's mapped API port.</Overview>
   <Icon>https://raw.githubusercontent.com/agigante80/VPNSentinel/main/docs/images/icon-256.png</Icon>
   <Category>Network:Management Tools:</Category>
   <WebUI>http://[IP]:[PORT:8080]/dashboard</WebUI>

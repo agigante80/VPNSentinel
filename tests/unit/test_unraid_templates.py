@@ -291,7 +291,7 @@ GUARDS = {
 }
 
 
-def assert_guard(errors_fn, subject, match=None):
+def assert_guard(errors_fn, subject):
     errors = errors_fn(subject)
     assert not errors, "; ".join(errors)
 
@@ -343,8 +343,9 @@ def test_server_webui_targets_the_dashboard_port_and_path():
     """8080 and /dashboard are what the server serves (server_utils.py, dashboard_routes.py)."""
     root = ET.fromstring(real_subject()[SERVER_XML])
     assert root.findtext("WebUI") == "http://[IP]:[PORT:8080]/dashboard"
-    ports = {c.get("Target") for c in root.iter("Config") if c.get("Type") == "Port"}
-    assert {"5000", "8080"} <= ports
+    ports = {c.get("Target"): (c.get("Default"), c.text) for c in root.iter("Config") if c.get("Type") == "Port"}
+    # Container ports the server listens on (server_utils.py defaults); host side defaults to the same.
+    assert ports == {"5000": ("5000", "5000"), "8080": ("8080", "8080"), "8081": ("8081", "8081")}
 
 
 def test_client_publishes_no_ports():
