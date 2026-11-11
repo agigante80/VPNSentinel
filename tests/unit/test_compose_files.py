@@ -285,23 +285,29 @@ def reachability_errors(cfg):
 
 
 VAR_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(:?[-+?=][^}]*)?\}")
+BARE_RE = re.compile(r"(?<!\$)\$([A-Za-z_]\w*)")
 
 
 def _live_lines(text):
-    """Lines with comments removed: whole-line comments and ` # ...` trailers."""
+    """Lines with comments removed: whole-line comments and ` # ...` trailers.
+    Known limit, deliberately accepted (review round 1, dropped): the trailer strip also cuts
+    a ` #` inside a quoted string, so a ${VAR} after one is not seen. No shipped file does this."""
     for line in text.splitlines():
         if not line.lstrip().startswith("#"):
             yield re.sub(r"\s#.*$", "", line)
 
 
 def required_vars(text):
-    """Variables a compose file needs defined: a bare ${VAR} or ${VAR:?msg} / ${VAR?msg}.
-    ${VAR:-x}, ${VAR-x}, ${VAR:+x}, ${VAR+x} carry their own value and are exempt."""
+    """Variables a compose file needs defined: a bare ${VAR} or $VAR, or ${VAR:?msg} / ${VAR?msg}.
+    ${VAR:-x}, ${VAR-x}, ${VAR:+x}, ${VAR+x} carry their own value and are exempt.
+    `$$` is Compose's escape for a literal `$`, so it is removed first: `$${VAR}` is not a variable."""
     found = set()
     for line in _live_lines(text):
+        line = line.replace("$$", "")
         for name, op in VAR_RE.findall(line):
             if not op or op.lstrip(":").startswith("?"):
                 found.add(name)
+        found.update(BARE_RE.findall(line))
     return found
 
 
@@ -311,9 +317,9 @@ def defined_vars(env_text):
 
 
 def env_errors(subject):
+    # A file with no required variable is valid. The selector's non-vacuity over the shipped
+    # files is asserted once, in test_env_selector_is_not_vacuous.
     needed = required_vars(subject.text)
-    if not needed:
-        return [f"{subject.rel} references no required ${{VAR}}: env selector matched nothing"]
     defined = defined_vars(subject.env_text)
     return [f"{subject.rel} references ${{{v}}} not defined in .env.example" for v in sorted(needed - defined)]
 
@@ -499,7 +505,7 @@ def test_guards_fail_on_vacuous_selectors():
     assert image_errors(empty)
     assert namespace_errors(empty)
     assert reachability_errors(empty)
-    assert env_errors(Compose(empty, "x.yaml", "services:\n  web:\n    image: nginx\n", ""))
+    assert env_errors(Compose(empty, "x.yaml", "services:\n  web:\n    image: nginx\n", "")) == []
 
 
 # ---------------------------------------------------------------------------------
@@ -555,6 +561,13 @@ def test_every_declared_network_is_joined(rel):
 def test_required_var_forms():
     text = "a: ${A}\nb: ${B:-x}\nc: ${C-x}\nd: ${D:?need}\ne: ${E:+x}\nf: ${F+x}\n"
     assert required_vars(text) == {"A", "D"}
+    assert required_vars("a: $${BAR}\n") == set()  # $$ is a literal dollar
+    assert required_vars("a: $FOO\n") == {"FOO"}  # bare form is required too
+    assert required_vars("a: $$FOO\nb: $${X} $Y\nc: $$$Z\n") == {"Y", "Z"}
+
+
+def test_env_guard_accepts_file_without_required_variables():
+    assert env_errors(Compose({}, "x.yaml", "services:\n  web:\n    image: nginx\n", "")) == []
 
 
 def test_env_guard_negative_undefined_variable(tmp_path):
@@ -570,13 +583,15 @@ def test_env_guard_negative_undefined_variable(tmp_path):
 def test_env_guard_negative_every_file(rel, tmp_path):
     subject = with_probe(rel, tmp_path, "${VPN_SENTINEL_DOES_NOT_EXIST}")
     assert env_errors(subject) == [f"{rel} references ${{VPN_SENTINEL_DOES_NOT_EXIST}} not defined in .env.example"]
+    # The namespace and reachability guards are scoped (outside their scope their selectors
+    # correctly find nothing and report so), so cross-check against the guards in scope for this
+    # file: image, env and network always, namespace and reachability by their pinned scopes.
+    applicable = {"image", "env", "network"}
+    if rel in NAMESPACE_SCOPE:
+        applicable.add("namespace")
     if rel in REACHABILITY_SCOPE:
-        assert_only_guard_fails(subject, "env", guards=GUARDS)
-    else:
-        # The namespace and reachability guards are scoped (their selectors correctly find no
-        # gluetun/server here and report so), so the all-guards cross-check applies only to the
-        # files in their scope. Outside it, check the guards that apply to every file.
-        assert image_errors(subject) == [] and network_errors(subject) == []
+        applicable.add("reachability")
+    assert_only_guard_fails(subject, "env", guards={n: g for n, g in GUARDS.items() if n in applicable})
 
 
 def test_env_guard_positive_default_is_exempt(tmp_path):
