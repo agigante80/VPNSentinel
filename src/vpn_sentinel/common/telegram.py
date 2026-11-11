@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 from datetime import datetime, timezone
+from urllib.parse import quote
 from typing import Optional, Dict, Callable, List, Tuple
 from .log_utils import log_info, log_error, log_warn
 from .config import read_secret
@@ -40,7 +41,8 @@ else:
     TELEGRAM_ENABLED = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
 
 
-_TOKEN_SHAPE = re.compile(r"\d{5,}:[A-Za-z0-9_-]{30,}")
+# The separator may arrive percent-encoded (%3A) when a proxy or wrapping library re-quotes the URL.
+_TOKEN_SHAPE = re.compile(r"\d{5,}(?::|%3[Aa])[A-Za-z0-9_-]{30,}")
 REDACTED = "[REDACTED]"
 
 
@@ -49,14 +51,14 @@ def redact_token(text: str) -> str:
 
     ``requests`` exception text includes the request URL, and the bot token is part of that URL path
     (``/bot<TOKEN>/sendMessage``), so any ``{e}`` log of a failed call would leak it. The configured token
-    is replaced first (exact and whitespace-stripped forms; skipped when empty, because replacing an
-    empty string would insert the marker between every character). The token-shape pattern then also
-    catches a percent-encoded variant and tokens from before a rotation. The marker has no angle
+    is replaced first (exact, whitespace-stripped and percent-encoded forms; skipped when empty, because
+    replacing an empty string would insert the marker between every character). The token-shape pattern
+    then also catches tokens from before a rotation, with the colon literal or encoded as %3A. The marker has no angle
     brackets so it stays visible wherever the text is rendered.
     """
     text = str(text)
     token = TELEGRAM_BOT_TOKEN or ""
-    for candidate in (token, token.strip()):
+    for candidate in (token, token.strip(), quote(token.strip(), safe="")):
         if candidate:
             text = text.replace(candidate, REDACTED)
     return _TOKEN_SHAPE.sub(REDACTED, text)

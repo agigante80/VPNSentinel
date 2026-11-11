@@ -26,7 +26,8 @@ COMPOSE = [
     os.path.join(TESTS_DIR, ".env.test"),
 ]
 SERVICE = "vpn-sentinel-server-test"
-LOG_FILE = "/tmp/vpn-sentinel-server.log"
+# Expanded by the container shell, so it follows the server's own setting and default (log_utils.py).
+LOG_FILE = '"${VPN_SENTINEL_LOG_FILE:-/tmp/vpn-sentinel-server.log}"'
 
 # Fabricated token in the real Telegram shape; never a live credential.
 TOKEN = "123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw"
@@ -67,7 +68,7 @@ def test_old_leaked_line_is_redacted_on_logs_page():
     finally:
         # Remove the line again so a later run on a reused container starts clean.
         _exec(
-            f"grep -v '{TOKEN_TAIL}' {LOG_FILE} > {LOG_FILE}.clean; cat {LOG_FILE}.clean > {LOG_FILE}; rm -f {LOG_FILE}.clean"
+            f"grep -v '{TOKEN_TAIL}' {LOG_FILE} > /tmp/redaction-e2e.clean; cat /tmp/redaction-e2e.clean > {LOG_FILE}; rm -f /tmp/redaction-e2e.clean"
         )
 
 

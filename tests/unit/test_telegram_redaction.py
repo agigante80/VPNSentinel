@@ -42,6 +42,16 @@ class TestRedactToken:
         assert "AAHdq" not in out
         assert "[REDACTED]" in out
 
+    def test_percent_encoded_colon_shape_with_empty_token(self):
+        encoded = REAL_SHAPE.replace(":", "%3A")
+        with patch("vpn_sentinel.common.telegram.TELEGRAM_BOT_TOKEN", ""):
+            out = telegram.redact_token(f"/bot{encoded}/sendMessage")
+        assert out == "/bot[REDACTED]/sendMessage"
+
+    def test_percent_encoded_configured_token(self):
+        with patch("vpn_sentinel.common.telegram.TELEGRAM_BOT_TOKEN", "123:S"):
+            assert telegram.redact_token("/bot123%3AS/x") == "/bot[REDACTED]/x"
+
     def test_non_string_is_coerced(self):
         with patch("vpn_sentinel.common.telegram.TELEGRAM_BOT_TOKEN", ""):
             assert telegram.redact_token(42) == "42"
