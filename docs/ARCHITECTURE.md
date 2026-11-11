@@ -80,7 +80,7 @@ External Services:
 - **Public Access**: No authentication required
 - **Endpoints**:
   - `GET /health` - Simple health check (returns "OK")
-  - `GET /healthz` - Kubernetes-style health check
+  - `GET /metrics` - Prometheus metrics (client IDs, status, last keepalive; no IPs or geolocation). Returns 404 when `VPN_SENTINEL_METRICS_ENABLED=false`
 
 #### c) Dashboard App (Port 8080)
 - **Web Interface**: Real-time client monitoring
@@ -303,14 +303,14 @@ vpn-sentinel-client:
 | `VPN_SENTINEL_SERVER_RATE_LIMIT` | `30` | Requests per minute |
 | `VPN_SENTINEL_SERVER_CHECK_INTERVAL` | `60` | Client check interval (seconds) |
 | `VPN_SENTINEL_SERVER_OFFLINE_THRESHOLD` | `300` | Offline after N seconds |
-| `VPN_SENTINEL_WEB_DASHBOARD_ENABLED` | `true` | Enable web dashboard |
+| `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable web dashboard |
 
 #### Telegram Configuration
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `VPN_SENTINEL_TELEGRAM_TOKEN` | `""` | Bot token from @BotFather |
-| `VPN_SENTINEL_TELEGRAM_CHAT_ID` | `""` | Target chat/user ID |
+| `TELEGRAM_BOT_TOKEN` | `""` | Bot token from @BotFather |
+| `TELEGRAM_CHAT_ID` | `""` | Target chat/user ID |
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | `false` | Enable Telegram notifications |
 
 #### Client Configuration

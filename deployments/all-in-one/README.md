@@ -47,7 +47,7 @@ VPN_SENTINEL_SERVER_PORT=5000
 
 # Telegram Notifications (highly recommended)
 TELEGRAM_BOT_TOKEN=your_bot_token
-VPN_SENTINEL_TELEGRAM_CHAT_ID=your_chat_id
+TELEGRAM_CHAT_ID=your_chat_id
 ```
 
 ### Optional Settings

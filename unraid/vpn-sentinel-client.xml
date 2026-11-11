@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>vpn-sentinel-client</Name>
+  <Repository>agigante80/vpn-sentinel-client:latest</Repository>
+  <Registry>https://hub.docker.com/r/agigante80/vpn-sentinel-client</Registry>
+  <Network>none</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/agigante80/VPNSentinel/issues</Support>
+  <Project>https://github.com/agigante80/VPNSentinel</Project>
+  <Overview>VPNSentinel client: runs inside your VPN container's network (for example gluetun) and reports every 5 minutes by default (VPN_SENTINEL_INTERVAL, in seconds) whether traffic really goes through the VPN and whether DNS leaks, to a VPNSentinel server. Setup: (1) In Extra Parameters, change gluetun in --network=container:gluetun to the exact name of your VPN container. (2) Set the server URL to http://HOST:PORT, where HOST is the Unraid host and PORT is the server's mapped API port. (3) In the VPN container, set FIREWALL_OUTBOUND_SUBNETS to include the LAN subnet of that host, otherwise the keepalive is blocked and the client never turns green; the client then logs "Failed to send keepalive" and does not appear on the dashboard. (4) Use the same API key and API path as the server. Notes: recreating the VPN container breaks this container until it is recreated too, and Unraid may display the port mappings wrongly when --network= is set in Extra Parameters.</Overview>
+  <Icon>https://raw.githubusercontent.com/agigante80/VPNSentinel/main/docs/images/icon-256.png</Icon>
+  <Category>Network:Management Tools:</Category>
+  <TemplateURL>https://raw.githubusercontent.com/agigante80/VPNSentinel/main/unraid/vpn-sentinel-client.xml</TemplateURL>
+  <ExtraParams>--network=container:gluetun</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires>A running VPN container (for example gluetun) and a VPNSentinel server.</Requires>
+  <Config Name="Server URL" Target="VPN_SENTINEL_URL" Default="" Mode="" Description="Required. URL of the VPNSentinel server API: http://HOST:PORT with the Unraid host and the server's mapped API port. The VPN container's FIREWALL_OUTBOUND_SUBNETS must include the LAN subnet of HOST." Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="API key" Target="VPN_SENTINEL_API_KEY" Default="" Mode="" Description="Must equal the server's API key." Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Client ID" Target="VPN_SENTINEL_CLIENT_ID" Default="" Mode="" Description="Optional name shown on the dashboard, kebab-case, for example office-vpn-primary. Generated when empty." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="API path" Target="VPN_SENTINEL_API_PATH" Default="/api/v1" Mode="" Description="API path prefix. Must match the server." Type="Variable" Display="advanced" Required="false" Mask="false">/api/v1</Config>
+  <Config Name="Timezone" Target="TZ" Default="UTC" Mode="" Description="Timezone for log timestamps, for example Europe/Rome." Type="Variable" Display="advanced" Required="false" Mask="false">UTC</Config>
+</Container>

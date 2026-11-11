@@ -1,13 +1,14 @@
 services:
   vpn-client:
-    profiles: ["vpn"]
-    image: qmcgaw/gluetun
+    image: qmcgaw/gluetun:v3.41.3
     container_name: vpn-client
     cap_add:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
-    ports: []
+    ports:
+      - "18082:8082"  # Sentinel client health monitor (the client shares this namespace); only
+      # answers when VPN_SENTINEL_HEALTH_MONITOR=true (.env.example ships it false)
     volumes:
       - ./vpn-client:/gluetun
     environment:
@@ -16,36 +17,47 @@ services:
       - SERVER_COUNTRIES=${SERVER_COUNTRIES}
       - OPENVPN_USER=${VPN_USER}
       - OPENVPN_PASSWORD=${VPN_PASSWORD}
-      - FIREWALL_OUTBOUND_SUBNETS=172.28.0.0/16
+      - FIREWALL_OUTBOUND_SUBNETS=${VPN_SENTINEL_DOCKER_SUBNET:-198.18.0.0/24}
+    networks:
+      - vpn-sentinel
     restart: always
   vpn-sentinel-client:
-    image: vpn-sentinel-client:latest
+    image: agigante80/vpn-sentinel-client:latest
+    build:
+      context: .
+      dockerfile: src/vpn_sentinel/client/Dockerfile
     container_name: vpn-sentinel-client
     volumes:
       - ./certs:/certs:ro
-    ports:
-      - "18082:8082"  # Health monitor port
+    # No ports and no networks here: the client runs inside vpn-client's network namespace,
+    # so ports are published on vpn-client. The URL uses the server IP because gluetun's DNS
+    # does not resolve compose service names.
+    network_mode: service:vpn-client
     environment:
-      - VPN_SENTINEL_URL=${VPN_SENTINEL_URL:-http://vpn-sentinel-server:5000}
+      - VPN_SENTINEL_URL=http://${VPN_SENTINEL_SERVER_IP:-198.18.0.10}:${VPN_SENTINEL_SERVER_API_PORT:-5000}
       - VPN_SENTINEL_API_PATH=${VPN_SENTINEL_API_PATH:-/api/v1}
       - VPN_SENTINEL_CLIENT_ID=${VPN_SENTINEL_CLIENT_ID:-vpn-monitor-main}
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
       - TZ=${TZ:-UTC}
-      - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH}
+      - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH:-}
       - VPN_SENTINEL_DEBUG=${VPN_SENTINEL_DEBUG:-false}
       - VPN_SENTINEL_GEOLOCATION_SERVICE=${VPN_SENTINEL_GEOLOCATION_SERVICE:-auto}
       - VPN_SENTINEL_HEALTH_MONITOR=${VPN_SENTINEL_HEALTH_MONITOR:-true}
       - VPN_SENTINEL_HEALTH_PORT=${VPN_SENTINEL_HEALTH_PORT:-8082}
     restart: always
     depends_on:
+      - vpn-client
       - vpn-sentinel-server
   vpn-sentinel-server:
-    image: vpn-sentinel-server:latest
+    image: agigante80/vpn-sentinel-server:latest
+    build:
+      context: .
+      dockerfile: src/vpn_sentinel/server/Dockerfile
     container_name: vpn-sentinel-server
     volumes:
       - ./certs:/certs:ro
     ports:
-      - "15000:5000"  # API port (using 15000 to avoid conflicts)
+      - "15000:${VPN_SENTINEL_SERVER_API_PORT:-5000}"  # API port (using 15000 to avoid conflicts)
       - "18080:8080"  # Dashboard port (using 18080 to avoid conflicts)
     environment:
       - VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}
@@ -58,29 +70,19 @@ services:
       - VPN_SENTINEL_SERVER_CHECK_INTERVAL_MINUTES=${VPN_SENTINEL_SERVER_CHECK_INTERVAL_MINUTES:-5}
       - VPN_SENTINEL_SERVER_API_PORT=${VPN_SENTINEL_SERVER_API_PORT:-5000}
       - VPN_SENTINEL_SERVER_DASHBOARD_PORT=${VPN_SENTINEL_SERVER_DASHBOARD_PORT:-8080}
-      - VPN_SENTINEL_SERVER_DASHBOARD_ENABLED=${VPN_SENTINEL_SERVER_DASHBOARD_ENABLED:-true}
+      - VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED=${VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED:-true}
       - TZ=${TZ:-UTC}
-      - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH}
-      - VPN_SENTINEL_TLS_KEY_PATH=${VPN_SENTINEL_TLS_KEY_PATH}
+      - VPN_SENTINEL_TLS_CERT_PATH=${VPN_SENTINEL_TLS_CERT_PATH:-}
+      - VPN_SENTINEL_TLS_KEY_PATH=${VPN_SENTINEL_TLS_KEY_PATH:-}
+    networks:
+      vpn-sentinel:
+        ipv4_address: ${VPN_SENTINEL_SERVER_IP:-198.18.0.10}
     restart: always
 networks:
-  vpn-sentinel-internal:
+  # Shared by gluetun and the server so the client (inside gluetun's namespace) can reach the
+  # server. 198.18.0.0/15 is the RFC 2544 benchmarking block: never routed, not private space.
+  vpn-sentinel:
     driver: bridge
-    name: vpn-sentinel-internal
     ipam:
       config:
-        - subnet: 172.28.0.0/16
-    labels:
-      - "vpn-sentinel.network.type=internal"
-      - "vpn-sentinel.network.purpose=vpn-communication"
-      - "vpn-sentinel.network.security=isolated"
-  vpn-sentinel-server:
-    driver: bridge
-    name: vpn-sentinel-server
-    ipam:
-      config:
-        - subnet: 172.29.0.0/16
-    labels:
-      - "vpn-sentinel.network.type=server"
-      - "vpn-sentinel.network.purpose=telegram-notifications"
-      - "vpn-sentinel.network.security=external-access"
+        - subnet: ${VPN_SENTINEL_DOCKER_SUBNET:-198.18.0.0/24}

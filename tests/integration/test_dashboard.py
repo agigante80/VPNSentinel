@@ -204,3 +204,22 @@ class TestDashboardContent:
         # Should be able to decode emojis without errors
         html = response.text
         assert "✅" in html or "VPN Sentinel" in html
+
+
+class TestFavicon:
+    """Project icon served by the live dashboard (issue #134). Proves the files are in the built image."""
+
+    def test_favicon_ico_served(self, server_base_url):
+        response = requests.get(f"{server_base_url}/favicon.ico", timeout=10)
+        assert response.status_code == 200
+        assert response.headers["Content-Type"].startswith("image/png")
+        assert response.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+    def test_favicon_svg_served(self, server_base_url):
+        response = requests.get(f"{server_base_url}/favicon.svg", timeout=10)
+        assert response.status_code == 200
+        assert response.headers["Content-Type"].startswith("image/svg+xml")
+
+    def test_favicon_rejects_post(self, server_base_url):
+        response = requests.post(f"{server_base_url}/favicon.ico", timeout=10)
+        assert response.status_code == 405

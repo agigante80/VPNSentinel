@@ -12,6 +12,8 @@ dashboard_slash       # dashboard_routes.py — /dashboard/ route
 server_logs           # dashboard_routes.py — /dashboard logs route
 health_ready          # health_routes.py — /health/ready route
 health_startup        # health_routes.py — /health/startup route
+prometheus_metrics    # health_routes.py: GET /metrics route
+collect               # metrics.py: prometheus_client Collector protocol, called by the registry
 
 # Werkzeug/Flask logging integration — methods invoked by the framework, not by name
 VPNSentinelLogHandler  # server_utils.py — logging.Handler subclass registered with the app
@@ -35,3 +37,7 @@ sample_health_ok   # health.py: sample-payload generator for health tests
 heartbeat_json     # monitor.py: public Monitor method, exercised only by tests
 get_version_info   # version.py: version-info dict helper, exercised only by tests
 parse_geolocation  # network.py: public parser used via client shims/tests
+
+# Favicon route handlers, registered by decorator (dashboard_routes.py)
+favicon_ico
+favicon_svg

@@ -147,8 +147,8 @@ def sanitize_client_id(client_id):
 
 **Critical Secrets**:
 - `VPN_SENTINEL_API_KEY` - API authentication
-- `VPN_SENTINEL_TELEGRAM_TOKEN` - Bot token
-- `VPN_SENTINEL_TELEGRAM_CHAT_ID` - Chat identifier
+- `TELEGRAM_BOT_TOKEN` - Bot token
+- `TELEGRAM_CHAT_ID` - Chat identifier
 - `IPINFO_API_TOKEN` - Geolocation API token
 
 **Best Practices**:
@@ -161,7 +161,13 @@ def sanitize_client_id(client_id):
 
 ### Docker Secrets
 
-**Production Setup**:
+> **Not supported yet:** VPNSentinel does not read `*_FILE` variables. With the example below,
+> `VPN_SENTINEL_API_KEY` and `TELEGRAM_BOT_TOKEN` stay empty, so the API key check is off and
+> Telegram is silently disabled. Until `_FILE` support lands, pass the values as
+> `VPN_SENTINEL_API_KEY=${VPN_SENTINEL_API_KEY}` and `TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}`
+> from an `.env` file with restricted permissions. The example shows the intended shape.
+
+**Production Setup (target shape)**:
 ```yaml
 services:
   vpn-sentinel-server:
@@ -170,7 +176,7 @@ services:
       - telegram_token
     environment:
       - VPN_SENTINEL_API_KEY_FILE=/run/secrets/vpn_sentinel_api_key
-      - VPN_SENTINEL_TELEGRAM_TOKEN_FILE=/run/secrets/telegram_token
+      - TELEGRAM_BOT_TOKEN_FILE=/run/secrets/telegram_token
 
 secrets:
   vpn_sentinel_api_key:
@@ -185,7 +191,7 @@ secrets:
 ```bash
 # .env (NEVER commit this file)
 VPN_SENTINEL_API_KEY=dev-key-only
-VPN_SENTINEL_TELEGRAM_TOKEN=123456:ABC-DEF
+TELEGRAM_BOT_TOKEN=123456:ABC-DEF
 ```
 
 **Add to .gitignore**:
@@ -220,6 +226,8 @@ vpn-sentinel-client:
 - Depends on VPN container security
 
 ### TLS/HTTPS
+
+**Built-in TLS (server)**: set both `VPN_SENTINEL_TLS_CERT_PATH` and `VPN_SENTINEL_TLS_KEY_PATH` to serve HTTPS on all three listeners. The configuration is validated once at startup and fails closed: if only one variable is set, a file is missing or unreadable, or the pair does not match, the server logs one error naming the variable and exits with code 2. It never falls back to plain HTTP. Exit code 2 means a configuration error; exit code 1 means a listener died at runtime. Note that a shared `.env` which sets only `VPN_SENTINEL_TLS_CERT_PATH` for the client's CA bundle will make the server exit 2. The image HEALTHCHECK uses plain HTTP, so it reports unhealthy when built-in TLS is on.
 
 **Production Recommendation**: Use reverse proxy
 

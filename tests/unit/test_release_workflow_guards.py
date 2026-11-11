@@ -49,6 +49,7 @@ Run: pytest tests/unit/test_release_workflow_guards.py -v
 """
 
 import copy
+import re
 from pathlib import Path
 
 import yaml
@@ -242,6 +243,39 @@ def publish_step_has_sbom_and_max_provenance(workflow):
     return with_block.get("sbom") is True and with_block.get("provenance") == "mode=max"
 
 
+# --- ci-cd.yml compose validation guard (issue #132) --------------------------------
+def find_compose_validation_steps(workflow):
+    """All steps, across ALL jobs, that validate compose files: a run script containing
+    `docker compose` and `config --quiet`. Selected by BEHAVIOUR, not by step name."""
+    found = []
+    for job in get_jobs(workflow).values():
+        if not isinstance(job, dict):
+            continue
+        for step in job.get("steps") or []:
+            run = step.get("run") if isinstance(step, dict) else None
+            if isinstance(run, str) and "docker compose" in run and "config --quiet" in run:
+                found.append(step)
+    return found
+
+
+def compose_validation_step_is_strict(workflow):
+    """Exactly one compose validation step; it passes each file's own --env-file, covers the
+    root file plus the deployments/*/compose.yaml glob, and fails the job on error."""
+    steps = find_compose_validation_steps(workflow)
+    if len(steps) != 1:
+        return False
+    step = steps[0]
+    run = step["run"]
+    return (
+        "--env-file" in run
+        and "deployments/*/compose.yaml" in run
+        and re.search(r"(?<![\w/])compose\.yaml", run) is not None
+        and "exit 1" in run
+        and "|| true" not in run
+        and not step.get("continue-on-error")
+    )
+
+
 # ---------------------------------------------------------------------------------
 # Fixtures: the real (compliant) workflow, and mutated (broken) copies used to prove
 # each guard can actually fail. Mutations operate on the raw TEXT (mirroring the
@@ -288,6 +322,7 @@ GUARDS = {
 # meaningful pass/fail.
 CI_CD_GUARDS = {
     "publish_step_sbom_and_max_provenance": publish_step_has_sbom_and_max_provenance,
+    "compose_validation_step_is_strict": compose_validation_step_is_strict,
 }
 
 
@@ -589,3 +624,67 @@ def test_all_six_invariants_hold_simultaneously_on_the_real_workflow():
 
 def test_ci_cd_guard_holds_on_the_real_workflow():
     assert publish_step_has_sbom_and_max_provenance(CI_CD_REAL) is True
+
+
+# --- ci-cd.yml compose validation guard (issue #132) --------------------------------
+
+COMPOSE_STEP_TEXT = """      - name: Validate compose files
+        run: |
+          for f in compose.yaml deployments/*/compose.yaml; do
+            docker compose --env-file "$(dirname "$f")/.env.example" -f "$f" config --quiet \\
+              || { echo "compose config failed: $f"; exit 1; }
+          done
+"""
+
+
+def test_compose_validation_selector_matches_exactly_one_step():
+    assert COMPOSE_STEP_TEXT in CI_CD_TEXT, "fixture anchor drifted from ci-cd.yml"
+    assert len(find_compose_validation_steps(CI_CD_REAL)) == 1
+    assert compose_validation_step_is_strict(CI_CD_REAL) is True
+
+
+def test_compose_validation_negative_exit_1_removed():
+    mutated = mutate(
+        'echo "compose config failed: $f"; exit 1; }', 'echo "compose config failed: $f"; }', source=CI_CD_TEXT
+    )
+    assert_only_guard_fails(mutated, "compose_validation_step_is_strict", guards=CI_CD_GUARDS)
+
+
+def test_compose_validation_negative_or_true_appended():
+    mutated = mutate("          done\n\n  # ====", "          done || true\n\n  # ====", source=CI_CD_TEXT)
+    assert_only_guard_fails(mutated, "compose_validation_step_is_strict", guards=CI_CD_GUARDS)
+
+
+def test_compose_validation_negative_continue_on_error():
+    mutated = mutate(
+        "      - name: Validate compose files\n",
+        "      - name: Validate compose files\n        continue-on-error: true\n",
+        source=CI_CD_TEXT,
+    )
+    assert_only_guard_fails(mutated, "compose_validation_step_is_strict", guards=CI_CD_GUARDS)
+
+
+def test_compose_validation_negative_step_deleted():
+    mutated = mutate(COMPOSE_STEP_TEXT, "", source=CI_CD_TEXT)
+    assert find_compose_validation_steps(mutated) == []
+    assert_only_guard_fails(mutated, "compose_validation_step_is_strict", guards=CI_CD_GUARDS)
+
+
+def test_compose_validation_negative_env_file_removed():
+    mutated = mutate('--env-file "$(dirname "$f")/.env.example" ', "", source=CI_CD_TEXT)
+    assert_only_guard_fails(mutated, "compose_validation_step_is_strict", guards=CI_CD_GUARDS)
+
+
+def test_compose_validation_negative_glob_dropped():
+    mutated = mutate("compose.yaml deployments/*/compose.yaml; do", "compose.yaml; do", source=CI_CD_TEXT)
+    assert_only_guard_fails(mutated, "compose_validation_step_is_strict", guards=CI_CD_GUARDS)
+
+
+def test_compose_validation_negative_root_file_dropped():
+    mutated = mutate("for f in compose.yaml deployments", "for f in deployments", source=CI_CD_TEXT)
+    assert_only_guard_fails(mutated, "compose_validation_step_is_strict", guards=CI_CD_GUARDS)
+
+
+def test_compose_validation_negative_duplicate_step():
+    mutated = mutate(COMPOSE_STEP_TEXT, COMPOSE_STEP_TEXT * 2, source=CI_CD_TEXT)
+    assert_only_guard_fails(mutated, "compose_validation_step_is_strict", guards=CI_CD_GUARDS)

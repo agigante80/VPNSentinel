@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 authors = [ { name = "agigante80" } ]
 license = { text = "MIT" }
-dependencies = ["requests>=2.34.2"]
+dependencies = ["requests>=2.34.2", "prometheus_client>=0.26,<1"]
 
 [project.scripts]
 vpn-sentinel-server = "vpn_sentinel.server.__main__:main"
@@ -19,6 +19,9 @@ vpn-sentinel-client = "vpn_sentinel.client.__main__:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["vpn_sentinel*"]
+
+[tool.setuptools.package-data]
+"vpn_sentinel.common" = ["static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

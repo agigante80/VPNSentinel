@@ -5,10 +5,13 @@ from .log_utils import log_info, get_current_time
 from .server_info import get_server_info
 from .api_routes import client_status, client_status_lock
 from .version import get_version
-from .country_codes import compare_country_codes
-from flask import render_template_string
+from .client_health import classify_client
+from flask import render_template_string, send_from_directory
 from datetime import datetime, timezone
 import os
+from pathlib import Path
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 
 def get_client_health_status(client, server_ip):
@@ -21,26 +24,25 @@ def get_client_health_status(client, server_ip):
         - status_text: description text
         - dns_status_icon: emoji for DNS status
     """
-    client_ip = client.get("ip", "unknown")
-    dns_loc = client.get("dns_loc", "Unknown")
-    country = client.get("country", "Unknown")
-
-    # RED: Same IP as server or undetectable
-    if client_ip == server_ip or client_ip == "unknown" or client_ip == "Unknown":
+    level = classify_client(client, server_ip)
+    if level == "red":
         return ("status-danger", "🔴", "VPN Bypass Detected!", "🔴")
-
-    # Check DNS leak (compare normalized country codes)
-    dns_leak = False
-    if dns_loc != "Unknown" and country != "Unknown":
-        dns_leak = not compare_country_codes(dns_loc, country)
-
-    # YELLOW: Different IP but DNS leak or undetectable DNS
-    if dns_leak or dns_loc == "Unknown":
-        dns_icon = "🟡" if dns_loc == "Unknown" else "🟡"
-        return ("status-warning", "🟡", "DNS Leak Detected" if dns_leak else "DNS Undetectable", dns_icon)
-
-    # GREEN: Different IP and no DNS leak
+    if level == "yellow":
+        dns_leak = client.get("dns_loc", "Unknown") != "Unknown"
+        return ("status-warning", "🟡", "DNS Leak Detected" if dns_leak else "DNS Undetectable", "🟡")
     return ("status-ok", "🟢", "Secure", "🟢")
+
+
+@dashboard_app.route("/favicon.ico")
+def favicon_ico():
+    """Project icon (PNG). Browsers request this path unprompted. Public, GET only, fixed filename."""
+    return send_from_directory(STATIC_DIR, "favicon.png", mimetype="image/png")
+
+
+@dashboard_app.route("/favicon.svg")
+def favicon_svg():
+    """Project icon (SVG). Public, GET only, fixed filename."""
+    return send_from_directory(STATIC_DIR, "favicon.svg", mimetype="image/svg+xml")
 
 
 @dashboard_app.route("/dashboard")
@@ -147,6 +149,8 @@ def dashboard():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>VPN Sentinel Dashboard</title>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+        <link rel="icon" type="image/png" href="/favicon.ico">
         <style>
             * {{
                 margin: 0;
@@ -711,6 +715,8 @@ def server_logs():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>VPN Sentinel - Server Logs</title>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+        <link rel="icon" type="image/png" href="/favicon.ico">
         <style>
             * {{
                 margin: 0;
