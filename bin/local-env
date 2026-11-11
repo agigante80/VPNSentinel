@@ -35,6 +35,9 @@ EOF
 
 cmd_start() {
   log "Starting stack (build + up)..."
+  # The server runs as uid 1001 and reads this bind-mounted secret; a checkout made
+  # under umask 077 would leave it unreadable and the server would exit at startup.
+  chmod a+r "$REPO_ROOT/tests/secrets/test_api_key"
   "${DC[@]}" up -d --build
   log "Waiting for server to become healthy..."
   local cid

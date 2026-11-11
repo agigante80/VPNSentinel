@@ -36,7 +36,8 @@ def read_secret(name: str, default: str = "") -> str:
     except OSError as e:
         raise ValueError(f"{file_var}={path} cannot be read: {e.strerror or type(e).__name__}") from None
     try:
-        text = raw.decode("utf-8")
+        # utf-8-sig drops a leading BOM that Windows editors add; it would otherwise end up inside the secret.
+        text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
         raise ValueError(f"{file_var}={path} is not valid UTF-8") from None
     text = text.rstrip("\r\n")

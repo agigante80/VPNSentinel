@@ -376,6 +376,18 @@ class TestReadSecret:
         with pytest.raises(ValueError, match="is empty"):
             self._call({"X_FILE": str(f)})
 
+    def test_utf8_bom_is_stripped(self, tmp_path):
+        """A Windows editor's BOM must not end up inside the secret (e.g. in a Telegram URL)."""
+        f = tmp_path / "s"
+        f.write_bytes(b"\xef\xbb\xbfabc123\r\n")
+        assert self._call({"X_FILE": str(f)}) == "abc123"
+
+    def test_bom_only_file_is_empty(self, tmp_path):
+        f = tmp_path / "s"
+        f.write_bytes(b"\xef\xbb\xbf\n")
+        with pytest.raises(ValueError, match="is empty"):
+            self._call({"X_FILE": str(f)})
+
     def test_non_utf8_raises_without_bytes(self, tmp_path):
         f = tmp_path / "s"
         f.write_bytes(b"\xff\xfe")
