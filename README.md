@@ -624,6 +624,8 @@ When `VPN_SENTINEL_CLIENT_ID` is not set, the system auto-generates a unique ide
 
 ## Deployment Scenarios
 
+**Install on Unraid:** see [Unraid](deployments/README.md#-unraid) for the Community Applications templates in `unraid/`.
+
 ### Scenario 1: All-in-One (Server + Client + VPN)
 
 **Use Case**: Single-host deployment with local VPN client

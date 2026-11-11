@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>vpn-sentinel-server</Name>
+  <Repository>agigante80/vpn-sentinel-server:latest</Repository>
+  <Registry>https://hub.docker.com/r/agigante80/vpn-sentinel-server</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/agigante80/VPNSentinel/issues</Support>
+  <Project>https://github.com/agigante80/VPNSentinel</Project>
+  <Overview>VPNSentinel server: collects keepalives from VPNSentinel clients running inside your VPN containers, shows a traffic-light dashboard (green: routing through the VPN, yellow: DNS leaking, red: VPN bypass) and sends Telegram alerts. Set an API key and give the same key to every client. With an empty key the server runs with authentication disabled. Client status is kept in memory only: restarting this container forgets all clients until their next keepalive (every 60 seconds). To monitor a client, install vpn-sentinel-client next to your VPN container and point its server URL at this container's mapped API port.</Overview>
+  <Category>Network:Management Tools:</Category>
+  <WebUI>http://[IP]:[PORT:8080]/dashboard</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/agigante80/VPNSentinel/main/unraid/vpn-sentinel-server.xml</TemplateURL>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="API port" Target="5000" Default="5000" Mode="tcp" Description="Port clients send keepalives to. Use this port in the client server URL." Type="Port" Display="always" Required="true" Mask="false">5000</Config>
+  <Config Name="Dashboard port" Target="8080" Default="8080" Mode="tcp" Description="Web dashboard." Type="Port" Display="always" Required="true" Mask="false">8080</Config>
+  <Config Name="Health port" Target="8081" Default="8081" Mode="tcp" Description="Health endpoint (optional, for external monitoring)." Type="Port" Display="advanced" Required="false" Mask="false">8081</Config>
+  <Config Name="API key" Target="VPN_SENTINEL_API_KEY" Default="" Mode="" Description="Shared secret the clients must send. Required: with an empty key the server runs with authentication disabled." Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Telegram bot token" Target="TELEGRAM_BOT_TOKEN" Default="" Mode="" Description="Optional. Telegram alerts are enabled when both the token and the chat ID are set." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Telegram chat ID" Target="TELEGRAM_CHAT_ID" Default="" Mode="" Description="Optional. Chat that receives the alerts." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="API path" Target="VPN_SENTINEL_API_PATH" Default="/api/v1" Mode="" Description="API path prefix. Must match the clients." Type="Variable" Display="advanced" Required="false" Mask="false">/api/v1</Config>
+  <Config Name="Web dashboard enabled" Target="VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED" Default="true" Mode="" Description="Set to false to turn the dashboard off." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="Timezone" Target="TZ" Default="UTC" Mode="" Description="Timezone for log timestamps, for example Europe/Rome." Type="Variable" Display="advanced" Required="false" Mask="false">UTC</Config>
+</Container>

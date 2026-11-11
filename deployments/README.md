@@ -229,6 +229,26 @@ Cross-region: Clients can failover between servers
 4. **Backup**: Regular backups of server configuration and data
 5. **Updates**: Rolling updates for zero-downtime deployments
 
+## 🧱 Unraid
+
+Install from the Unraid Apps tab (Community Applications) once the repository is listed, or add the
+template URLs by hand under Docker, Add Container, Template:
+
+- Server: `https://raw.githubusercontent.com/agigante80/VPNSentinel/main/unraid/vpn-sentinel-server.xml`
+- Client: `https://raw.githubusercontent.com/agigante80/VPNSentinel/main/unraid/vpn-sentinel-client.xml`
+
+1. **Server.** Set an API key (required: an empty key runs the server with authentication disabled) and
+   optionally the Telegram token and chat ID. The WebUI link opens `/dashboard`.
+2. **Client.** In Extra Parameters change `--network=container:gluetun` to the exact name of your VPN
+   container. Set `VPN_SENTINEL_URL` to `http://HOST:PORT`, where HOST is the Unraid host and PORT the
+   server's mapped API port (default 5000). Use the same API key and API path as the server.
+3. **Firewall.** Add the LAN subnet of HOST to the VPN container's `FIREWALL_OUTBOUND_SUBNETS`. Without
+   it the keepalive is blocked, the client logs `Failed to send keepalive to <server_url>` and never
+   appears on the dashboard.
+
+Recreating the VPN container breaks the client until the client is recreated too. The templates live in
+`unraid/` and are checked by `tests/unit/test_unraid_templates.py`.
+
 ## 📁 Directory Structure
 
 ```

@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<Maintainer>
+  <Profile>VPNSentinel monitors whether traffic really leaves through your VPN, detects DNS leaks and sends Telegram alerts. Open source, MIT licensed. Source and issues: https://github.com/agigante80/VPNSentinel</Profile>
+</Maintainer>
