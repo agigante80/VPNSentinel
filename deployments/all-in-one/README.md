@@ -42,7 +42,8 @@ VPN_PASSWORD=your_password
 # VPN Sentinel Security
 VPN_SENTINEL_API_KEY=your_secure_api_key_here
 
-# Server API port (host and container)
+# Server API port inside the container. The host port is fixed at 5000 in compose.yaml,
+# so change both together if you change this
 VPN_SENTINEL_SERVER_API_PORT=5000
 
 # Telegram Notifications (highly recommended)

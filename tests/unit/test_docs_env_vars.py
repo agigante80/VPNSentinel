@@ -7,9 +7,10 @@ documented.
 Guards, each over a "world" dict (README text, docs text, collected src names, allowlist):
   src_to_readme   every variable the code reads appears in README.md as a whole token, or is
                   on the allowlist.
-  docs_to_src     every VPN_SENTINEL_* / TELEGRAM_* token in README.md and docs/ARCHITECTURE.md
-                  is read by the code (including derived *_FILE names), or is on the allowlist.
-  allowlist       every allowlist entry has a non-blank reason, and none is stale.
+  docs_to_src     every VPN_SENTINEL_* / TELEGRAM_* token in the user-facing docs and .env.example
+                  files (name_docs()) is read by the code (including derived *_FILE names), or is
+                  on the allowlist or the compose-only list.
+  allowlist       every allowlist and compose-only entry has a non-blank reason, and none is stale.
   links           every relative markdown link in the scanned docs resolves, relative to the
                   linking file's directory (a directory target counts, the #anchor is ignored).
 
@@ -43,8 +44,22 @@ ALLOWLIST = {
     ),
 }
 
-# Files whose variable names are checked against the code (docs_to_src).
-NAME_DOCS = ["README.md", "docs/ARCHITECTURE.md"]
+# name -> reason. Names set in compose files and .env.example that the application never reads.
+COMPOSE_ONLY = {
+    "VPN_SENTINEL_SERVER_IP": "compose builds the client URL from it; gluetun's DNS cannot resolve service names",
+    "VPN_SENTINEL_DOCKER_SUBNET": "compose network subnet, kept in step with the VPN firewall allowance",
+}
+
+
+def name_docs():
+    """Repo-relative files whose variable names are checked against the code (docs_to_src)."""
+    paths = [REPO_ROOT / "README.md", REPO_ROOT / ".env.example"]
+    paths += sorted((REPO_ROOT / "docs").glob("*.md"))
+    paths += sorted((REPO_ROOT / "docs" / "guides").glob("*.md"))
+    paths += [REPO_ROOT / "src" / "vpn_sentinel" / "client" / "README.md"]
+    paths += sorted((REPO_ROOT / "deployments").rglob("README.md"))
+    paths += sorted((REPO_ROOT / "deployments").rglob(".env.example"))
+    return [p.relative_to(REPO_ROOT).as_posix() for p in paths]
 
 
 def token_present(name, text):
@@ -114,12 +129,13 @@ def link_files():
 
 def real_world():
     docs = {}
-    for rel in set(NAME_DOCS) | set(link_files()):
+    for rel in set(name_docs()) | set(link_files()):
         docs[rel] = read_text_tolerant(REPO_ROOT / rel)
     return {
         "names": collect_names(),
         "docs": docs,
         "allowlist": dict(ALLOWLIST),
+        "compose_only": dict(COMPOSE_ONLY),
         "root": REPO_ROOT,
     }
 
@@ -144,9 +160,9 @@ def missing_from_readme(world):
 
 
 def unknown_in_docs(world):
-    known = set(world["names"]) | set(world["allowlist"])
+    known = set(world["names"]) | set(world["allowlist"]) | set(world["compose_only"])
     unknown = set()
-    for rel in NAME_DOCS:
+    for rel in name_docs():
         unknown |= doc_tokens(world["docs"][rel]) - known
     return sorted(unknown)
 
@@ -154,7 +170,7 @@ def unknown_in_docs(world):
 def allowlist_problems(world):
     problems = []
     all_text = "\n".join(t for t in world["docs"].values() if t)
-    for name, reason in world["allowlist"].items():
+    for name, reason in {**world["allowlist"], **world["compose_only"]}.items():
         if not (reason or "").strip():
             problems.append(f"{name}: reason is empty")
         if name not in world["names"] and not token_present(name, all_text):
@@ -236,6 +252,9 @@ class TestRealDocs:
         assert doc_tokens(world["docs"]["docs/ARCHITECTURE.md"]), "ARCHITECTURE must contain variable tokens"
         assert LINK_RE.findall(world["docs"]["README.md"]), "README must contain links"
         assert len(link_files()) >= 8
+        assert len(name_docs()) >= 15
+        for rel in (".env.example", "deployments/server-central/.env.example", "src/vpn_sentinel/client/README.md"):
+            assert doc_tokens(world["docs"][rel]), f"{rel} must contain variable tokens"
 
 
 class TestMutations:
@@ -278,6 +297,18 @@ class TestMutations:
         mutated = mutate(world, "docs/ARCHITECTURE.md", lambda t: t + "\nVPN_SENTINEL_CHECK_INTERVAL\n")
         assert unknown_in_docs(mutated) == ["VPN_SENTINEL_CHECK_INTERVAL"]
         assert_only_guard_fails(mutated, "docs_to_src", guards=GUARDS)
+
+    def test_env_example_unread_variable_is_caught(self, world):
+        rel = "deployments/server-central/.env.example"
+        mutated = mutate(world, rel, lambda t: t + "\nVPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS=30\n")
+        assert unknown_in_docs(mutated) == ["VPN_SENTINEL_SERVER_RATE_LIMIT_REQUESTS"]
+        assert_only_guard_fails(mutated, "docs_to_src", guards=GUARDS)
+
+    def test_compose_only_blank_reason(self, world):
+        mutated = dict(world)
+        mutated["compose_only"] = {**world["compose_only"], "VPN_SENTINEL_SERVER_IP": ""}
+        assert allowlist_problems(mutated) == ["VPN_SENTINEL_SERVER_IP: reason is empty"]
+        assert_only_guard_fails(mutated, "allowlist", guards=GUARDS)
 
     def test_allowlist_blank_reason(self, world):
         mutated = dict(world)
