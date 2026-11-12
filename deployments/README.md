@@ -269,7 +269,8 @@ template URLs by hand under Docker, Add Container, Template:
    appears on the dashboard.
 
 Recreating the VPN container breaks the client until the client is recreated too. The templates live in
-`unraid/` and are checked by `tests/unit/test_unraid_templates.py`.
+`unraid/`; the Community Applications maintainer profile is `ca_profile.xml` at the repository root,
+where the CA submission portal reads it. Both are checked by `tests/unit/test_unraid_templates.py`.
 
 ## 📁 Directory Structure
 
