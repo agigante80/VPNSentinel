@@ -209,7 +209,7 @@ process instead of disabling authentication.
 VPN_SENTINEL_API_KEY=$(openssl rand -hex 32)
 
 # Configure IP restrictions (production)
-VPN_SENTINEL_ALLOWED_IPS=192.168.1.0/24
+VPN_SENTINEL_SERVER_ALLOWED_IPS=203.0.113.10,203.0.113.11
 
 # Use proper firewall rules
 sudo ufw allow 5000/tcp  # Server port
@@ -308,8 +308,8 @@ deployments/
 ## 🔗 Quick Links
 
 - **[Main Project README](../README.md)** - Project overview and features
-- **[Component Documentation](../wiki-content/)** - Detailed technical docs
-- **[Example Configurations](../wiki-content/)** - Real-world setup examples
+- **[Component Documentation](../docs/)** - Detailed technical docs
+- **[Architecture](../docs/ARCHITECTURE.md)** - Deployment patterns and configuration reference
 
 ---
 

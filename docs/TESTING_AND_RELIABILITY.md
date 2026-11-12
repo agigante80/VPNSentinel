@@ -17,7 +17,7 @@ VPN Sentinel follows a **test-first reliability approach**:
 
 ### Technology Stack
 
-- **Framework**: pytest 7.4.0+
+- **Framework**: pytest 9.1.1+
 - **Coverage**: pytest-cov
 - **Mocking**: unittest.mock
 - **HTTP Testing**: Flask test client

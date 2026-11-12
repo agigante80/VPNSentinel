@@ -49,17 +49,20 @@ bin/local-env verify
 ## 📘 Documentation Index
 
 ### Core Documentation
-- **[Project Overview](./PROJECT_OVERVIEW.md)** - Purpose, goals, features, and technology stack
 - **[Architecture](./ARCHITECTURE.md)** - System design, components, data flow, and CI/CD pipeline
 - **[Versioning Strategy](./VERSIONING.md)** - Semantic versioning, release process, and version management
 - **[Testing & Reliability](./TESTING_AND_RELIABILITY.md)** - Testing strategy, frameworks, and CI/CD
 
-### Development Guides
-- **[Python Lifecycle](./PYTHON_LIFECYCLE.md)** - Python version selection, release cycle, and upgrade guidelines
+### Notifications
+- **[Telegram](./TELEGRAM.md)** - Telegram bot setup and commands
+- **[Notifications](./NOTIFICATIONS.md)** - Extra alert targets through Apprise
+
+### Decisions and Guides
+- **[Architecture Decisions](./architecture/README.md)** - Architecture overview and decision records
+- **[Ticket Standards](./guides/ticket-standards.md)** - How tickets are written and gated
 
 ### Security
 - **[Security & Privacy](./SECURITY_AND_PRIVACY.md)** - Security policies, AI safety, incident response
-- **[CodeQL Security](./CODEQL_SECURITY.md)** - Code scanning configuration, alert management, suppression rationale
 
 ---
 
@@ -138,7 +141,7 @@ See **[Architecture](./ARCHITECTURE.md)** for complete list
 See **[NOTIFICATIONS.md](./NOTIFICATIONS.md)** for extra alert targets (ntfy, Gotify, Discord, email, ...) via Apprise.
 
 ### Telegram Setup
-See **[Architecture](./ARCHITECTURE.md#telegram-integration)** for setup instructions
+See **[Telegram](./TELEGRAM.md)** for setup instructions
 
 ### Health Endpoints
 - `/health` - Basic health check

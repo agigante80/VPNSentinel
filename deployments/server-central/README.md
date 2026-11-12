@@ -42,7 +42,7 @@ This server-only deployment is perfect for:
 
 4. **Verify server is running:**
    ```bash
-   curl http://localhost:5000/api/v1/health
+   curl http://localhost:8081/health
    ```
 
 ## ⚙️ Configuration
@@ -59,20 +59,18 @@ VPN_SENTINEL_API_KEY=your_secure_64_character_api_key_here
 TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrSTUvwxyz
 TELEGRAM_CHAT_ID=123456789
 
-# Server Port
-VPN_SENTINEL_SERVER_PORT=5000
+# Server API port
+VPN_SENTINEL_SERVER_API_PORT=5000
 ```
 
 ### Optional Settings
 
 ```bash
-# Monitoring Thresholds
-VPN_SENTINEL_ALERT_THRESHOLD_MINUTES=15  # Alert after 15min offline
-VPN_SENTINEL_CHECK_INTERVAL_MINUTES=5    # Check clients every 5min
+# Monitoring threshold (server reads it, but compose.yaml does not forward it yet)
+# VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES=30  # Remove and report a silent client after 30min
 
-# Security
-VPN_SENTINEL_RATE_LIMIT_REQUESTS=30      # 30 requests/minute per IP
-VPN_SENTINEL_ALLOWED_IPS=192.168.1.0/24  # IP whitelist (optional)
+# Security (the API rate limit is fixed at 30 requests/minute per IP)
+VPN_SENTINEL_SERVER_ALLOWED_IPS=203.0.113.10,203.0.113.11  # exact addresses, empty allows all
 
 # Timezone
 TZ=Europe/Madrid
@@ -117,12 +115,12 @@ server {
 
 ### Health Check
 ```bash
-# Public health endpoint (no authentication required)
-curl http://your-server:5000/api/v1/health
+# Public health endpoint on the health port (no authentication required)
+curl http://your-server:8081/health
 ```
 
 ### API Endpoints
-All endpoints except `/health` require `X-API-Key` header:
+The API endpoints require the `X-API-Key` header (the health app on port 8081 is separate and public):
 
 ```bash
 # Server status
@@ -148,7 +146,7 @@ Clients need to be configured to connect to this server. Share these details wit
 
 ```bash
 # Client configuration (.env file)
-VPN_SENTINEL_SERVER_API_BASE_URL=https://your-server.example.com:5000
+VPN_SENTINEL_URL=https://your-server.example.com:5000
 VPN_SENTINEL_API_KEY=your_secure_api_key_here
 ```
 
@@ -165,7 +163,7 @@ docker-compose logs vpn-sentinel-server
 ### Test API Connectivity
 ```bash
 # Health check (should return JSON)
-curl -v http://localhost:5000/api/v1/health
+curl -v http://localhost:8081/health
 
 # With authentication
 curl -v -H "X-API-Key: YOUR_API_KEY" http://localhost:5000/api/v1/status
@@ -178,14 +176,14 @@ curl -v -H "X-API-Key: YOUR_API_KEY" http://localhost:5000/api/v1/status
 # Check what's using port 5000
 sudo netstat -tlnp | grep :5000
 
-# Change port in .env file
-VPN_SENTINEL_SERVER_PORT=5001
+# Change the host side of the port mapping in compose.yaml, for example
+#   - "5001:5000"  # API port
 ```
 
 #### Clients can't connect
 - Check firewall allows the server port
 - Verify `VPN_SENTINEL_API_KEY` matches on both server and clients
-- Test connectivity: `curl http://YOUR_SERVER_IP:5000/api/v1/health`
+- Test connectivity: `curl http://YOUR_SERVER_IP:8081/health`
 
 #### Telegram notifications not working
 - Verify `TELEGRAM_BOT_TOKEN` is correct (from @BotFather)
@@ -202,29 +200,18 @@ VPN_SENTINEL_SERVER_PORT=5001
 
 ### Client Limits
 - Default configuration supports **50-100 concurrent clients**
-- Increase `VPN_SENTINEL_RATE_LIMIT_REQUESTS` for more clients
+- The API rate limit is fixed at 30 requests per minute per IP, which is far above one keepalive per client every 5 minutes; clients behind one NAT address share it
 - Consider load balancer for 200+ clients
 
-### Database Options
-For persistent client data (optional):
-```bash
-# Add to compose.yaml volumes section
-volumes:
-  - vpn-sentinel-data:/data
-  
-# Configure in .env
-VPN_SENTINEL_DB_PATH=/data/vpn_sentinel.db
-```
+### State Storage
+The server keeps client state in memory only. A restart clears it, and clients re-register on their next keepalive. There is no database option.
 
 ## 🔧 Advanced Configuration
 
 ### Custom Domain Setup
+Point your DNS name at the server (or at the reverse proxy in front of it), then set the base URL on each client:
 ```bash
-# Configure custom domain in .env
-VPN_SENTINEL_SERVER_HOSTNAME=vpn-monitor.example.com
-
-# Update client configurations
-VPN_SENTINEL_SERVER_API_BASE_URL=https://vpn-monitor.example.com
+VPN_SENTINEL_URL=https://vpn-monitor.example.com
 ```
 
 ### SSL/TLS Setup
