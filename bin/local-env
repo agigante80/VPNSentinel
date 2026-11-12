@@ -125,7 +125,7 @@ cmd_verify() {
         VPN_SENTINEL_E2E_METRICS_TOKEN=test-metrics-token-0123456789 \
         python3 -m pytest tests/integration/test_local_e2e.py tests/integration/test_dashboard.py \
         tests/integration/test_metrics_e2e.py tests/integration/test_secret_files_e2e.py \
-        tests/integration/test_token_redaction_e2e.py \
+        tests/integration/test_token_redaction_e2e.py tests/integration/test_dashboard_rendering_e2e.py \
         --no-cov --tb=short --color=yes
   ) || rc=$?
 
