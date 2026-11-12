@@ -51,15 +51,18 @@ for _ in $(seq 1 50); do
 done
 curl -sf "$URL" >/dev/null
 
-PROFILE_DIR="$(mktemp -d)"
-trap 'kill "$DEMO_PID" 2>/dev/null || true; rm -rf "$PROFILE_DIR"' EXIT
+# Capture into a scratch folder inside the repo, then move: a snap-packaged Chromium cannot
+# write to /tmp or other paths outside the home directory, and exits 0 without a file.
+WORK_DIR="$(mktemp -d "${ROOT_DIR}/.screenshot.XXXXXX")"
+trap 'kill "$DEMO_PID" 2>/dev/null || true; rm -rf "$WORK_DIR"' EXIT
 
-"$BROWSER" --headless=new --disable-gpu --hide-scrollbars --user-data-dir="$PROFILE_DIR" \
+if ! "$BROWSER" --headless=new --disable-gpu --hide-scrollbars --user-data-dir="$WORK_DIR/profile" \
   --run-all-compositor-stages-before-draw --virtual-time-budget=3000 \
-  --window-size=1400,1000 --screenshot="$OUT" "$URL" >/dev/null 2>&1
-
-if [ ! -s "$OUT" ]; then
-  echo "Screenshot was not written: $OUT" >&2
+  --window-size=1400,1000 --screenshot="$WORK_DIR/shot.png" "$URL" >"$WORK_DIR/browser.log" 2>&1 ||
+  [ ! -s "$WORK_DIR/shot.png" ]; then
+  echo "Screenshot was not written; browser output:" >&2
+  cat "$WORK_DIR/browser.log" >&2
   exit 1
 fi
+mv "$WORK_DIR/shot.png" "$OUT"
 echo "Saved $OUT (browser: $BROWSER, version shown: ${VERSION:-unknown})"
