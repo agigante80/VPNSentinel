@@ -6,7 +6,7 @@ Tests configuration loading and client ID generation.
 import pytest
 import time
 from unittest.mock import patch
-from vpn_sentinel.common.config import _sanitize_client_id, generate_client_id, load_config
+from vpn_sentinel.common.config import _sanitize_client_id, generate_client_id, load_config, secrets_match
 
 
 class TestSanitizeClientId:
@@ -411,3 +411,52 @@ class TestReadSecret:
             with pytest.raises(ValueError) as ei:
                 self._call(env)
             assert self.SENTINEL not in str(ei.value)
+
+
+class TestSecretsMatch:
+    """Tests for secrets_match(): constant-time comparison of a presented secret."""
+
+    KEY = "cl\u00e9-secr\u00e8te"
+
+    def test_equal(self):
+        assert secrets_match("k1", "k1") is True
+
+    def test_utf8_client_arrives_as_latin1_mojibake(self):
+        # What WSGI hands the app for a header whose raw bytes are UTF-8 (curl, Prometheus).
+        mojibake = self.KEY.encode("utf-8").decode("latin-1")
+        assert secrets_match(mojibake, self.KEY) is True
+
+    def test_bundled_client_latin1_header(self):
+        # urllib sends latin-1; WSGI decodes latin-1, so the str is the key itself.
+        assert secrets_match(self.KEY, self.KEY) is True
+
+    def test_unequal_same_length(self):
+        assert secrets_match("k2", "k1") is False
+
+    @pytest.mark.parametrize("provided", ["k1x", "K1", "k", "cle-secrete"])
+    def test_unequal_other(self, provided):
+        assert secrets_match(provided, "k1") is False
+        assert secrets_match("cle-secrete", self.KEY) is False
+
+    @pytest.mark.parametrize("provided,expected", [("", "k1"), ("k1", ""), ("", "")])
+    def test_empty_never_matches(self, provided, expected):
+        with patch("vpn_sentinel.common.config.hmac.compare_digest") as cmp:
+            assert secrets_match(provided, expected) is False
+        assert not cmp.called
+
+    def test_non_latin1_provided_returns_false_without_raising(self):
+        with patch("vpn_sentinel.common.config.hmac.compare_digest", wraps=__import__("hmac").compare_digest) as cmp:
+            assert secrets_match("k\u4e2d", "k1") is False
+        assert cmp.call_count == 2
+
+    def test_surrogate_escaped_secret_does_not_raise(self):
+        assert secrets_match("k1", "k\udce9") is False
+
+    def test_uses_compare_digest_twice_on_sha256_digests(self):
+        import hmac
+
+        with patch("vpn_sentinel.common.config.hmac.compare_digest", wraps=hmac.compare_digest) as cmp:
+            assert secrets_match("k1", "k1") is True
+        assert cmp.call_count == 2
+        for call in cmp.call_args_list:
+            assert all(isinstance(a, bytes) and len(a) == 32 for a in call.args)

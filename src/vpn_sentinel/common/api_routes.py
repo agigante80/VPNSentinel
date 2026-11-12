@@ -5,7 +5,7 @@ import threading
 import time
 
 from .server import api_app
-from .config import read_secret
+from .config import read_secret, secrets_match
 from .log_utils import log_info, log_warn, log_error
 from . import telegram
 from .server_info import get_server_public_ip
@@ -130,7 +130,7 @@ def authenticate_request():
         log_error("security", f"❌ Authentication failed: No API key provided | IP: {client_ip} | Path: {request.path}")
         return jsonify({"error": "Authentication required", "message": "X-API-Key header is required"}), 401
 
-    if provided_key != API_KEY:
+    if not secrets_match(provided_key, API_KEY):
         log_error("security", f"❌ Authentication failed: Invalid API key | IP: {client_ip} | Path: {request.path}")
         return jsonify({"error": "Authentication failed", "message": "Invalid API key"}), 403
 

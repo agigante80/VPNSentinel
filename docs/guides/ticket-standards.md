@@ -56,7 +56,7 @@ Concrete cases: a specific test file path under `tests/unit/` (for example `test
 error code. "Add unit tests" is not a spec. **When a ticket creates or modifies an API
 endpoint** (the Flask routes in `src/vpn_sentinel/common/api_routes.py`), 100% automated coverage
 of that endpoint is required, enumerated case by case: happy path; missing or malformed field 400
-with a specific message; **no API key 401; invalid API key 401; IP outside the allowlist 403**;
+with a specific message; **no API key 401; invalid API key 403; IP outside the allowlist 403**;
 rate-limit enforcement (30 req/min/IP); client isolation (client A cannot overwrite or read client
 B's status). A single generic auth test does not satisfy this: the three auth cases are distinct.
 New code in `vpn_sentinel.common` must keep the 80% coverage gate green.

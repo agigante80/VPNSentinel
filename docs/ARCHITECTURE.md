@@ -62,24 +62,25 @@ External Services:
 **Key Files**:
 - `__main__.py` - Main application with Flask multi-app server
 - `Dockerfile` - Alpine-based Python 3.12 container image
-- `health-monitor-wrapper.sh` - Wrapper script for health monitoring
-- `health-monitor.py` - Health monitoring implementation
+
+The route handlers, security middleware and notification code live in `src/vpn_sentinel/common/`
+(`api_routes.py`, `health_routes.py`, `dashboard_routes.py`, `security.py`, `telegram.py`, `notifications.py`).
 
 **Components**:
 
 #### a) API App (Port 5000)
 - **Authentication**: API key-based authentication
-- **Rate Limiting**: 30 requests/minute per IP (configurable)
+- **Rate Limiting**: 30 requests/minute per IP (fixed)
 - **Endpoints**:
   - `POST /api/v1/keepalive` - Client keepalive with VPN status
-  - `POST /api/v1/register` - Client registration (optional)
-  - `GET /api/v1/status` - Server status
-  - `GET /api/v1/clients` - List all clients
+  - `GET /api/v1/status` - Status of all connected clients
+
+  The `/api/v1` prefix is `VPN_SENTINEL_API_PATH`.
 
 #### b) Health App (Port 8081)
 - **Public Access**: No authentication required
 - **Endpoints**:
-  - `GET /health` - Simple health check (returns "OK")
+  - `GET /health`, `GET /health/ready`, `GET /health/startup` - Health checks (JSON `{"status": "ok", ...}`)
   - `GET /metrics` - Prometheus metrics (client IDs, status, last keepalive; no IPs or geolocation). Returns 404 when `VPN_SENTINEL_METRICS_ENABLED=false`. Public by default; requires `Authorization: Bearer` (401 otherwise) when `VPN_SENTINEL_METRICS_TOKEN` (or `_FILE`) is set
 
 #### c) Dashboard App (Port 8080)
@@ -90,11 +91,14 @@ External Services:
   - Geolocation display
   - Last seen timestamps
   - Offline detection
+- **Browser hardening**: every dashboard response carries a Content-Security-Policy with a per-request script nonce,
+  `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer`. Every value shown
+  (client fields, server IP, log lines) is HTML-encoded before it is written into the page.
 
 #### d) Telegram Bot
 - **Long Polling**: Receives commands from Telegram
 - **Commands**:
-  - `/start` - Initialize bot
+  - `/ping` - Check the server is alive and count the connected clients
   - `/status` - Show all clients status
   - `/help` - Show available commands
 - **Notifications**:
@@ -111,9 +115,9 @@ External Services:
 
 **Technology Stack**:
 - **Language**: Python 3.12
-- **Framework**: Flask 3.0.0
-- **HTTP Library**: requests 2.31.0
-- **Container**: Alpine Linux 3.18+
+- **Framework**: Flask 3.1+
+- **HTTP Library**: requests
+- **Container**: `python:3.12-alpine`
 
 ---
 
@@ -122,15 +126,12 @@ External Services:
 **Purpose**: VPN connectivity monitoring agent, runs inside VPN network
 
 **Key Files**:
-- `__main__.py` - Python monitoring client
-- `vpn-sentinel-client.sh` - Legacy bash client (deprecated)
-- `Dockerfile` - Alpine-based Python 3.12 container image
-- `health-monitor.py` - Health monitoring implementation
-- `health-monitor.sh` - Legacy health monitoring script
-- `healthcheck.sh` - Docker healthcheck probe
+- `__main__.py` - Python monitoring client (`python -m vpn_sentinel.client`)
+- `Dockerfile` - Alpine-based container image
+- `common/health_scripts/` - Health monitor subprocess and Docker healthcheck (`health_monitor.py`, `healthcheck.py`)
 
 **Capabilities**:
-- Public IP detection (via ipinfo.io, ip-api.com)
+- Public IP detection (via ipinfo.io, ip-api.com, ipwhois.app)
 - Geolocation lookup (country, city, region)
 - DNS leak detection (via Cloudflare whoami.cloudflare + /cdn-cgi/trace)
 - VPN status monitoring (via health scripts)
@@ -148,9 +149,9 @@ vpn-sentinel-client:
 
 **Technology Stack**:
 - **Language**: Python 3.12
-- **HTTP Library**: requests 2.31.0
+- **HTTP Library**: requests
 - **DNS Tools**: bind-tools (dig command)
-- **Container**: Alpine Linux 3.18+
+- **Container**: Alpine Linux 3.24
 
 ---
 
@@ -160,21 +161,21 @@ vpn-sentinel-client:
 
 **Modules**:
 
-- **`logging.py`**
+- **`log_utils.py`**
   - Structured logging with component prefixes
   - Functions: `log_info()`, `log_warn()`, `log_error()`, `log_debug()`
   - Format: `[TIMESTAMP] [COMPONENT] MESSAGE`
 
 - **`geolocation.py`**
   - IP geolocation with fallback providers
-  - Primary: ipinfo.io (with optional API token)
-  - Fallback: ip-api.com (free, no auth)
-  - Functions: `get_location()`, `get_ip_details()`
+  - Primary: ipinfo.io
+  - Fallback: ip-api.com, then ipwhois.app (free, no auth)
+  - Functions: `get_geolocation()`
 
 - **`network.py`**
   - Network utilities and DNS detection
   - DNS trace parsing (Cloudflare format support)
-  - Functions: `parse_dns_trace()`, `get_public_ip()`
+  - Functions: `parse_dns_trace()`, `parse_geolocation()`
 
 ---
 
@@ -268,7 +269,7 @@ vpn-sentinel-client:
 **Rate Limiting State**:
 ```python
 {
-    "192.168.1.100": {
+    "203.0.113.50": {
         "requests": [
             1705320000.123,
             1705320001.456,
@@ -298,39 +299,43 @@ vpn-sentinel-client:
 | `VPN_SENTINEL_SERVER_API_PORT` | `5000` | API app port |
 | `VPN_SENTINEL_SERVER_HEALTH_PORT` | `8081` | Health app port |
 | `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | `8080` | Dashboard port |
-| `VPN_SENTINEL_API_KEY` | `""` | API authentication key |
+| `VPN_SENTINEL_API_KEY` (or `VPN_SENTINEL_API_KEY_FILE`) | `""` | API authentication key |
 | `VPN_SENTINEL_API_PATH` | `/api/v1` | API base path |
-| `VPN_SENTINEL_SERVER_RATE_LIMIT` | `30` | Requests per minute |
-| `VPN_SENTINEL_SERVER_CHECK_INTERVAL` | `60` | Client check interval (seconds) |
-| `VPN_SENTINEL_SERVER_OFFLINE_THRESHOLD` | `300` | Offline after N seconds |
+| `VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES` | `30` | A client with no keepalive for this long is removed and reported as silent (swept every 60 seconds) |
+| `VPN_SENTINEL_METRICS_ENABLED` | `true` | Serve `/metrics` |
+| `VPN_SENTINEL_METRICS_TOKEN` (or `VPN_SENTINEL_METRICS_TOKEN_FILE`) | unset | When set, `/metrics` requires `Authorization: Bearer` |
 | `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable web dashboard |
 
 #### Telegram Configuration
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `TELEGRAM_BOT_TOKEN` | `""` | Bot token from @BotFather |
-| `TELEGRAM_CHAT_ID` | `""` | Target chat/user ID |
-| `VPN_SENTINEL_TELEGRAM_ENABLED` | `false` | Enable Telegram notifications |
+| `TELEGRAM_BOT_TOKEN` (or `TELEGRAM_BOT_TOKEN_FILE`) | `""` | Bot token from @BotFather |
+| `TELEGRAM_CHAT_ID` (or `TELEGRAM_CHAT_ID_FILE`) | `""` | Target chat/user ID |
+| `VPN_SENTINEL_TELEGRAM_ENABLED` | unset (auto-detect) | Unset: Telegram is on when both the token and the chat ID are set. `true` forces it on (the server exits at startup if a credential is missing). `false` forces it off |
+| `VPN_SENTINEL_APPRISE_URLS` (or `VPN_SENTINEL_APPRISE_URLS_FILE`) | unset | Extra Apprise notification targets |
 
 #### Client Configuration
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `VPN_SENTINEL_CLIENT_ID` | `"default-client"` | Unique client identifier |
-| `VPN_SENTINEL_SERVER_URL` | `http://localhost:5000` | Server API URL |
-| `VPN_SENTINEL_API_KEY` | `""` | API authentication key |
+| `VPN_SENTINEL_CLIENT_ID` | generated `vpn-monitor-<12 digits>` | Unique client identifier (kebab-case; other characters are replaced) |
+| `VPN_SENTINEL_URL` | `http://your-server-url:5000` | Server base URL (the API path is appended) |
+| `VPN_SENTINEL_API_KEY` (or `VPN_SENTINEL_API_KEY_FILE`) | `""` | API authentication key |
 | `VPN_SENTINEL_API_PATH` | `/api/v1` | API base path |
-| `VPN_SENTINEL_CHECK_INTERVAL` | `60` | Monitoring interval (seconds) |
-| `VPN_SENTINEL_HEALTH_SCRIPT` | `""` | Custom health check script |
-| `IPINFO_API_TOKEN` | `""` | ipinfo.io API token (optional) |
+| `VPN_SENTINEL_INTERVAL` | `300` | Keepalive interval (seconds) |
+| `VPN_SENTINEL_TIMEOUT` | `30` | HTTP timeout for keepalive requests (seconds) |
+| `VPN_SENTINEL_HEALTH_MONITOR` | `true` | Run the health monitor subprocess (`false` disables it) |
+| `VPN_SENTINEL_HEALTH_PORT` | `8082` | Port of the client health monitor |
+| `VPN_SENTINEL_GEOLOCATION_SERVICE` | `auto` | Geolocation provider (`auto` tries ipinfo.io, ip-api.com, ipwhois.app in turn) |
 
 #### Security Configuration
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `VPN_SENTINEL_ALLOWED_IPS` | `""` | Comma-separated IP whitelist |
-| `VPN_SENTINEL_SERVER_IP_WHITELIST_ENABLED` | `false` | Enable IP whitelisting |
+| `VPN_SENTINEL_SERVER_ALLOWED_IPS` | `""` | Comma-separated IP allowlist for the API (empty allows every address) |
+
+The API rate limit is fixed at 30 requests per minute per IP and is not configurable.
 
 ---
 
@@ -462,7 +467,7 @@ OK
 
 - **API Key**: Required for `/api/v1/*` endpoints
 - **Header**: `X-API-Key: your-api-key-here`
-- **Validation**: Constant-time comparison to prevent timing attacks
+- **Validation**: Constant-time comparison to prevent timing attacks (`secrets_match`: SHA-256 digests compared with `hmac.compare_digest`; a non-ASCII key is accepted in either its UTF-8 or latin-1 byte form)
 
 ### Rate Limiting
 
@@ -550,7 +555,7 @@ services:
     image: ghcr.io/lcharles0/vpn-sentinel-client:latest
     network_mode: service:vpn-client
     environment:
-      - VPN_SENTINEL_SERVER_URL=https://central-server.example.com:5000
+      - VPN_SENTINEL_URL=https://central-server.example.com:5000
       - VPN_SENTINEL_CLIENT_ID=location-1-vpn
 ```
 
@@ -568,7 +573,7 @@ services:
       - "8080:8080"
     environment:
       - VPN_SENTINEL_TELEGRAM_ENABLED=true
-      - VPN_SENTINEL_SERVER_OFFLINE_THRESHOLD=600
+      - VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES=10
 ```
 
 ---

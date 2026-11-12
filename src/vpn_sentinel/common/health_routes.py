@@ -1,11 +1,10 @@
 """Health server routes for VPN Sentinel."""
 
-import hmac
-
 from .server import health_app
 from flask import Response, abort, jsonify, request
 
 from . import metrics
+from .config import secrets_match
 
 
 @health_app.route("/health")
@@ -39,7 +38,7 @@ def _metrics_authorized():
     scheme, _, credential = request.headers.get("Authorization", "").partition(" ")
     if scheme.lower() != "bearer" or not credential:
         return False
-    return hmac.compare_digest(credential.encode(), metrics.METRICS_TOKEN.encode())
+    return secrets_match(credential, metrics.METRICS_TOKEN)
 
 
 @health_app.route("/metrics", methods=["GET"])
