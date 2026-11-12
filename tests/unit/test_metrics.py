@@ -283,10 +283,26 @@ class TestMetricsToken:
         assert http.get("/health").status_code == 200
 
     def test_compare_is_constant_time(self, http):
-        with patch("vpn_sentinel.common.health_routes.hmac.compare_digest", return_value=True) as cmp:
+        with patch("vpn_sentinel.common.config.hmac.compare_digest", return_value=True) as cmp:
             resp = http.get("/metrics", headers={"Authorization": "Bearer whatever"})
         assert cmp.called
         assert resp.status_code == 200
+
+    def test_call_site_uses_secrets_match(self, http):
+        with patch("vpn_sentinel.common.health_routes.secrets_match", return_value=True) as spy:
+            resp = http.get("/metrics", headers={"Authorization": "Bearer abc"})
+        spy.assert_called_once_with("abc", "abc")
+        assert resp.status_code == 200
+
+    def test_non_ascii_token_from_utf8_client(self, http, monkeypatch):
+        monkeypatch.setattr(metrics, "METRICS_TOKEN", "t\u00e9")
+        mojibake = "t\u00e9".encode("utf-8").decode("latin-1")
+        resp = http.get("/metrics", environ_overrides={"HTTP_AUTHORIZATION": "Bearer " + mojibake})
+        assert resp.status_code == 200
+
+    def test_extra_non_ascii_byte_is_401(self, http):
+        resp = http.get("/metrics", environ_overrides={"HTTP_AUTHORIZATION": "Bearer abc\u00e9"})
+        assert resp.status_code == 401
 
 
 class TestMetricsAuthFailureLog:
