@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommunityApplications>
+  <Profile>VPN Sentinel checks that your traffic really leaves through your VPN, detects DNS leaks and sends Telegram or Apprise alerts. Two containers: the server (API, web dashboard, alerts) and the client, which runs inside your VPN container's network. Open source, MIT licensed. Support via the GitHub issues link below.</Profile>
+  <Icon>https://raw.githubusercontent.com/agigante80/VPNSentinel/main/docs/images/icon-256.png</Icon>
+  <WebPage>https://github.com/agigante80/VPNSentinel</WebPage>
+  <Forum>https://github.com/agigante80/VPNSentinel/issues</Forum>
+</CommunityApplications>
