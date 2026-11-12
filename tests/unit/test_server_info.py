@@ -22,12 +22,12 @@ class TestGetServerPublicIp:
         """Test successful IP retrieval from ipinfo.io."""
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"ip": "79.116.8.43"}
+        mock_response.json.return_value = {"ip": "203.0.113.10"}
         mock_get.return_value = mock_response
 
         result = get_server_public_ip()
 
-        assert result == "79.116.8.43"
+        assert result == "203.0.113.10"
         mock_get.assert_called_once_with("https://ipinfo.io/json", timeout=10, verify=True)
 
     @patch("vpn_sentinel.common.server_info.requests.get")
@@ -94,7 +94,7 @@ class TestGetServerInfo:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "ip": "79.116.8.43",
+            "ip": "203.0.113.10",
             "city": "Madrid",
             "region": "Community of Madrid",
             "country": "ES",
@@ -105,7 +105,7 @@ class TestGetServerInfo:
 
         result = get_server_info()
 
-        assert result["public_ip"] == "79.116.8.43"
+        assert result["public_ip"] == "203.0.113.10"
         assert result["location"] == "Madrid, Community of Madrid, ES"
         assert "Hetzner" in result["provider"]
         assert result["dns_status"] == "Operational"
