@@ -50,8 +50,17 @@ class TestLogsPage:
     def test_highlighting_script_does_not_write_markup(self, client, monkeypatch, tmp_path):
         _patch_log(monkeypatch, tmp_path, "INFO ok\n")
         body = client.get("/logs").get_data(as_text=True)
-        assert "innerHTML" not in body
+        for sink in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write"):
+            assert sink not in body
         assert "createElement('span')" in body
+
+    def test_log_source_path_is_encoded(self, client, monkeypatch, tmp_path):
+        log = tmp_path / "a<b>c.log"
+        log.write_text("INFO ok\n")
+        monkeypatch.setenv("VPN_SENTINEL_LOG_FILE", str(log))
+        body = client.get("/logs").get_data(as_text=True)
+        assert "a&lt;b&gt;c.log" in body
+        assert "a<b>c.log" not in body
 
 
 class TestDashboardPage:
@@ -65,7 +74,7 @@ class TestDashboardPage:
             "dns_colo": EVIL,
             "last_seen": EVIL,
         }
-        info = {"public_ip": "203.0.113.9", "location": EVIL, "provider": EVIL, "dns_status": EVIL}
+        info = {"public_ip": EVIL, "location": EVIL, "provider": EVIL, "dns_status": EVIL}
         with (
             patch.object(dashboard_routes, "client_status", {EVIL: entry}),
             patch.object(dashboard_routes, "client_status_lock", threading.Lock()),
