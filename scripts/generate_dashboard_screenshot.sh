@@ -1,276 +1,68 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-# Generate dashboard screenshot with demo data showing different client statuses
-# Creates: 1 red (VPN bypass), 1 yellow (DNS leak), 2 green (healthy)
+# Generate the README dashboard screenshot from fixed demo data (issue #147).
+#
+# Runs scripts/dashboard_demo.py, which serves the dashboard with four demo clients
+# (2 green, 1 yellow DNS leak, 1 red VPN bypass) and a demo server identity. Every IP is
+# from the documentation ranges, and no geolocation lookup happens, so the screenshot can
+# never contain the real public IP of the machine that takes it.
+#
+# Usage: scripts/generate_dashboard_screenshot.sh [output.png]
+# Env:   DEMO_PORT (default 18090), VERSION (shown in the footer, default: derived)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+OUT="${1:-${ROOT_DIR}/docs/images/dashboard-screenshot.png}"
+PORT="${DEMO_PORT:-18090}"
+URL="http://127.0.0.1:${PORT}/dashboard"
 
-# Configuration
-API_PORT="${VPN_SENTINEL_SERVER_API_PORT:-5000}"
-HEALTH_PORT="${VPN_SENTINEL_SERVER_HEALTH_PORT:-8081}"
-DASHBOARD_PORT="${VPN_SENTINEL_SERVER_DASHBOARD_PORT:-8080}"
-API_PATH="${VPN_SENTINEL_API_PATH:-/api/v1}"
-BASE_URL="http://localhost:${API_PORT}"
-HEALTH_URL="http://localhost:${HEALTH_PORT}"
-DASHBOARD_URL="http://localhost:${DASHBOARD_PORT}/dashboard"
-SCREENSHOT_PATH="${ROOT_DIR}/docs/images/dashboard-screenshot.png"
+if [ -z "${VERSION:-}" ]; then
+  VERSION="$("${SCRIPT_DIR}/get_version.sh" 2>/dev/null | sed 's/-.*//' || true)"
+fi
+export VERSION
 
-echo "🖼️  VPN Sentinel Dashboard Screenshot Generator"
-echo "================================================"
-echo ""
-
-# Check if server is running
-if ! curl -sf "${HEALTH_URL}/health" >/dev/null 2>&1; then
-  echo "❌ Server not running (health check at ${HEALTH_URL}/health failed)"
-  echo "Please start the server first:"
-  echo "  cd ${ROOT_DIR}"
-  echo "  PYTHONPATH=${ROOT_DIR} python -m vpn_sentinel.server"
+BROWSER=""
+for candidate in chromium-browser chromium google-chrome; do
+  if command -v "$candidate" >/dev/null 2>&1; then
+    BROWSER="$candidate"
+    break
+  fi
+done
+if [ -z "$BROWSER" ]; then
+  echo "No headless Chromium or Chrome found (tried chromium-browser, chromium, google-chrome)" >&2
   exit 1
 fi
 
-echo "✅ Server is running"
-echo "   API: ${BASE_URL}"
-echo "   Dashboard: ${DASHBOARD_URL}"
-echo ""
+PYTHONPATH="${ROOT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}" python3 "${SCRIPT_DIR}/dashboard_demo.py" "$PORT" &
+DEMO_PID=$!
+trap 'kill "$DEMO_PID" 2>/dev/null || true' EXIT
 
-# Function to send keepalive
-send_keepalive() {
-  local client_id="$1"
-  local client_version="$2"
-  local public_ip="$3"
-  local city="$4"
-  local region="$5"
-  local country="$6"
-  local provider="$7"
-  local dns_country="$8"
-  local dns_colo="$9"
-  local last_seen="${10:-0}"
-
-  # Calculate timestamp for last_seen minutes ago
-  local timestamp
-  if [ "$(uname)" = "Darwin" ]; then
-    # macOS
-    timestamp=$(date -u -v-"${last_seen}M" +"%Y-%m-%dT%H:%M:%SZ")
-  else
-    # Linux
-    timestamp=$(date -u -d "${last_seen} minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
+for _ in $(seq 1 50); do
+  if curl -sf "$URL" >/dev/null 2>&1; then
+    break
   fi
-
-  local payload
-  payload=$(
-    cat <<EOF
-{
-    "client_id": "${client_id}",
-    "timestamp": "${timestamp}",
-    "public_ip": "${public_ip}",
-    "city": "${city}",
-    "region": "${region}",
-    "country": "${country}",
-    "provider": "${provider}",
-    "dns_loc": "${dns_country}",
-    "dns_colo": "${dns_colo}",
-    "client_version": "${client_version}"
-}
-EOF
-  )
-
-  curl -sf -X POST \
-    -H "Content-Type: application/json" \
-    -d "${payload}" \
-    "${BASE_URL}${API_PATH}/keepalive" >/dev/null
-
-  echo "  ✓ ${client_id} (${city}, ${country})"
-}
-
-echo "📡 Populating server with demo clients..."
-echo ""
-
-# Get server IP for red status detection
-# We'll fetch the dashboard to get the actual server IP displayed there
-echo "   Fetching server information from dashboard..."
-SERVER_IP=$(curl -sf "${DASHBOARD_URL}" 2>/dev/null | grep -oP 'Server IP:\s*<code>\K[^<]+' || echo "unknown")
-if [ "${SERVER_IP}" = "unknown" ] || [ -z "${SERVER_IP}" ]; then
-  # Fallback: try to get from ipinfo.io
-  SERVER_IP=$(curl -sf https://ipinfo.io/ip 2>/dev/null || echo "203.0.113.10")
-fi
-echo "   Server IP: ${SERVER_IP}"
-echo ""
-
-# Client 1: Green (Healthy) - USA VPN, DNS matches location
-# vpn-media-usa 1.0.0-dev-8aa4ecc 45.130.86.7 New York City, New York, US AS42201 PVDataNet AB DNS US / EWR
-send_keepalive \
-  "vpn-media-usa" \
-  "1.0.0-dev-8aa4ecc" \
-  "45.130.86.7" \
-  "New York City" \
-  "New York" \
-  "US" \
-  "AS42201 PVDataNet AB" \
-  "US" \
-  "EWR" \
-  "0"
-
-# Client 2: Green (Healthy) - Bulgaria VPN, DNS matches location
-# vpn-media Unknown 185.94.192.162 Sofia, Sofia-city, Bulgaria M LTD Sofia Infrastructure DNS BG / FRA
-send_keepalive \
-  "vpn-media" \
-  "Unknown" \
-  "185.94.192.162" \
-  "Sofia" \
-  "Sofia-city" \
-  "BG" \
-  "M LTD Sofia Infrastructure" \
-  "BG" \
-  "FRA" \
-  "1"
-
-# Client 3: Yellow (DNS Leak) - Netherlands VPN but US DNS leak
-send_keepalive \
-  "office-vpn-primary" \
-  "1.2.0" \
-  "185.220.100.245" \
-  "Amsterdam" \
-  "North Holland" \
-  "NL" \
-  "PrivacyGuard BV" \
-  "US" \
-  "IAD" \
-  "3"
-
-# Client 4: Red (VPN Bypass) - Same IP as server (home ISP connection leaked)
-# This simulates when VPN fails and client connects with home IP
-send_keepalive \
-  "home-network-leaked" \
-  "1.1.5" \
-  "${SERVER_IP}" \
-  "Chicago" \
-  "Illinois" \
-  "US" \
-  "Comcast Cable Communications" \
-  "US" \
-  "ORD" \
-  "7"
-
-echo ""
-echo "✅ Demo clients populated"
-echo ""
-
-# Wait longer for server to process and calculate statuses
-echo "⏳ Waiting for server to calculate client statuses (15 seconds)..."
-sleep 15
-
-# Take screenshots with all available browsers
-SCREENSHOTS_TAKEN=0
-BROWSER_NAMES=()
-
-echo "📸 Capturing screenshots with all available browsers..."
-echo ""
-
-# Try chromium-browser
-if command -v chromium-browser >/dev/null 2>&1; then
-  SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chromium-browser.png"
-  echo "  🌐 chromium-browser..."
-  chromium-browser --headless=new --disable-gpu --disable-software-rasterizer --disable-features=PaintHolding --run-all-compositor-stages-before-draw --hide-scrollbars --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
-  if [ -f "${SCREENSHOT_FILE}" ]; then
-    FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
-    echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
-    SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
-    BROWSER_NAMES+=("chromium-browser")
-    # Copy as default
-    cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
+  if ! kill -0 "$DEMO_PID" 2>/dev/null; then
+    echo "Demo dashboard exited before serving" >&2
+    exit 1
   fi
-  echo ""
-fi
-
-# Try chromium
-if command -v chromium >/dev/null 2>&1; then
-  SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chromium.png"
-  echo "  🌐 chromium..."
-  chromium --headless=new --disable-gpu --disable-software-rasterizer --disable-features=PaintHolding --run-all-compositor-stages-before-draw --hide-scrollbars --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
-  if [ -f "${SCREENSHOT_FILE}" ]; then
-    FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
-    echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
-    SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
-    BROWSER_NAMES+=("chromium")
-    # Copy as default if first
-    if [ $SCREENSHOTS_TAKEN -eq 1 ]; then
-      cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
-    fi
-  fi
-  echo ""
-fi
-
-# Try google-chrome
-if command -v google-chrome >/dev/null 2>&1; then
-  SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-chrome.png"
-  echo "  🌐 google-chrome..."
-  google-chrome --headless=new --disable-gpu --disable-software-rasterizer --disable-features=PaintHolding --run-all-compositor-stages-before-draw --hide-scrollbars --screenshot="${SCREENSHOT_FILE}" --window-size=1400,1000 "${DASHBOARD_URL}"
-  if [ -f "${SCREENSHOT_FILE}" ]; then
-    FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
-    echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
-    SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
-    BROWSER_NAMES+=("chrome")
-    # Copy as default if first
-    if [ $SCREENSHOTS_TAKEN -eq 1 ]; then
-      cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
-    fi
-  fi
-  echo ""
-fi
-
-# Try firefox
-if command -v firefox >/dev/null 2>&1; then
-  SCREENSHOT_FILE="${ROOT_DIR}/docs/images/dashboard-screenshot-firefox.png"
-  echo "  🌐 firefox..."
-  firefox --headless --screenshot "${SCREENSHOT_FILE}" --window-size=1400,1000 --hide-scrollbars "${DASHBOARD_URL}"
-  if [ -f "${SCREENSHOT_FILE}" ]; then
-    FILE_SIZE=$(du -h "${SCREENSHOT_FILE}" | cut -f1)
-    echo "     ✅ Saved: ${SCREENSHOT_FILE} (${FILE_SIZE})"
-    SCREENSHOTS_TAKEN=$((SCREENSHOTS_TAKEN + 1))
-    BROWSER_NAMES+=("firefox")
-    # Copy as default if first
-    if [ $SCREENSHOTS_TAKEN -eq 1 ]; then
-      cp "${SCREENSHOT_FILE}" "${SCREENSHOT_PATH}"
-    fi
-  fi
-  echo ""
-fi
-
-if [ $SCREENSHOTS_TAKEN -eq 0 ]; then
-  echo "❌ No headless browser found (chromium, chrome, or firefox)"
-  echo ""
-  echo "Install one of:"
-  echo "  sudo apt install chromium-browser    # Debian/Ubuntu"
-  echo "  sudo dnf install chromium             # Fedora"
-  echo "  brew install chromium                 # macOS"
-  echo ""
-  echo "Or manually take a screenshot of:"
-  echo "  ${DASHBOARD_URL}"
-  echo ""
-  echo "Dashboard is ready for manual screenshot!"
-  exit 0
-fi
-
-echo "✅ ${SCREENSHOTS_TAKEN} screenshot(s) captured!"
-echo ""
-echo "Screenshots saved:"
-for browser in "${BROWSER_NAMES[@]}"; do
-  echo "  - docs/images/dashboard-screenshot-${browser}.png"
+  sleep 0.2
 done
-echo ""
-echo "Default screenshot: ${SCREENSHOT_PATH}"
-echo ""
-echo "Preview with:"
-echo "  xdg-open '${ROOT_DIR}/docs/images/dashboard-screenshot-*.png'  # Linux (all)"
-echo "  open '${ROOT_DIR}/docs/images/dashboard-screenshot-*.png'      # macOS (all)"
+curl -sf "$URL" >/dev/null
 
-echo ""
-echo "🎉 Dashboard screenshot generation complete!"
-echo ""
-echo "Next steps:"
-echo "  1. Review the screenshot: ${SCREENSHOT_PATH}"
-echo "  2. Commit: git add ${SCREENSHOT_PATH}"
-echo "  3. Commit: git commit -m 'docs: Update dashboard screenshot'"
+# Capture into a scratch folder inside the repo, then move: a snap-packaged Chromium cannot
+# write to /tmp or other paths outside the home directory, and exits 0 without a file.
+WORK_DIR="$(mktemp -d "${ROOT_DIR}/.screenshot.XXXXXX")"
+trap 'kill "$DEMO_PID" 2>/dev/null || true; rm -rf "$WORK_DIR"' EXIT
+
+if ! "$BROWSER" --headless=new --disable-gpu --hide-scrollbars --user-data-dir="$WORK_DIR/profile" \
+  --run-all-compositor-stages-before-draw --virtual-time-budget=3000 \
+  --window-size=1400,1000 --screenshot="$WORK_DIR/shot.png" "$URL" >"$WORK_DIR/browser.log" 2>&1 ||
+  [ ! -s "$WORK_DIR/shot.png" ]; then
+  echo "Screenshot was not written; browser output:" >&2
+  cat "$WORK_DIR/browser.log" >&2
+  exit 1
+fi
+mv "$WORK_DIR/shot.png" "$OUT"
+echo "Saved $OUT (browser: $BROWSER, version shown: ${VERSION:-unknown})"

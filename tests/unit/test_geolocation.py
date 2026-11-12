@@ -73,7 +73,7 @@ class TestParseIpinfo:
         """Test parsing complete ipinfo.io response."""
         text = json.dumps(
             {
-                "ip": "79.116.8.43",
+                "ip": "203.0.113.10",
                 "city": "Madrid",
                 "region": "Community of Madrid",
                 "country": "ES",
@@ -84,7 +84,7 @@ class TestParseIpinfo:
 
         result = _parse_ipinfo(text)
 
-        assert result["public_ip"] == "79.116.8.43"
+        assert result["public_ip"] == "203.0.113.10"
         assert result["city"] == "Madrid"
         assert result["region"] == "Community of Madrid"
         assert result["country"] == "ES"
@@ -212,12 +212,12 @@ class TestGetGeolocation:
     def test_get_geolocation_auto_ipinfo_success(self, mock_http_get):
         """Test auto mode uses ipinfo.io first."""
         mock_http_get.return_value = json.dumps(
-            {"ip": "79.116.8.43", "city": "Madrid", "country": "ES", "org": "Hetzner", "timezone": "Europe/Madrid"}
+            {"ip": "203.0.113.10", "city": "Madrid", "country": "ES", "org": "Hetzner", "timezone": "Europe/Madrid"}
         )
 
         result = get_geolocation(service="auto")
 
-        assert result["public_ip"] == "79.116.8.43"
+        assert result["public_ip"] == "203.0.113.10"
         assert result["city"] == "Madrid"
         assert result["country"] == "ES"
         assert result["source"] == "ipinfo.io"
