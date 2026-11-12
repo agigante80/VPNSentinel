@@ -1,81 +1,36 @@
 # Dashboard Screenshots
 
-This directory contains screenshots of the VPN Sentinel dashboard for documentation purposes.
+This directory holds the dashboard screenshot used by the root README, plus the project icon.
 
 ## Current Screenshot
 
-- **File**: `dashboard-screenshot.png`
-- **Resolution**: 1400x900 pixels
-- **Format**: PNG
-- **Size**: ~341KB
-- **Last Updated**: 2025-11-11
+- **File**: `dashboard-screenshot.png` (1400x1000 PNG)
+- Shows all three statuses: two green clients, one yellow (DNS leak) and one red (VPN bypass)
+- All data is fixed demo data: every IP is from the documentation ranges (RFC 5737), so the
+  image never contains a real public IP
 
-The screenshot shows the dashboard with multiple clients displaying all status types (🟢 Green, 🟡 Yellow, 🔴 Red).
-
-## Regenerating Screenshot Automatically
-
-The dashboard screenshot can be regenerated automatically using the following command:
+## Regenerating the Screenshot
 
 ```bash
-# Start the VPN Sentinel server and client first
-docker compose up -d
-
-# Wait for services to be ready
-sleep 5
-
-# Generate screenshot using chromium headless mode
-chromium-browser --headless --disable-gpu \
-  --screenshot=docs/images/dashboard-screenshot.png \
-  --window-size=1400,900 \
-  --virtual-time-budget=3000 \
-  http://localhost:18080/dashboard
+VERSION=1.2.3 scripts/generate_dashboard_screenshot.sh   # VERSION is the footer badge
 ```
 
-### Prerequisites
+The script starts `scripts/dashboard_demo.py`, which serves the dashboard on `127.0.0.1:18090`
+(`DEMO_PORT` to change it) with the demo clients loaded and the server's geolocation lookup replaced
+by a fixed demo identity. It then captures the page with headless Chromium or Chrome and stops the
+demo server. No running VPN Sentinel stack is needed, and nothing is sent over the network.
 
-- VPN Sentinel server running on port 18080 (or adjust URL)
-- Chromium browser installed (`sudo apt install chromium-browser`)
-- At least 2-3 clients connected with varied statuses for best visual
-
-### Alternative Browsers
-
-```bash
-# Using Firefox
-firefox --headless --screenshot docs/images/dashboard-screenshot.png \
-  http://localhost:18080/dashboard
-
-# Using Chrome
-google-chrome --headless --disable-gpu \
-  --screenshot=docs/images/dashboard-screenshot.png \
-  --window-size=1400,900 \
-  http://localhost:18080/dashboard
-```
-
-## Screenshot Guidelines
-
-When regenerating screenshots:
-- Ensure at least 2-3 clients are connected
-- Include examples of all status indicators (🟢 Green, 🟡 Yellow, 🔴 Red)
-- Full interface should be visible (header, server info, stats, table, footer)
-- Resolution: 1400x900 pixels minimum
-- Format: PNG for best quality
-- Show realistic data (varied locations, providers, statuses)
-
-## Updating Documentation
-
-After regenerating the screenshot:
+Review the image before committing it:
 
 ```bash
 git add docs/images/dashboard-screenshot.png
-git commit -m "docs: Update dashboard screenshot"
-git push origin develop
 ```
 
 ## Project Icon
 
 | File | Purpose |
 |---|---|
-| `icon.svg` | Master (shield with a red, yellow and green traffic light, square, readable on light and dark) |
+| `icon.svg` | Master: the Owl sentinel (a night-watch owl with green eyes; square 512 grid, transparent background, light outline so it reads on light and dark) |
 | `icon-512.png`, `icon-256.png` | PNG renders of the master |
 | `src/vpn_sentinel/common/static/favicon.svg`, `favicon.png` | Served copies of `icon.svg` and `icon-256.png`, shipped as package data and served by the dashboard at `/favicon.svg` and `/favicon.ico` |
 

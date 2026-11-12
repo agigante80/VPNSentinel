@@ -30,8 +30,8 @@ class TestGetClientHealthStatus:
 
     def test_status_danger_same_ip(self):
         """Test RED status when client IP matches server IP (VPN bypass)."""
-        server_ip = "79.116.8.43"
-        client = {"ip": "79.116.8.43", "country": "ES", "dns_loc": "ES"}  # Same as server
+        server_ip = "203.0.113.10"
+        client = {"ip": "203.0.113.10", "country": "ES", "dns_loc": "ES"}  # Same as server
 
         status_class, icon, text, dns_icon = get_client_health_status(client, server_ip)
 
@@ -41,7 +41,7 @@ class TestGetClientHealthStatus:
 
     def test_status_danger_unknown_ip(self):
         """Test RED status when client IP is unknown."""
-        server_ip = "79.116.8.43"
+        server_ip = "203.0.113.10"
         client = {"ip": "unknown", "country": "US", "dns_loc": "US"}
 
         status_class, icon, text, dns_icon = get_client_health_status(client, server_ip)
@@ -51,7 +51,7 @@ class TestGetClientHealthStatus:
 
     def test_status_warning_dns_leak(self):
         """Test YELLOW status when DNS location differs from country (DNS leak)."""
-        server_ip = "79.116.8.43"
+        server_ip = "203.0.113.10"
         client = {
             "ip": "91.203.5.146",  # Different from server
             "country": "GB",
@@ -66,7 +66,7 @@ class TestGetClientHealthStatus:
 
     def test_status_warning_dns_unknown(self):
         """Test YELLOW status when DNS location is unknown."""
-        server_ip = "79.116.8.43"
+        server_ip = "203.0.113.10"
         client = {"ip": "91.203.5.146", "country": "GB", "dns_loc": "Unknown"}  # DNS undetectable
 
         status_class, icon, text, dns_icon = get_client_health_status(client, server_ip)
@@ -77,7 +77,7 @@ class TestGetClientHealthStatus:
 
     def test_status_ok_secure(self):
         """Test GREEN status when VPN is working correctly."""
-        server_ip = "79.116.8.43"
+        server_ip = "203.0.113.10"
         client = {"ip": "91.203.5.146", "country": "GB", "dns_loc": "GB"}  # Different from server  # Matches country
 
         status_class, icon, text, dns_icon = get_client_health_status(client, server_ip)
@@ -88,7 +88,7 @@ class TestGetClientHealthStatus:
 
     def test_defaults_for_missing_fields(self):
         """Test defaults are used for missing client fields."""
-        server_ip = "79.116.8.43"
+        server_ip = "203.0.113.10"
         client = {}  # No fields
 
         status_class, icon, text, dns_icon = get_client_health_status(client, server_ip)
@@ -98,7 +98,7 @@ class TestGetClientHealthStatus:
 
     def test_case_sensitivity_unknown_ip(self):
         """Test that both 'unknown' and 'Unknown' trigger danger status."""
-        server_ip = "79.116.8.43"
+        server_ip = "203.0.113.10"
 
         # Test lowercase 'unknown'
         client1 = {"ip": "unknown", "country": "US", "dns_loc": "US"}
@@ -120,7 +120,7 @@ class TestDashboardRoute:
     def test_dashboard_no_clients(self, mock_server_info, client):
         """Test dashboard renders correctly with no clients."""
         mock_server_info.return_value = {
-            "public_ip": "79.116.8.43",
+            "public_ip": "203.0.113.10",
             "location": "Madrid, ES",
             "provider": "Hetzner",
             "dns_status": "OK",
@@ -138,7 +138,7 @@ class TestDashboardRoute:
     def test_dashboard_with_clients(self, mock_client_status, mock_server_info, client):
         """Test dashboard renders correctly with connected clients."""
         mock_server_info.return_value = {
-            "public_ip": "79.116.8.43",
+            "public_ip": "203.0.113.10",
             "location": "Madrid, ES",
             "provider": "Hetzner",
             "dns_status": "OK",
@@ -189,7 +189,7 @@ class TestDashboardRoute:
     def test_dashboard_shows_status_badges(self, mock_client_status, mock_server_info, client):
         """Test dashboard shows correct status badges for different client states."""
         mock_server_info.return_value = {
-            "public_ip": "79.116.8.43",
+            "public_ip": "203.0.113.10",
             "location": "Madrid, ES",
             "provider": "Hetzner",
             "dns_status": "OK",
@@ -226,7 +226,7 @@ class TestDashboardRoute:
             (
                 "bypass-client",
                 {
-                    "ip": "79.116.8.43",  # Same as server!
+                    "ip": "203.0.113.10",  # Same as server!
                     "location": "Madrid, ES",
                     "provider": "Hetzner",
                     "last_seen": "2025-11-11T10:00:00",
@@ -256,7 +256,7 @@ class TestDashboardRoute:
         from datetime import datetime, timedelta
 
         mock_server_info.return_value = {
-            "public_ip": "79.116.8.43",
+            "public_ip": "203.0.113.10",
             "location": "Madrid, ES",
             "provider": "Hetzner",
             "dns_status": "OK",
@@ -324,7 +324,7 @@ class TestDashboardRoute:
     def test_dashboard_shows_version(self, mock_server_info, client):
         """Test dashboard displays version from environment variable."""
         mock_server_info.return_value = {
-            "public_ip": "79.116.8.43",
+            "public_ip": "203.0.113.10",
             "location": "Madrid, ES",
             "provider": "Hetzner",
             "dns_status": "OK",
@@ -341,7 +341,7 @@ class TestDashboardRoute:
     def test_dashboard_shows_server_info(self, mock_client_status, mock_server_info, client):
         """Test dashboard displays server information."""
         mock_server_info.return_value = {
-            "public_ip": "79.116.8.43",
+            "public_ip": "203.0.113.10",
             "location": "Madrid, Madrid, ES",
             "provider": "Hetzner Online GmbH",
             "dns_status": "OK",
@@ -354,7 +354,7 @@ class TestDashboardRoute:
         response = client.get("/dashboard")
 
         assert response.status_code == 200
-        assert b"79.116.8.43" in response.data
+        assert b"203.0.113.10" in response.data
         assert b"Madrid" in response.data
         assert b"Hetzner" in response.data
 

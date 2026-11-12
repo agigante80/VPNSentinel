@@ -439,8 +439,8 @@ Status: 🟡 DNS Leak Detected
 🚨 VPN BYPASS DETECTED!
 
 Client: home-office-vpn
-Client IP: 79.116.8.43
-Server IP: 79.116.8.43
+Client IP: 203.0.113.10
+Server IP: 203.0.113.10
 Location: Madrid, MD, ES
 
 ⚠️ WARNING: VPN is NOT routing traffic!

@@ -120,3 +120,24 @@ class TestSecurityHeaders:
         resp = api_app.test_client().get("/no-such-route")
         assert "Content-Security-Policy" not in resp.headers
         assert "X-Frame-Options" not in resp.headers
+
+
+class TestBrandLogo:
+    """Issue #147: the owl icon is shown in the page headers and footers, from the same-origin favicon."""
+
+    @pytest.mark.parametrize("path", ["/dashboard", "/logs"])
+    def test_header_and_footer_show_logo(self, client, path, monkeypatch, tmp_path):
+        _patch_log(monkeypatch, tmp_path, "INFO ok\n")
+        body = client.get(path).get_data(as_text=True)
+        h1 = re.search(r"<h1>(.*?)</h1>", body, re.S).group(1)
+        assert '<img src="/favicon.svg"' in h1
+        assert 'class="brand-logo"' in h1
+        footer = body[body.index('<div class="footer">') :]
+        assert '<img src="/favicon.svg" alt="" class="brand-logo-sm"' in footer
+        for emoji in ("\U0001f512", "\U0001f50d"):
+            assert emoji not in h1
+
+    def test_logo_is_served(self, client):
+        resp = client.get("/favicon.svg")
+        assert resp.status_code == 200
+        assert b"VPN Sentinel" in resp.data

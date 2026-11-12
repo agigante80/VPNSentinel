@@ -60,7 +60,7 @@ class TestKeepalive:
     @patch("vpn_sentinel.common.api_routes.log_info")
     def test_keepalive_flat_format_success(self, mock_log, mock_telegram, mock_server_ip, client, clear_client_data):
         """Test keepalive with flat JSON format."""
-        mock_server_ip.return_value = "79.116.8.43"
+        mock_server_ip.return_value = "203.0.113.10"
 
         payload = {
             "client_id": "test-client",
@@ -95,7 +95,7 @@ class TestKeepalive:
     @patch("vpn_sentinel.common.api_routes.log_info")
     def test_keepalive_nested_format_success(self, mock_log, mock_telegram, mock_server_ip, client, clear_client_data):
         """Test keepalive with nested JSON format."""
-        mock_server_ip.return_value = "79.116.8.43"
+        mock_server_ip.return_value = "203.0.113.10"
 
         payload = {
             "client_id": "test-client",
@@ -143,7 +143,7 @@ class TestKeepalive:
         self, mock_log_warn, mock_log, mock_telegram, mock_server_ip, client, clear_client_data
     ):
         """Test VPN bypass detection when client IP matches server IP."""
-        server_ip = "79.116.8.43"
+        server_ip = "203.0.113.10"
         mock_server_ip.return_value = server_ip
 
         payload = {
@@ -170,7 +170,7 @@ class TestKeepalive:
     @patch("vpn_sentinel.common.api_routes.log_info")
     def test_keepalive_ip_change_notification(self, mock_log, mock_telegram, mock_server_ip, client, clear_client_data):
         """Test IP change notification when client IP changes."""
-        mock_server_ip.return_value = "79.116.8.43"
+        mock_server_ip.return_value = "203.0.113.10"
 
         # First keepalive
         payload1 = {
@@ -208,7 +208,7 @@ class TestKeepalive:
         self, mock_log, mock_telegram, mock_server_ip, client, clear_client_data
     ):
         """Test keepalive uses defaults for missing optional fields."""
-        mock_server_ip.return_value = "79.116.8.43"
+        mock_server_ip.return_value = "203.0.113.10"
 
         payload = {
             "client_id": "minimal-client",
@@ -232,7 +232,7 @@ class TestKeepalive:
         self, mock_log, mock_telegram, mock_server_ip, client, clear_client_data
     ):
         """Test keepalive falls back to 'ip' field if 'public_ip' not present."""
-        mock_server_ip.return_value = "79.116.8.43"
+        mock_server_ip.return_value = "203.0.113.10"
 
         payload = {"client_id": "test-client", "ip": "1.2.3.4", "country": "GB"}  # Using 'ip' instead of 'public_ip'
 
@@ -249,7 +249,7 @@ class TestKeepalive:
     ):
         """Test keepalive handles exceptions gracefully."""
         # Mock client_status to raise exception during update
-        mock_server_ip.return_value = "79.116.8.43"
+        mock_server_ip.return_value = "203.0.113.10"
         mock_client_status.__setitem__.side_effect = Exception("Test error")
 
         response = client.post("/api/v1/keepalive", json={"client_id": "test", "public_ip": "1.2.3.4"})
@@ -265,7 +265,7 @@ class TestGetCachedServerIp:
     @patch("vpn_sentinel.common.api_routes.get_server_public_ip")
     def test_caches_server_ip(self, mock_get_ip):
         """Test server IP is cached after first call."""
-        mock_get_ip.return_value = "79.116.8.43"
+        mock_get_ip.return_value = "203.0.113.10"
 
         # Reset cache
         import vpn_sentinel.common.api_routes as api_routes
@@ -274,12 +274,12 @@ class TestGetCachedServerIp:
 
         # First call should fetch
         ip1 = get_cached_server_ip()
-        assert ip1 == "79.116.8.43"
+        assert ip1 == "203.0.113.10"
         assert mock_get_ip.call_count == 1
 
         # Second call should use cache
         ip2 = get_cached_server_ip()
-        assert ip2 == "79.116.8.43"
+        assert ip2 == "203.0.113.10"
         assert mock_get_ip.call_count == 1  # Not called again
 
 
@@ -310,7 +310,7 @@ class TestKeepaliveWithApprise:
         "dns_colo": "LHR",
     }
 
-    @patch("vpn_sentinel.common.api_routes.get_cached_server_ip", return_value="79.116.8.43")
+    @patch("vpn_sentinel.common.api_routes.get_cached_server_ip", return_value="203.0.113.10")
     def test_blackholed_target_does_not_delay_a_new_client_keepalive(
         self, _server_ip, client, clear_client_data, monkeypatch
     ):
@@ -341,7 +341,7 @@ class TestKeepaliveWithApprise:
         finally:
             release.set()
 
-    @patch("vpn_sentinel.common.api_routes.get_cached_server_ip", return_value="79.116.8.43")
+    @patch("vpn_sentinel.common.api_routes.get_cached_server_ip", return_value="203.0.113.10")
     def test_hostile_client_id_is_rejected_before_any_apprise_call(
         self, _server_ip, client, clear_client_data, monkeypatch
     ):
@@ -355,7 +355,7 @@ class TestKeepaliveWithApprise:
         assert "Invalid client_id format" in response.get_data(as_text=True)
         send.assert_not_called()
 
-    @patch("vpn_sentinel.common.api_routes.get_cached_server_ip", return_value="79.116.8.43")
+    @patch("vpn_sentinel.common.api_routes.get_cached_server_ip", return_value="203.0.113.10")
     def test_new_client_alert_is_sent_outside_client_status_lock(self, _server_ip, client, clear_client_data):
         from vpn_sentinel.common import api_routes, notifications
 
@@ -389,7 +389,7 @@ class TestApiKeyMiddleware:
 
     def _post(self, client, headers=None):
         with (
-            patch("vpn_sentinel.common.api_routes.get_cached_server_ip", return_value="79.116.8.43"),
+            patch("vpn_sentinel.common.api_routes.get_cached_server_ip", return_value="203.0.113.10"),
             patch("vpn_sentinel.common.api_routes.telegram"),
         ):
             return client.post("/api/v1/keepalive", json=self.PAYLOAD, headers=headers or {})
