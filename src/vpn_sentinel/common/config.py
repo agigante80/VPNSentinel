@@ -25,8 +25,9 @@ def secrets_match(provided: str, expected: str) -> bool:
     for a non-ASCII secret depends on its library: urllib (the bundled client) sends
     latin-1, so the str IS the secret; UTF-8 clients (curl, Prometheus) arrive as
     mojibake that a latin-1 re-encode turns back into their bytes. Both readings are
-    compared, always both, combined with ``|`` (not ``or``) so timing does not reveal
-    which one matched. Only byte strings derived from the configured secret match.
+    compared, always both, combined with ``|`` (not ``or``) so neither comparison is
+    skipped; any remaining timing difference is a bool operation, far below network
+    jitter. Only byte strings derived from the configured secret match.
     """
     if not provided or not expected:
         return False
