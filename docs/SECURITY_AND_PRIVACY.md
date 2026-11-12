@@ -20,15 +20,23 @@ VPN Sentinel follows **defense-in-depth** security practices:
 
 **Implementation**:
 ```python
-def check_api_key():
-    """Validate API key from request header."""
-    api_key = request.headers.get('X-API-Key')
-    if not api_key or api_key != VPN_SENTINEL_API_KEY:
-        return jsonify({'error': 'Unauthorized'}), 401
+# vpn_sentinel/common/api_routes.py (authenticate_request)
+provided_key = request.headers.get("X-API-Key", "")
+if not provided_key:
+    return jsonify({"error": "Authentication required", "message": "X-API-Key header is required"}), 401
+if not secrets_match(provided_key, API_KEY):
+    return jsonify({"error": "Authentication failed", "message": "Invalid API key"}), 403
 ```
 
+`secrets_match` (`vpn_sentinel/common/config.py`) hashes both values with SHA-256 and compares the
+digests with `hmac.compare_digest`, so the comparison takes the same time whatever the length or the
+number of matching leading characters. The `/metrics` bearer token uses the same helper. A non-ASCII
+key or token is accepted in either its UTF-8 or its latin-1 byte form (the bundled client sends
+latin-1, curl and Prometheus send UTF-8); ASCII keys, such as those from the recommended generator,
+have exactly one accepted form.
+
 **Security Features**:
-- ✅ Constant-time comparison (prevents timing attacks)
+- ✅ Constant-time comparison (SHA-256 digests compared with `hmac.compare_digest`; prevents timing attacks)
 - ✅ Header-based (not in URL)
 - ✅ Configurable via environment variable
 - ❌ Single shared key (no per-client keys)

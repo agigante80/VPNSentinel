@@ -6,10 +6,41 @@ It is intended to be imported by both server and client code.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
 import random
 import time  # noqa: F401  # test-patching: tests patch config.time.time
 from typing import Dict, Any
+
+
+def secrets_match(provided: str, expected: str) -> bool:
+    """Constant-time check that a presented secret equals the configured one.
+
+    Both sides are hashed with SHA-256 first so the comparison is fixed-length
+    (``hmac.compare_digest`` can leak length on unequal inputs). An empty value on
+    either side never matches.
+
+    WSGI decodes header bytes as latin-1 (PEP 3333), and which bytes a client sent
+    for a non-ASCII secret depends on its library: urllib (the bundled client) sends
+    latin-1, so the str IS the secret; UTF-8 clients (curl, Prometheus) arrive as
+    mojibake that a latin-1 re-encode turns back into their bytes. Both readings are
+    compared, always both, combined with ``|`` (not ``or``) so neither comparison is
+    skipped; any remaining timing difference is a bool operation, far below network
+    jitter. Only byte strings derived from the configured secret match.
+    """
+    if not provided or not expected:
+        return False
+    # surrogateescape: a secret read from env with undecodable bytes round-trips instead of raising.
+    want = hashlib.sha256(expected.encode("utf-8", "surrogateescape")).digest()
+    as_utf8 = provided.encode("utf-8", "surrogateescape")
+    try:
+        as_latin1 = provided.encode("latin-1")
+    except UnicodeEncodeError:
+        as_latin1 = b""  # sha256(b"") never equals the digest of a non-empty secret
+    by_utf8 = hmac.compare_digest(hashlib.sha256(as_utf8).digest(), want)
+    by_latin1 = hmac.compare_digest(hashlib.sha256(as_latin1).digest(), want)
+    return by_utf8 | by_latin1
 
 
 def read_secret(name: str, default: str = "") -> str:

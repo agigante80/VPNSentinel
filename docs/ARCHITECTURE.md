@@ -462,7 +462,7 @@ OK
 
 - **API Key**: Required for `/api/v1/*` endpoints
 - **Header**: `X-API-Key: your-api-key-here`
-- **Validation**: Constant-time comparison to prevent timing attacks
+- **Validation**: Constant-time comparison to prevent timing attacks (`secrets_match`: SHA-256 digests compared with `hmac.compare_digest`; a non-ASCII key is accepted in either its UTF-8 or latin-1 byte form)
 
 ### Rate Limiting
 

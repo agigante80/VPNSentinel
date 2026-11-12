@@ -6,6 +6,7 @@ Tests keepalive endpoint, status endpoint, client registration, and data parsing
 import pytest
 from unittest.mock import patch, MagicMock
 from datetime import datetime
+from vpn_sentinel.common import api_routes, security
 from vpn_sentinel.common.api_routes import api_app, client_status, _client_first_seen, get_cached_server_ip
 
 
@@ -370,3 +371,70 @@ class TestKeepaliveWithApprise:
         with patch.object(notifications, "notify", side_effect=fake_notify):
             assert client.post("/api/v1/keepalive", json=self.PAYLOAD).status_code == 200
         assert seen == [True]
+
+
+class TestApiKeyMiddleware:
+    """authenticate_request: 401 missing key, 403 wrong key, 200 right key, auth disabled when no key."""
+
+    KEY = "k1"
+    PAYLOAD = {"client_id": "auth-client", "public_ip": "91.203.5.146"}
+
+    @pytest.fixture(autouse=True)
+    def isolate(self, monkeypatch, clear_client_data):
+        """Fresh rate-limit store so these tests can neither cause nor suffer a 429."""
+        security.rate_limit_storage.clear()
+        monkeypatch.setattr(api_routes, "API_KEY", self.KEY)
+        yield
+        security.rate_limit_storage.clear()
+
+    def _post(self, client, headers=None):
+        with (
+            patch("vpn_sentinel.common.api_routes.get_cached_server_ip", return_value="79.116.8.43"),
+            patch("vpn_sentinel.common.api_routes.telegram"),
+        ):
+            return client.post("/api/v1/keepalive", json=self.PAYLOAD, headers=headers or {})
+
+    def test_right_key_is_authorised(self, client):
+        assert self._post(client, {"X-API-Key": "k1"}).status_code == 200
+
+    @pytest.mark.parametrize("bad", ["k2", "k1x", "K1"])
+    def test_wrong_key_is_403(self, client, bad):
+        resp = self._post(client, {"X-API-Key": bad})
+        assert resp.status_code == 403
+        assert resp.json == {"error": "Authentication failed", "message": "Invalid API key"}
+
+    def test_missing_key_is_401(self, client):
+        resp = self._post(client)
+        assert resp.status_code == 401
+        assert resp.json == {"error": "Authentication required", "message": "X-API-Key header is required"}
+
+    def test_auth_disabled_when_no_key_configured(self, client, monkeypatch):
+        monkeypatch.setattr(api_routes, "API_KEY", "")
+        with patch("vpn_sentinel.common.api_routes.secrets_match") as spy:
+            assert self._post(client).status_code == 200
+        assert not spy.called
+
+    def test_non_ascii_key_from_bundled_client_latin1(self, client, monkeypatch):
+        key = "cl\u00e9-secr\u00e8te"
+        monkeypatch.setattr(api_routes, "API_KEY", key)
+        # Werkzeug hands the app the latin-1 decoded header: for the bundled client that is the key itself.
+        assert self._post(client, {"X-API-Key": key}).status_code == 200
+
+    def test_non_ascii_key_from_utf8_client(self, client, monkeypatch):
+        key = "cl\u00e9-secr\u00e8te"
+        monkeypatch.setattr(api_routes, "API_KEY", key)
+        resp = client.post(
+            "/api/v1/keepalive",
+            json=self.PAYLOAD,
+            environ_overrides={"HTTP_X_API_KEY": key.encode("utf-8").decode("latin-1")},
+        )
+        assert resp.status_code == 200
+
+    def test_non_ascii_near_miss_is_403(self, client, monkeypatch):
+        monkeypatch.setattr(api_routes, "API_KEY", "cl\u00e9-secr\u00e8te")
+        assert self._post(client, {"X-API-Key": "cle-secrete"}).status_code == 403
+
+    def test_call_site_uses_secrets_match(self, client):
+        with patch("vpn_sentinel.common.api_routes.secrets_match", return_value=True) as spy:
+            assert self._post(client, {"X-API-Key": "k1"}).status_code == 200
+        spy.assert_called_once_with("k1", self.KEY)
