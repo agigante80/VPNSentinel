@@ -16,6 +16,10 @@ from pathlib import Path
 
 STATIC_DIR = Path(__file__).parent / "static"
 
+# The project icon (issue #147), served same-origin so the dashboard CSP (img-src 'self') allows it.
+BRAND_LOGO = '<img src="/favicon.svg" alt="" class="brand-logo" width="56" height="56">'
+BRAND_LOGO_SM = '<img src="/favicon.svg" alt="" class="brand-logo-sm" width="18" height="18">'
+
 
 def _e(value):
     """Encode a value for safe display inside an HTML page."""
@@ -536,6 +540,19 @@ def dashboard():
                 transform: translateY(-2px);
                 box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
             }}
+
+            .brand-logo {{
+                width: 1.4em;
+                height: 1.4em;
+                vertical-align: middle;
+                margin-right: 0.15em;
+            }}
+
+            .brand-logo-sm {{
+                width: 1.2em;
+                height: 1.2em;
+                vertical-align: -0.25em;
+            }}
         </style>
     </head>
     <body>
@@ -562,7 +579,7 @@ def dashboard():
                     </div>
                 </div>
 
-                <h1>🔒 VPN Sentinel Dashboard</h1>
+                <h1>{BRAND_LOGO} VPN Sentinel Dashboard</h1>
                 <div class="subtitle">Real-time VPN Client Monitoring</div>
                 <div class="stats">
                     <div class="stat-card">
@@ -623,7 +640,7 @@ def dashboard():
 
             <div class="footer">
                 <p>
-                    🔒 <strong>VPN Sentinel</strong> <span class="version-badge">v{_e(version)}</span> |
+                    {BRAND_LOGO_SM} <strong>VPN Sentinel</strong> <span class="version-badge">v{_e(version)}</span> |
                     Server Time: {_e(current_time)} |
                     Dashboard Port: 8080
                 </p>
@@ -893,12 +910,25 @@ def server_logs():
                 font-size: 0.85em;
                 font-weight: 600;
             }}
+
+            .brand-logo {{
+                width: 1.4em;
+                height: 1.4em;
+                vertical-align: middle;
+                margin-right: 0.15em;
+            }}
+
+            .brand-logo-sm {{
+                width: 1.2em;
+                height: 1.2em;
+                vertical-align: -0.25em;
+            }}
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
-                <h1>🔍 Server Logs</h1>
+                <h1>{BRAND_LOGO} Server Logs</h1>
                 <p class="subtitle">VPN Sentinel Monitoring System</p>
             </div>
 
@@ -916,7 +946,7 @@ def server_logs():
 
             <div class="footer">
                 <p>
-                    🔒 <strong>VPN Sentinel</strong> <span class="version-badge">v{_e(version)}</span> |
+                    {BRAND_LOGO_SM} <strong>VPN Sentinel</strong> <span class="version-badge">v{_e(version)}</span> |
                     Server Time: {_e(current_time)}
                 </p>
             </div>
