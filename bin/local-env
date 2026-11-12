@@ -27,21 +27,24 @@ Commands:
   status    Show container + health status
   logs      Follow logs (optional: logs <service>)
   verify    Full E2E: up (healthy) -> live-stack pytest -> teardown
+  verify-notify  Apprise delivery E2E: stack + notify receiver -> pytest -> teardown (always)
   help      Show this help
 
 Stack: tests/docker-compose.test.yaml  (API :15554  health :15553  dashboard :18080)
 EOF
 }
 
+# cmd_start [compose-array-name]: defaults to the global DC array.
 cmd_start() {
+  local -n dc="${1:-DC}"
   log "Starting stack (build + up)..."
   # The server runs as uid 1001 and reads this bind-mounted secret; a checkout made
   # under umask 077 would leave it unreadable and the server would exit at startup.
   chmod a+r "$REPO_ROOT/tests/secrets/test_api_key"
-  "${DC[@]}" up -d --build
+  "${dc[@]}" up -d --build
   log "Waiting for server to become healthy..."
   local cid
-  cid="$("${DC[@]}" ps -q vpn-sentinel-server-test)"
+  cid="$("${dc[@]}" ps -q vpn-sentinel-server-test)"
   local attempts=0
   while [ "$attempts" -lt 60 ]; do
     attempts=$((attempts + 1))
@@ -57,8 +60,8 @@ cmd_start() {
     sleep 2
   done
   err "Server did not become healthy in time."
-  "${DC[@]}" ps
-  "${DC[@]}" logs --tail 50 vpn-sentinel-server-test || true
+  "${dc[@]}" ps
+  "${dc[@]}" logs --tail 50 vpn-sentinel-server-test || true
   return 1
 }
 
@@ -143,6 +146,63 @@ cmd_verify() {
   return "$rc"
 }
 
+cmd_verify_notify() {
+  local dry=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+      --dry-run) dry=1 ;;
+      *)
+        err "verify-notify: unknown option $arg"
+        return 2
+        ;;
+    esac
+  done
+
+  local notify_compose="$REPO_ROOT/tests/docker-compose.notify.yaml"
+  local ndc=(docker compose -f "$COMPOSE_FILE" -f "$notify_compose" --env-file "$ENV_FILE")
+
+  if [ "$dry" -eq 1 ]; then
+    log "verify-notify plan: compose files $COMPOSE_FILE + $notify_compose -> up (healthy) -> Apprise delivery pytest -> teardown (always)"
+    return 0
+  fi
+
+  if ! python3 -c "import pytest, requests" >/dev/null 2>&1; then
+    err "Missing host test deps (pytest, requests)."
+    err "Activate a virtualenv and run: python3 -m pip install -e . -r tests/requirements.txt"
+    return 1
+  fi
+
+  cmd_start ndc || {
+    err "stack failed to start"
+    "${ndc[@]}" down -v --remove-orphans || true
+    return 1
+  }
+
+  log "Running Apprise delivery E2E tests..."
+  local rc=0
+  (
+    cd "$REPO_ROOT" &&
+      VPN_SENTINEL_E2E=1 \
+        VPN_SENTINEL_E2E_NOTIFY=1 \
+        VPN_SENTINEL_SERVER_HOST=localhost \
+        VPN_SENTINEL_E2E_API_PORT="$API_PORT" \
+        VPN_SENTINEL_E2E_HEALTH_PORT="$HEALTH_PORT" \
+        VPN_SENTINEL_E2E_DASHBOARD_PORT="$DASH_PORT" \
+        VPN_SENTINEL_API_PATH=/test/v1 \
+        VPN_SENTINEL_API_KEY=test-api-key-abcdef123456789 \
+        python3 -m pytest tests/integration/test_notifications_apprise.py --no-cov -rs --tb=short --color=yes
+  ) || rc=$?
+
+  "${ndc[@]}" down -v --remove-orphans || true
+
+  if [ "$rc" -eq 0 ]; then
+    log "NOTIFY VERIFY PASSED"
+  else
+    err "NOTIFY VERIFY FAILED (pytest rc=$rc)"
+  fi
+  return "$rc"
+}
+
 main() {
   local command="${1:-help}"
   shift || true
@@ -153,6 +213,7 @@ main() {
     status) cmd_status ;;
     logs) cmd_logs "${1:-}" ;;
     verify) cmd_verify "$@" ;;
+    verify-notify) cmd_verify_notify "$@" ;;
     help | -h | --help) usage ;;
     *)
       err "Unknown command: $command"

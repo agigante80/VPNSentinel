@@ -143,6 +143,7 @@ python3 -m pytest tests/integration/ -v
 **Run Command**:
 ```bash
 bin/local-env verify
+bin/local-env verify-notify   # Apprise delivery E2E (receiver container, ~3 min, always tears down)
 ```
 
 **What It Tests**:
