@@ -34,9 +34,11 @@ Stack: tests/docker-compose.test.yaml  (API :15554  health :15553  dashboard :18
 EOF
 }
 
-# cmd_start [compose-array-name]: defaults to the global DC array.
+# cmd_start [compose command words...]: defaults to the global DC array. The words are passed
+# by value, not by array name: a nameref (local -n) needs bash 4.3 and macOS ships bash 3.2.
 cmd_start() {
-  local -n dc="${1:-DC}"
+  local dc
+  if [ $# -gt 0 ]; then dc=("$@"); else dc=("${DC[@]}"); fi
   log "Starting stack (build + up)..."
   # The server runs as uid 1001 and reads this bind-mounted secret; a checkout made
   # under umask 077 would leave it unreadable and the server would exit at startup.
@@ -159,7 +161,9 @@ cmd_verify_notify() {
   done
 
   local notify_compose="$REPO_ROOT/tests/docker-compose.notify.yaml"
-  local ndc=(docker compose -f "$COMPOSE_FILE" -f "$notify_compose" --env-file "$ENV_FILE")
+  # Global, not local: the signal trap below runs outside this function's scope.
+  NOTIFY_DC=(docker compose -f "$COMPOSE_FILE" -f "$notify_compose" --env-file "$ENV_FILE")
+  local ndc=("${NOTIFY_DC[@]}")
 
   if [ "$dry" -eq 1 ]; then
     log "verify-notify plan: compose files $COMPOSE_FILE + $notify_compose -> up (healthy) -> Apprise delivery pytest -> teardown (always)"
@@ -172,9 +176,13 @@ cmd_verify_notify() {
     return 1
   fi
 
-  cmd_start ndc || {
+  # Ctrl-C or SIGTERM during build, health wait or pytest must not leave the receiver running.
+  trap '"${NOTIFY_DC[@]}" down -v --remove-orphans >/dev/null 2>&1 || true; exit 130' INT TERM
+
+  cmd_start "${ndc[@]}" || {
     err "stack failed to start"
     "${ndc[@]}" down -v --remove-orphans || true
+    trap - INT TERM
     return 1
   }
 
@@ -194,6 +202,7 @@ cmd_verify_notify() {
   ) || rc=$?
 
   "${ndc[@]}" down -v --remove-orphans || true
+  trap - INT TERM
 
   if [ "$rc" -eq 0 ]; then
     log "NOTIFY VERIFY PASSED"

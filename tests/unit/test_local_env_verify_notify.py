@@ -43,7 +43,10 @@ def test_start_failure_tears_down_both_compose_files(tmp_path):
     for name in ("docker", "sleep"):
         path = stubs / name
         path.chmod(path.stat().st_mode | stat.S_IXUSR)
-    env = dict(os.environ, PATH=f"{stubs}{os.pathsep}{os.environ['PATH']}")
+    # The interpreter running this test has pytest and requests; put it ahead of any other python3
+    # so the script's dependency check passes even when the venv is not activated.
+    path = os.pathsep.join([str(stubs), os.path.dirname(sys.executable), os.environ["PATH"]])
+    env = dict(os.environ, PATH=path)
     res = run("verify-notify", env=env)
     assert res.returncode == 1
     assert "stack failed to start" in res.stderr
