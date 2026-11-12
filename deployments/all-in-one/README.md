@@ -42,8 +42,9 @@ VPN_PASSWORD=your_password
 # VPN Sentinel Security
 VPN_SENTINEL_API_KEY=your_secure_api_key_here
 
-# Server Configuration  
-VPN_SENTINEL_SERVER_PORT=5000
+# Server API port inside the container. The host port is fixed at 5000 in compose.yaml,
+# so change both together if you change this
+VPN_SENTINEL_SERVER_API_PORT=5000
 
 # Telegram Notifications (highly recommended)
 TELEGRAM_BOT_TOKEN=your_bot_token
@@ -53,12 +54,11 @@ TELEGRAM_CHAT_ID=your_chat_id
 ### Optional Settings
 
 ```bash
-# Monitoring Intervals
-VPN_SENTINEL_ALERT_THRESHOLD_MINUTES=15
-VPN_SENTINEL_CHECK_INTERVAL_MINUTES=5
+# Keepalive interval of the client, in seconds (default 300)
+VPN_SENTINEL_INTERVAL=300
 
-# Network Security
-VPN_SENTINEL_ALLOWED_IPS=192.168.1.0/24,10.0.0.0/8
+# Network Security: exact API client addresses, comma separated (empty allows all)
+VPN_SENTINEL_SERVER_ALLOWED_IPS=203.0.113.10,203.0.113.11
 
 # Timezone
 TZ=Europe/Madrid
@@ -88,7 +88,7 @@ Both containers include comprehensive health monitoring:
 - **Server**: HTTP endpoints, process health, API responsiveness
 
 ### API Endpoints
-- Health: `http://YOUR_SERVER:5000/api/v1/health`
+- Health: `GET /health` on the health port 8081 (served inside the server container, not published by this compose file)
 - Status: `http://YOUR_SERVER:5000/api/v1/status` (requires API key)
 
 ### Telegram Commands
@@ -117,9 +117,6 @@ docker-compose exec vpn-sentinel-server curl -s https://ipinfo.io/ip
 
 ### Test API Communication
 ```bash
-# Health check (no authentication)
-curl http://localhost:5000/api/v1/health
-
 # Authenticated test
 curl -X GET -H "X-API-Key: YOUR_API_KEY" http://localhost:5000/api/v1/status
 ```
@@ -156,7 +153,7 @@ all-in-one/
 - **Client with VPN Deployment**: [../client-with-vpn/](../client-with-vpn/)
 - **Client Standalone Deployment**: [../client-standalone/](../client-standalone/)
 - **Server Central Deployment**: [../server-central/](../server-central/)
-- **Documentation**: [../../wiki-content/](../../wiki-content/)
+- **Documentation**: [../../docs/](../../docs/)
 
 ---
 

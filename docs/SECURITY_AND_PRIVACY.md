@@ -65,9 +65,11 @@ export VPN_SENTINEL_API_KEY="your-secure-key-here"
 
 **Configuration**:
 ```bash
-VPN_SENTINEL_SERVER_IP_WHITELIST_ENABLED=true
-VPN_SENTINEL_ALLOWED_IPS="192.168.1.100,10.0.0.0/8,172.16.0.1"
+VPN_SENTINEL_SERVER_ALLOWED_IPS="203.0.113.10,203.0.113.11,198.51.100.7"
 ```
+
+The allowlist is on when the variable is non-empty; empty allows every address. Entries are exact IP
+addresses compared as strings (CIDR ranges are not supported). A request from any other address gets 403.
 
 **Use Cases**:
 - Internal-only deployments
@@ -95,10 +97,8 @@ Protect against:
 
 **Algorithm**: Sliding window
 
-**Configuration**:
-```python
-VPN_SENTINEL_SERVER_RATE_LIMIT = 30  # requests per minute
-```
+**Configuration**: fixed at 30 requests per 60 seconds per IP (`RATE_LIMIT_REQUESTS` and `RATE_LIMIT_WINDOW`
+in `vpn_sentinel/common/security.py`). It is not configurable through an environment variable.
 
 **Behavior**:
 - Tracks requests per IP address
@@ -111,8 +111,7 @@ VPN_SENTINEL_SERVER_RATE_LIMIT = 30  # requests per minute
 ```json
 {
   "error": "Rate limit exceeded",
-  "message": "Too many requests. Please wait before retrying.",
-  "retry_after": 30
+  "message": "Too many requests. Please try again later."
 }
 ```
 
@@ -158,7 +157,10 @@ def sanitize_client_id(client_id):
 - `VPN_SENTINEL_API_KEY` - API authentication
 - `TELEGRAM_BOT_TOKEN` - Bot token
 - `TELEGRAM_CHAT_ID` - Chat identifier
-- `IPINFO_API_TOKEN` - Geolocation API token
+- `VPN_SENTINEL_METRICS_TOKEN` - Optional bearer token for `/metrics`
+- `VPN_SENTINEL_APPRISE_URLS` - Optional extra alert targets (the URLs embed tokens)
+
+Each of these can be supplied from a file instead, see Docker Secrets below.
 
 **Best Practices**:
 - ✅ Use environment variables
@@ -181,7 +183,8 @@ Exposure, not sharing, is the trigger.
 ### Docker Secrets
 
 Every secret can be supplied from a file with the Docker `_FILE` convention:
-`VPN_SENTINEL_API_KEY_FILE`, `TELEGRAM_BOT_TOKEN_FILE` and `TELEGRAM_CHAT_ID_FILE`. The file content,
+`VPN_SENTINEL_API_KEY_FILE`, `TELEGRAM_BOT_TOKEN_FILE`, `TELEGRAM_CHAT_ID_FILE`,
+`VPN_SENTINEL_METRICS_TOKEN_FILE` and `VPN_SENTINEL_APPRISE_URLS_FILE`. The file content,
 with all trailing `\r` and `\n` removed, is used as the value. The server and client fail closed:
 
 - Setting both `NAME` and `NAME_FILE` is fatal (the exception is an empty `NAME`, which counts as unset,
@@ -234,11 +237,11 @@ TELEGRAM_BOT_TOKEN=123456:ABC-DEF
 
 ### Dashboard Pages
 
-Every value shown on `/dashboard` and `/logs` (client fields, server geolocation, version, log text) is
-HTML-encoded before it is placed in the page, and the pages are returned as built, never passed through a
+Every value shown on `/dashboard` and `/logs` (client fields, server IP and geolocation, version, log
+source and log text) is HTML-encoded before it is placed in the page, and the pages are returned as built, never passed through a
 template renderer, so log text is displayed literally. The `/logs` line colouring builds DOM nodes with
-`textContent`. Dashboard responses send `Content-Security-Policy` (per-request script nonce, no external
-sources), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer`.
+`textContent`. Dashboard responses send `Content-Security-Policy` (per-request script nonce, only
+same-origin sources, inline styles allowed), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer`.
 
 ---
 

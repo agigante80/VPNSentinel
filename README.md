@@ -69,6 +69,8 @@ VPN Sentinel provides **continuous, automated verification** with:
 
 - **Telegram Bot Integration**: Instant notifications for all connection events
 - **Multi-channel alerts (optional)**: The same alerts also go to ntfy, Gotify, Discord, email and 100+ other services through [Apprise](docs/NOTIFICATIONS.md)
+- **Secrets from files**: the API key, Telegram credentials, metrics token and Apprise URLs can each be read from a file (`*_FILE`, Docker secrets), see [Secret Management](docs/SECURITY_AND_PRIVACY.md#secret-management)
+- **Token redaction**: Telegram bot tokens are replaced with `[REDACTED]` in error logs and on the dashboard logs page
 - **Priority-Based Alerts**: Critical (red), warning (yellow), and info (green) message types
 - **Rich Notifications**: Detailed status with IP, location, provider, and DNS information
 - **Connection History**: Tracks IP changes and connection events
@@ -82,6 +84,7 @@ VPN Sentinel provides **continuous, automated verification** with:
 - **Client Table**: Comprehensive table with all connected clients
 - **Real-time Log Viewer**: Built-in logs viewer with syntax highlighting and auto-refresh
 - **Auto-refresh**: Updates every 30 seconds (10s for logs)
+- **Hardened pages**: every displayed value is HTML-encoded, and dashboard responses send a Content-Security-Policy with a per-request nonce, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer` (see [Dashboard Pages](docs/SECURITY_AND_PRIVACY.md#dashboard-pages))
 - **Responsive Design**: Works on mobile, tablet, and desktop
 - **Last Seen Timestamps**: "Just now", "5 min ago", "2h ago" format
 
@@ -90,6 +93,7 @@ VPN Sentinel provides **continuous, automated verification** with:
 - **Structured Logging**: Unified log format across all components with timestamps and component tags
 - **Component-based Filtering**: Easy log filtering by component (api, dashboard, health, telegram, security)
 - **HTTP Access Logs**: All Flask endpoints log requests in standardized format with status codes
+- **Prometheus metrics**: `/metrics` on the health port, optionally protected by a bearer token (see [Prometheus](#prometheus))
 - **Real-time Monitoring**: Dashboard logs viewer with color-coded severity levels
 - **Auto-detection**: Intelligent log file location detection across different deployment scenarios
 
@@ -445,6 +449,7 @@ This is a critical security issue.
 
 ### Bot Commands
 
+- `/ping` - Check the server is alive and count the connected clients
 - `/status` - Show current status of all clients
 - `/help` - Display available commands
 
@@ -465,13 +470,13 @@ This is a critical security issue.
 | `VPN_SENTINEL_SERVER_DASHBOARD_PORT` | `8080` | Web dashboard port |
 | `VPN_SENTINEL_SERVER_WEB_DASHBOARD_ENABLED` | `true` | Enable/disable web dashboard |
 | `VPN_SENTINEL_METRICS_ENABLED` | `true` | Enable/disable the Prometheus `/metrics` endpoint on the health port (`false` returns 404) |
-| `VPN_SENTINEL_METRICS_TOKEN` (or `_FILE`) | empty | Optional bearer token for `/metrics`; when set, requests without `Authorization: Bearer <token>` get 401. Generate one with `openssl rand -hex 32`: the health port has no rate limit, so use at least 32 random characters |
+| `VPN_SENTINEL_METRICS_TOKEN` (or `VPN_SENTINEL_METRICS_TOKEN_FILE`) | empty | Optional bearer token for `/metrics`; when set, requests without `Authorization: Bearer <token>` get 401. Generate one with `openssl rand -hex 32`: the health port has no rate limit, so use at least 32 random characters |
 | `VPN_SENTINEL_SERVER_ALLOWED_IPS` | *(empty)* | Comma-separated IP allowlist for API access (empty = allow all) |
 | `VPN_SENTINEL_CLIENT_TIMEOUT_MINUTES` | `30` | Minutes of client inactivity before removing from dashboard |
 | `VPN_SENTINEL_TELEGRAM_ENABLED` | *(auto)* | Telegram notifications: `true` (require credentials), `false` (disable), unset (auto-enable if credentials present) |
-| `TELEGRAM_BOT_TOKEN` | - | Telegram bot token (required if TELEGRAM_ENABLED=true). `TELEGRAM_BOT_TOKEN_FILE` reads it from a file instead |
-| `TELEGRAM_CHAT_ID` | - | Telegram chat ID (required if TELEGRAM_ENABLED=true). `TELEGRAM_CHAT_ID_FILE` reads it from a file instead |
-| `VPN_SENTINEL_APPRISE_URLS` (or `_FILE`) | empty (disabled) | Optional extra alert targets (ntfy, Gotify, Discord, email, ...) as [Apprise](docs/NOTIFICATIONS.md) URLs, comma or space separated. The URLs contain tokens, so treat them as a secret. The server image includes Apprise |
+| `TELEGRAM_BOT_TOKEN` | - | Telegram bot token (required if `VPN_SENTINEL_TELEGRAM_ENABLED=true`). `TELEGRAM_BOT_TOKEN_FILE` reads it from a file instead |
+| `TELEGRAM_CHAT_ID` | - | Telegram chat ID (required if `VPN_SENTINEL_TELEGRAM_ENABLED=true`). `TELEGRAM_CHAT_ID_FILE` reads it from a file instead |
+| `VPN_SENTINEL_APPRISE_URLS` (or `VPN_SENTINEL_APPRISE_URLS_FILE`) | empty (disabled) | Optional extra alert targets (ntfy, Gotify, Discord, email, ...) as [Apprise](docs/NOTIFICATIONS.md) URLs, comma or space separated. The URLs contain tokens, so treat them as a secret. The server image includes Apprise |
 | `VPN_SENTINEL_TLS_CERT_PATH` | *(empty)* | Path to TLS certificate file (enables HTTPS). Must be set together with the key: the server exits with code 2 if only one is set or a file is missing, unreadable or mismatched. A shared `.env` that sets only this for the client CA bundle will stop the server |
 | `VPN_SENTINEL_TLS_KEY_PATH` | *(empty)* | Path to TLS private key file (enables HTTPS). Required together with the certificate path (exit code 2 otherwise) |
 | `VPN_SENTINEL_LOG_FILE` | `/tmp/vpn-sentinel-server.log` | Log file path. Set to `""` to disable file logging (stdout only) |
@@ -721,7 +726,7 @@ services:
     image: agigante80/vpn-sentinel-client:latest
     network_mode: service:my-existing-vpn  # Share VPN network
     environment:
-      VPN_SENTINEL_SERVER_URL: http://monitoring-server:5000
+      VPN_SENTINEL_URL: http://monitoring-server:5000
       VPN_SENTINEL_API_KEY: ${VPN_SENTINEL_API_KEY}
       VPN_SENTINEL_CLIENT_ID: my-vpn-client
 ```
