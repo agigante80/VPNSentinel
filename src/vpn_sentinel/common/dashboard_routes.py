@@ -7,12 +7,41 @@ from .api_routes import client_status, client_status_lock
 from .telegram import redact_token
 from .version import get_version
 from .client_health import classify_client
-from flask import render_template_string, send_from_directory
+from flask import g, send_from_directory
 from datetime import datetime, timezone
+import html
 import os
+import secrets
 from pathlib import Path
 
 STATIC_DIR = Path(__file__).parent / "static"
+
+
+def _e(value):
+    """Encode a value for safe display inside an HTML page."""
+    return html.escape(str(value), quote=True)
+
+
+def _nonce():
+    """Per-request nonce shared by the page's inline script and the CSP header."""
+    if not hasattr(g, "csp_nonce"):
+        g.csp_nonce = secrets.token_urlsafe(16)
+    return g.csp_nonce
+
+
+@dashboard_app.after_request
+def add_security_headers(response):
+    """Send hardening headers on every dashboard response."""
+    nonce = getattr(g, "csp_nonce", None)
+    script_src = f"'nonce-{nonce}'" if nonce else "'none'"
+    response.headers["Content-Security-Policy"] = (
+        f"default-src 'self'; script-src {script_src}; style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
 
 
 def get_client_health_status(client, server_ip):
@@ -115,20 +144,20 @@ def dashboard():
 
             client_rows_html += f"""
             <tr>
-                <td><strong>{client_id}</strong></td>
-                <td><span class="version-badge-small">{client_version}</span></td>
-                <td><span class="ip-address">{client_ip}</span></td>
-                <td class="location">{location}</td>
-                <td class="location">{provider}</td>
-                <td class="time-info">{last_seen_str}</td>
+                <td><strong>{_e(client_id)}</strong></td>
+                <td><span class="version-badge-small">{_e(client_version)}</span></td>
+                <td><span class="ip-address">{_e(client_ip)}</span></td>
+                <td class="location">{_e(location)}</td>
+                <td class="location">{_e(provider)}</td>
+                <td class="time-info">{_e(last_seen_str)}</td>
                 <td>
                     <span class="status-badge {health_class}">
-                        {health_icon} {health_text}
+                        {_e(health_icon)} {_e(health_text)}
                     </span>
                 </td>
                 <td class="text-center">
-                    <span class="dns-badge">{dns_icon}</span>
-                    <div class="dns-details">{dns_loc} / {dns_colo}</div>
+                    <span class="dns-badge">{_e(dns_icon)}</span>
+                    <div class="dns-details">{_e(dns_loc)} / {_e(dns_colo)}</div>
                 </td>
             </tr>
             """
@@ -143,7 +172,7 @@ def dashboard():
         </tr>
         """
 
-    html = f"""
+    html_page = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -517,19 +546,19 @@ def dashboard():
                     <h4>🖥️ Server Details</h4>
                     <div class="info-row">
                         <span class="info-label">Public IP:</span>
-                        <span class="info-value">{server_ip}</span>
+                        <span class="info-value">{_e(server_ip)}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Location:</span>
-                        <span class="info-value">{server_location}</span>
+                        <span class="info-value">{_e(server_location)}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Provider:</span>
-                        <span class="info-value">{server_provider}</span>
+                        <span class="info-value">{_e(server_provider)}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">DNS Status:</span>
-                        <span class="info-value">{dns_status}</span>
+                        <span class="info-value">{_e(dns_status)}</span>
                     </div>
                 </div>
 
@@ -553,7 +582,7 @@ def dashboard():
 
             <div class="content">
                 <div class="refresh-info">
-                    <span class="auto-refresh">🔄 Auto-refresh: 30s</span> | Last updated: {current_time}
+                    <span class="auto-refresh">🔄 Auto-refresh: 30s</span> | Last updated: {_e(current_time)}
                 </div>
 
                 <div class="legend">
@@ -594,8 +623,8 @@ def dashboard():
 
             <div class="footer">
                 <p>
-                    🔒 <strong>VPN Sentinel</strong> <span class="version-badge">v{version}</span> |
-                    Server Time: {current_time} |
+                    🔒 <strong>VPN Sentinel</strong> <span class="version-badge">v{_e(version)}</span> |
+                    Server Time: {_e(current_time)} |
                     Dashboard Port: 8080
                 </p>
                 <p style="margin-top: 10px;">
@@ -614,7 +643,7 @@ def dashboard():
             </div>
         </div>
 
-        <script>
+        <script nonce="{_nonce()}">
             // Auto-refresh the page every 30 seconds
             setTimeout(function() {{
                 window.location.reload();
@@ -623,7 +652,7 @@ def dashboard():
     </body>
     </html>
     """
-    return render_template_string(html)
+    return html_page
 
 
 @dashboard_app.route("/dashboard/")
@@ -711,7 +740,7 @@ def server_logs():
     tz_name = current_dt.tzname() or "UTC"
     current_time = current_dt.strftime(f"%Y-%m-%d %H:%M:%S {tz_name}")
 
-    html = f"""
+    html_page = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -877,48 +906,60 @@ def server_logs():
                 <a href="/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
                 <a href="/logs" class="btn btn-primary">🔄 Refresh</a>
                 <div class="log-info">
-                    <strong>Source:</strong> {log_source}
+                    <strong>Source:</strong> {_e(log_source)}
                 </div>
             </div>
 
             <div class="logs-container">
-                <pre>{logs_content}</pre>
+                <pre>{_e(logs_content)}</pre>
             </div>
 
             <div class="footer">
                 <p>
-                    🔒 <strong>VPN Sentinel</strong> <span class="version-badge">v{version}</span> |
-                    Server Time: {current_time}
+                    🔒 <strong>VPN Sentinel</strong> <span class="version-badge">v{_e(version)}</span> |
+                    Server Time: {_e(current_time)}
                 </p>
             </div>
         </div>
 
-        <script>
+        <script nonce="{_nonce()}">
             // Highlight log levels with colors
             function highlightLogs() {{
                 const pre = document.querySelector('.logs-container pre');
                 if (!pre) return;
 
                 const lines = pre.textContent.split('\\n');
-                const highlighted = lines.map(line => {{
-                    // Color-code based on log level
+                // Build DOM nodes with textContent so log text is never parsed as markup
+                const styleFor = line => {{
                     if (line.includes('ERROR') || line.includes('❌')) {{
-                        return `<span style="color: #f48771; font-weight: bold;">${{line}}</span>`;
+                        return ['#f48771', 'bold'];
                     }} else if (line.includes('WARN') || line.includes('⚠️')) {{
-                        return `<span style="color: #dcdcaa;">${{line}}</span>`;
+                        return ['#dcdcaa', ''];
                     }} else if (line.includes('INFO') || line.includes('✅')
                         || line.includes('🚀') || line.includes('🌐')) {{
-                        return `<span style="color: #4ec9b0;">${{line}}</span>`;
+                        return ['#4ec9b0', ''];
                     }} else if (line.includes('DEBUG')) {{
-                        return `<span style="color: #858585;">${{line}}</span>`;
+                        return ['#858585', ''];
                     }} else if (line.includes('===')) {{
-                        return `<span style="color: #569cd6; font-weight: bold;">${{line}}</span>`;
-                    }} else {{
-                        return line;
+                        return ['#569cd6', 'bold'];
                     }}
-                }}).join('\\n');
+                    return null;
+                }};
 
-                pre.innerHTML = highlighted;
+                pre.textContent = '';
+                lines.forEach((line, i) => {{
+                    const style = styleFor(line);
+                    if (style) {{
+                        const span = document.createElement('span');
+                        span.textContent = line;
+                        span.style.color = style[0];
+                        if (style[1]) span.style.fontWeight = style[1];
+                        pre.appendChild(span);
+                    }} else {{
+                        pre.appendChild(document.createTextNode(line));
+                    }}
+                    if (i < lines.length - 1) pre.appendChild(document.createTextNode('\\n'));
+                }});
             }}
 
             // Auto-refresh every 10 seconds
@@ -936,4 +977,4 @@ def server_logs():
     </body>
     </html>
     """
-    return render_template_string(html)
+    return html_page

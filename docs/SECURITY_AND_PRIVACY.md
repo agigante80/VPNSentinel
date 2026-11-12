@@ -224,6 +224,14 @@ TELEGRAM_BOT_TOKEN=123456:ABC-DEF
 !.env.example
 ```
 
+### Dashboard Pages
+
+Every value shown on `/dashboard` and `/logs` (client fields, server geolocation, version, log text) is
+HTML-encoded before it is placed in the page, and the pages are returned as built, never passed through a
+template renderer, so log text is displayed literally. The `/logs` line colouring builds DOM nodes with
+`textContent`. Dashboard responses send `Content-Security-Policy` (per-request script nonce, no external
+sources), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer`.
+
 ---
 
 ## Network Security
