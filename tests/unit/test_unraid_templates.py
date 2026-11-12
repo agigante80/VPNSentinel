@@ -573,3 +573,12 @@ def test_profile_lives_at_the_repo_root_only():
     # unraid/ would drift from it.
     assert (REPO_ROOT / PROFILE_XML).is_file()
     assert not (UNRAID / PROFILE_XML).exists()
+
+
+def test_profile_guard_negative_profile_not_a_direct_child():
+    # The portal reads <Profile> directly under the root; a nested one is not a profile.
+    subject = mutated("<Profile>", "<Details><Profile>", PROFILE_XML)
+    subject[PROFILE_XML] = subject[PROFILE_XML].replace("</Profile>", "</Profile></Details>")
+    with pytest.raises(AssertionError, match="no non-empty Profile"):
+        assert_guard(profile_errors, subject)
+    assert_only_guard_fails(subject, "profile", guards=GUARDS)
