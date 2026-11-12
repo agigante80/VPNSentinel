@@ -1,6 +1,6 @@
 # 0002. Read every secret through one helper supporting the Docker `_FILE` convention
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-11-11
 
 ## Context
