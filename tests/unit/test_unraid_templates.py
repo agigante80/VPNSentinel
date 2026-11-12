@@ -19,7 +19,8 @@ Six guards over one subject (a dict of file texts), with deliberately different 
   client      VPN_SENTINEL_URL is Required with an empty Default (otherwise the client keeps the
               `http://your-server-url:5000` fallback and never turns green), Network is none, ExtraParams
               joins a container namespace, and the Overview names FIREWALL_OUTBOUND_SUBNETS
-  profile     ca_profile.xml parses and has a non-empty Profile
+  profile     ca_profile.xml (repo root, issue #148) parses, has the <CommunityApplications> root the
+              CA submission portal expects (unraid/unraid-community-apps-starter) and a non-empty Profile
   labels      the server Dockerfile net.unraid.docker.webui equals the server template WebUI, both
               Dockerfiles carry the OCI source/description/licenses labels, and the client usage
               label names agigante80/vpn-sentinel-client
@@ -31,8 +32,8 @@ FIREWALL_OUTBOUND_SUBNETS does not cover the LAN subnet of VPN_SENTINEL_URL, the
 `Failed to send keepalive to <server_url>` (component `api`, client/__main__.py) on every cycle and no
 card for its client ID appears on /dashboard.
 
-icon        (issue #134) both Dockerfiles carry net.unraid.docker.icon, and both templates an <Icon>,
-            each equal to the raw `main` URL of docs/images/icon-256.png, and that file exists
+icon        (issue #134) both Dockerfiles carry net.unraid.docker.icon, and both templates and the CA
+            profile an <Icon>, each equal to the raw `main` URL of docs/images/icon-256.png, and that file exists
 
 Guard rules (CLAUDE.md): every guard has a mutation test proving it red, each mutation asserts
 every OTHER guard still passes (assert_only_guard_fails), and each selector is asserted to match
@@ -102,7 +103,7 @@ def real_subject():
     return {
         SERVER_XML: (UNRAID / SERVER_XML).read_text(),
         CLIENT_XML: (UNRAID / CLIENT_XML).read_text(),
-        PROFILE_XML: (UNRAID / PROFILE_XML).read_text(),
+        PROFILE_XML: (REPO_ROOT / PROFILE_XML).read_text(),
         SERVER_DOCKERFILE: (REPO_ROOT / SERVER_DOCKERFILE).read_text(),
         CLIENT_DOCKERFILE: (REPO_ROOT / CLIENT_DOCKERFILE).read_text(),
     }
@@ -236,7 +237,9 @@ def profile_errors(subject):
     errors = []
     root = _root(subject, PROFILE_XML, errors)
     if root is not None:
-        profile = root if root.tag == "Profile" else root.find(".//Profile")
+        if root.tag != "CommunityApplications":
+            errors.append(f"ca_profile.xml root must be CommunityApplications, got {root.tag}")
+        profile = root.find("Profile")
         if profile is None or not ("".join(profile.itertext())).strip():
             errors.append("ca_profile.xml has no non-empty Profile")
     return errors
@@ -269,7 +272,7 @@ def icon_errors(subject):
         got = dockerfile_labels(subject[key]).get("net.unraid.docker.icon")
         if got != ICON_URL:
             errors.append(f"{key} net.unraid.docker.icon {got!r} != {ICON_URL!r}")
-    for key in (SERVER_XML, CLIENT_XML):
+    for key in (SERVER_XML, CLIENT_XML, PROFILE_XML):
         root = _root(subject, key, errors)
         if root is not None and root.findtext("Icon") != ICON_URL:
             errors.append(f"{key} Icon {root.findtext('Icon')!r} != {ICON_URL!r}")
@@ -512,7 +515,8 @@ def test_meta_guard_negative_template_url_points_at_another_file():
 
 def test_profile_guard_negative_empty_profile():
     subject = real_subject()
-    subject[PROFILE_XML] = '<?xml version="1.0"?>\n<Profile></Profile>\n'
+    text = subject[PROFILE_XML]
+    subject[PROFILE_XML] = text[: text.index("<Profile>") + len("<Profile>")] + text[text.index("</Profile>") :]
     with pytest.raises(AssertionError, match="no non-empty Profile"):
         assert_guard(profile_errors, subject)
     assert_only_guard_fails(subject, "profile", guards=GUARDS)
@@ -546,3 +550,35 @@ def test_icon_guard_negative_template_icon_points_at_another_branch():
     with pytest.raises(AssertionError, match="client.xml Icon"):
         assert_guard(icon_errors, subject)
     assert_only_guard_fails(subject, "icon", guards=GUARDS)
+
+
+def test_profile_guard_negative_old_maintainer_root():
+    # The pre-#148 shape: <Maintainer> root, which the CA portal does not read.
+    subject = mutated("<CommunityApplications>", "<Maintainer>", PROFILE_XML)
+    subject[PROFILE_XML] = subject[PROFILE_XML].replace("</CommunityApplications>", "</Maintainer>")
+    with pytest.raises(AssertionError, match="root must be CommunityApplications"):
+        assert_guard(profile_errors, subject)
+    assert_only_guard_fails(subject, "profile", guards=GUARDS)
+
+
+def test_icon_guard_negative_profile_icon_points_at_another_file():
+    subject = mutated("/docs/images/icon-256.png</Icon>", "/docs/images/icon-512.png</Icon>", PROFILE_XML)
+    with pytest.raises(AssertionError, match="ca_profile.xml Icon"):
+        assert_guard(icon_errors, subject)
+    assert_only_guard_fails(subject, "icon", guards=GUARDS)
+
+
+def test_profile_lives_at_the_repo_root_only():
+    # The CA portal reads ca_profile.xml from the repository root (issue #148); a second copy under
+    # unraid/ would drift from it.
+    assert (REPO_ROOT / PROFILE_XML).is_file()
+    assert not (UNRAID / PROFILE_XML).exists()
+
+
+def test_profile_guard_negative_profile_not_a_direct_child():
+    # The portal reads <Profile> directly under the root; a nested one is not a profile.
+    subject = mutated("<Profile>", "<Details><Profile>", PROFILE_XML)
+    subject[PROFILE_XML] = subject[PROFILE_XML].replace("</Profile>", "</Profile></Details>")
+    with pytest.raises(AssertionError, match="no non-empty Profile"):
+        assert_guard(profile_errors, subject)
+    assert_only_guard_fails(subject, "profile", guards=GUARDS)
