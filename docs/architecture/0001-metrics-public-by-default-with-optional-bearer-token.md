@@ -1,6 +1,6 @@
 # 0001. Keep /metrics public by default, with an optional dedicated bearer token
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-11-11
 
 ## Context
