@@ -11,8 +11,10 @@ Guards, each over a "world" dict (README text, docs text, collected src names, a
                   files (name_docs()) is read by the code (including derived *_FILE names), or is
                   on the allowlist or the compose-only list.
   allowlist       every allowlist and compose-only entry has a non-blank reason, and none is stale.
-  links           every relative markdown link in the scanned docs resolves, relative to the
-                  linking file's directory (a directory target counts, the #anchor is ignored).
+  links           every relative markdown link in the scanned docs resolves to a file tracked by
+                  git (or a directory holding one), relative to the linking file's directory; the
+                  #anchor is ignored. Checking git, not the disk, keeps a local run equal to CI: an
+                  untracked or gitignored file (the root CLAUDE.md) exists locally but not in a clone.
 
 The collector parses src/ with ast and never imports it (telegram.py reads env at import time).
 
@@ -23,6 +25,7 @@ something.
 
 import ast
 import re
+import subprocess
 from pathlib import Path
 
 from test_compose_files import REPO_ROOT
@@ -127,6 +130,21 @@ def link_files():
     return [p.relative_to(REPO_ROOT).as_posix() for p in paths]
 
 
+def tracked_paths(root=REPO_ROOT):
+    """Every path git tracks, plus each of their parent directories, repo-relative."""
+    out = subprocess.run(["git", "ls-files", "-z"], cwd=root, capture_output=True, check=True).stdout
+    paths = set()
+    for rel in out.decode("utf-8").split("\0"):
+        if not rel:
+            continue
+        paths.add(rel)
+        parent = Path(rel).parent
+        while parent != Path("."):
+            paths.add(parent.as_posix())
+            parent = parent.parent
+    return paths
+
+
 def real_world():
     docs = {}
     for rel in set(name_docs()) | set(link_files()):
@@ -137,6 +155,7 @@ def real_world():
         "allowlist": dict(ALLOWLIST),
         "compose_only": dict(COMPOSE_ONLY),
         "root": REPO_ROOT,
+        "tracked": tracked_paths(),
     }
 
 
@@ -190,7 +209,12 @@ def broken_links(world):
             path = target.split("#", 1)[0]
             if not path:
                 continue
-            if not (root / Path(rel).parent / path).resolve().exists():
+            target_path = (root / Path(rel).parent / path).resolve()
+            try:
+                target_rel = target_path.relative_to(root.resolve()).as_posix()
+            except ValueError:
+                target_rel = None  # points outside the repository
+            if target_rel not in world["tracked"] and target_rel != ".":
                 broken.append(f"{rel}: {target}")
     return sorted(broken)
 
@@ -336,6 +360,15 @@ class TestMutations:
         assert broken_links(ok) == []
         bad = mutate(world, "README.md", lambda t: t + text)
         assert broken_links(bad) == ["README.md: ARCHITECTURE.md"]
+
+    def test_untracked_file_link_is_broken(self, world, tmp_path):
+        # The root CLAUDE.md is gitignored: present on a maintainer's disk, absent from a clone.
+        mutated = mutate(world, "README.md", lambda t: t + "\n[c](CLAUDE.md)\n")
+        assert broken_links(mutated) == ["README.md: CLAUDE.md"]
+        assert_only_guard_fails(mutated, "links", guards=GUARDS)
+
+    def test_tracked_paths_selector_matches_something(self, world):
+        assert "README.md" in world["tracked"] and "docs" in world["tracked"]
 
     def test_directory_link_and_anchor_resolve(self, world):
         mutated = mutate(world, "README.md", lambda t: t + "\n[d](docs/#top) [e](docs/ARCHITECTURE.md#x)\n")

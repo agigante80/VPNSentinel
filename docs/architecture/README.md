@@ -1,7 +1,7 @@
 # Architecture
 
-The long-form architecture description lives in [../ARCHITECTURE.md](../ARCHITECTURE.md); the
-repository layout and runtime wiring are summarised in [../../CLAUDE.md](../../CLAUDE.md).
+The long-form architecture description, including the repository layout and runtime wiring,
+lives in [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 This folder holds the architecture decision records (ADRs). A new ADR is written as `proposed`;
 only the maintainer sets `accepted`, and an accepted ADR is never edited, only superseded by a
